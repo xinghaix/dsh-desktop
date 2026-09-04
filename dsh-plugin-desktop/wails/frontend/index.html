@@ -2,59 +2,32 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <link rel="icon" type="image/svg+xml" href="/wails.png"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <link rel="stylesheet" href="/style.css"/>
-    <title>Wails App</title>
+    <title>DSH Desktop — Wails shell</title>
 </head>
 <body>
-<!-- Fixed full-bleed background layer (avoids background-attachment:fixed, which
-     is broken in iOS WKWebView). The image swaps to a portrait crop on mobile. -->
-<div class="bg" aria-hidden="true"></div>
+<main class="panel">
+    <h1>DSH Desktop <span class="muted">Wails v3 shell</span></h1>
+    <p class="lead">Native shell control surface. Load the Cordis Host UI URL that Electron used to <code>BrowserWindow.loadURL</code>.</p>
+    <p id="status" class="status">Checking shell…</p>
 
-<main class="container">
-    <header class="brand">
-        <a class="brand-mark" data-wml-openURL="https://v3.wails.io" aria-label="Wails website">
-            <img src="/wails.png" class="brand-logo" alt="Wails logo"/>
-        </a>
-        <a class="brand-badge" data-wml-openURL="https://www.typescriptlang.org/" aria-label="TypeScript">
-            <img src="/typescript.svg" alt="TypeScript logo"/>
-        </a>
-    </header>
+    <label class="field">
+        <span>Host UI URL</span>
+        <input id="host-url" type="url" placeholder="http://127.0.0.1:PORT/" autocomplete="off"/>
+    </label>
 
-    <h1 class="title"><span class="title-accent">Wails +</span> <span class="title-name"><span class="title-name-text">TypeScript</span></span></h1>
-    <p class="subtitle">Build beautiful cross-platform apps with Go and TypeScript.</p>
-
-    <div class="greet">
-        <div class="input-box" id="input">
-            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <input aria-label="input" class="input" id="name" type="text" placeholder="Your name" autocomplete="off"/>
-            <button aria-label="greet-btn" id="greet" class="btn">Greet
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-            </button>
-        </div>
+    <div class="actions">
+        <button id="btn-load" type="button">Load Host URL</button>
+        <button id="btn-control" type="button" class="secondary">Control UI</button>
+        <button id="btn-dir" type="button" class="secondary">Open Directory…</button>
+        <button id="btn-about" type="button" class="secondary">About</button>
+        <button id="btn-hide" type="button" class="secondary">Hide to tray</button>
+        <button id="btn-quit" type="button" class="danger">Quit</button>
     </div>
+
+    <pre id="log" class="log" aria-live="polite"></pre>
 </main>
-
-<hr class="footer-divider"/>
-<footer class="footer">
-    <span class="footer-version"><span id="version">v3</span></span>
-    <span class="footer-time">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span id="time">Listening for Time event...</span>
-    </span>
-    <a class="footer-docs" data-wml-openURL="https://v3.wails.io" aria-label="Wails documentation">Docs
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-    </a>
-</footer>
-
-<!-- Toast: shows the greeting returned by the Go backend (overlay, so it never
-     reflows the layout). -->
-<div class="toast" id="toast" role="status" aria-live="polite">
-    <span class="toast-label">From Go</span>
-    <span aria-label="result" class="toast-msg" id="result"></span>
-</div>
-
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>

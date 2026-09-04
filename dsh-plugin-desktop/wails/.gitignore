@@ -9,3 +9,6 @@ build/ios/xcode/overlay.json
 build/ios/xcode/gen/
 build/android/overlay.json
 build/android/gen/
+# Keep a minimal embedded control UI available for go:embed / go build.
+!frontend/dist/
+!frontend/dist/index.html

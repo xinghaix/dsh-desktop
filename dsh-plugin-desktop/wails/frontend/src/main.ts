@@ -1,65 +1,69 @@
-import {Events, WML} from "@wailsio/runtime";
-import {GreetService} from "../bindings/github.com/xinghaix/dsh-desktop/dsh-plugin-desktop/wails";
+import { WML } from "@wailsio/runtime";
+import { ShellService } from "../bindings/github.com/xinghaix/dsh-desktop/dsh-plugin-desktop/wails";
 
-// Wire up data-wml-openURL links (logos + footer "Docs" link) once the DOM is ready.
 WML.Enable();
 
-const greetButton = document.getElementById('greet')! as HTMLButtonElement;
-const nameElement = document.getElementById('name')! as HTMLInputElement;
-const resultElement = document.getElementById('result')! as HTMLSpanElement;
-const timeElement = document.getElementById('time')! as HTMLSpanElement;
-const titleNameElement = document.querySelector('.title-name')! as HTMLElement;
-const toastElement = document.getElementById('toast')! as HTMLDivElement;
-let toastTimer: ReturnType<typeof setTimeout>;
+const statusEl = document.getElementById("status")!;
+const hostUrlEl = document.getElementById("host-url")! as HTMLInputElement;
+const logEl = document.getElementById("log")!;
 
-// Show the actual Wails version this project was generated against.
-document.getElementById('version')!.innerText = "v3.0.0-beta.16";
+function log(message: string) {
+    const line = `[${new Date().toISOString()}] ${message}`;
+    logEl.textContent = `${line}\n${logEl.textContent ?? ""}`.trim();
+}
 
-// Crossfade the framework word in the heading ("Wails + JavaScript") to the name
-// the user entered ("Wails + <name>"): the old word fades out while the new one
-// fades in over the same spot.
-function swapTitleName(name: string) {
-    const current = titleNameElement.querySelector('.title-name-text:not(.is-outgoing)') as HTMLElement | null;
-    if (!current || current.textContent === name) {
+async function refreshStatus() {
+    try {
+        statusEl.textContent = await ShellService.Status();
+        const current = await ShellService.CurrentURL();
+        if (current && !hostUrlEl.value) hostUrlEl.value = current;
+    } catch (err) {
+        statusEl.textContent = `Shell unavailable: ${String(err)}`;
+    }
+}
+
+document.getElementById("btn-load")!.addEventListener("click", async () => {
+    const url = hostUrlEl.value.trim();
+    if (!url) {
+        log("Enter a Host UI URL first (http://127.0.0.1:PORT/).");
         return;
     }
-    const incoming = document.createElement('span');
-    incoming.className = 'title-name-text is-entering';
-    incoming.textContent = name;
-    current.classList.add('is-outgoing');
-    titleNameElement.appendChild(incoming);
-    // Force a reflow so the transitions run from the starting state.
-    void incoming.offsetWidth;
-    incoming.classList.remove('is-entering');
-    current.classList.add('is-leaving');
-    current.addEventListener('transitionend', () => current.remove(), {once: true});
-}
-
-// Pop the toast with the message Go returned, then auto-dismiss it.
-function showToast(message: string) {
-    resultElement.innerText = message;
-    toastElement.classList.add('is-visible');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastElement.classList.remove('is-visible'), 4000);
-}
-
-greetButton.addEventListener('click', async () => {
-    let name = nameElement.value;
-    if (!name) {
-        name = 'anonymous';
-    }
-    swapTitleName(name);
     try {
-        showToast(await GreetService.Greet(name));
+        await ShellService.LoadHostURL(url);
+        log(`Navigated to ${url}`);
+        await refreshStatus();
     } catch (err) {
-        console.error(err);
+        log(`LoadHostURL failed: ${String(err)}`);
     }
 });
 
-Events.On('time', (time) => {
-    // The full RFC1123 stamp is too wide for the footer on a phone, so on narrow
-    // screens (matching the CSS breakpoint) we show just the clock time.
-    const full = time.data;
-    const compact = (full.match(/\d{1,2}:\d{2}:\d{2}/) || [full])[0];
-    timeElement.innerText = window.matchMedia('(max-width: 640px)').matches ? compact : full;
+document.getElementById("btn-control")!.addEventListener("click", async () => {
+    await ShellService.ShowControlUI();
+    await refreshStatus();
 });
+
+document.getElementById("btn-dir")!.addEventListener("click", async () => {
+    try {
+        const path = await ShellService.OpenDirectoryDialog();
+        log(path ? `Selected: ${path}` : "Directory dialog cancelled");
+    } catch (err) {
+        log(`OpenDirectoryDialog failed: ${String(err)}`);
+    }
+});
+
+document.getElementById("btn-about")!.addEventListener("click", async () => {
+    await ShellService.ShowInfoDialog(
+        "DSH Desktop",
+        "Wails v3 native shell.\nCordis Host remains a Node sidecar during the hybrid migration.",
+    );
+});
+
+document.getElementById("btn-hide")!.addEventListener("click", async () => {
+    await ShellService.HideWindow();
+});
+
+document.getElementById("btn-quit")!.addEventListener("click", async () => {
+    await ShellService.Quit();
+});
+
+void refreshStatus();
