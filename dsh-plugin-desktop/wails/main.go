@@ -2,86 +2,182 @@ package main
 
 import (
 	"embed"
-
+	"flag"
 	"log"
-	"time"
+	"os"
+	"runtime"
+	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/icons"
 )
-
-// Wails uses Go's `embed` package to embed the frontend files into the binary.
-// Any files in the frontend/dist folder will be embedded into the binary and
-// made available to the frontend.
-// See https://pkg.go.dev/embed for more information.
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
-func init() {
-	// Register a custom event whose associated data type is string.
-	// This is not required, but the binding generator will pick up registered events
-	// and provide a strongly typed JS/TS API for them.
-	application.RegisterEvent[string]("time")
-}
-
-// main function serves as the application's entry point. It initializes the application, creates a window,
-// and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
-// logs any error that might occur.
 func main() {
+	hostURL := flag.String("host-url", envOr("DSH_HOST_URL", ""), "Cordis Host UI URL to load (e.g. http://127.0.0.1:PORT/)")
+	startHidden := flag.Bool("hidden", false, "Start with the main window hidden (tray still runs)")
+	flag.Parse()
 
-	// Create a new Wails application by providing the necessary options.
-	// Variables 'Name' and 'Description' are for application metadata.
-	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
-	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
-	// 'Mac' options tailor the application when running an macOS.
+	shell := NewShellService()
+
 	app := application.New(application.Options{
-		Name:        "dsh-wails-shell",
-		Description: "A demo of using raw HTML & CSS",
+		Name:        "DSH Desktop",
+		Description: "DSH Desktop native shell (Wails v3)",
 		Services: []application.Service{
-			application.NewService(&GreetService{}),
+			application.NewService(shell),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
 		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
+			ApplicationShouldTerminateAfterLastWindowClosed: false,
 		},
 	})
 
-	// Create a new window with the necessary options.
-	// 'Title' is the title of the window.
-	// 'Mac' options tailor the window when running on macOS.
-	// 'BackgroundColour' is the background colour of the window.
-	// 'URL' is the URL that will be loaded into the webview.
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "Window 1",
-		// Window sized to the golden ratio (1000 / 618 ≈ 1.618).
-		Width:  1000,
-		Height: 618,
-		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 50,
-			Backdrop:                application.MacBackdropTranslucent,
-			TitleBar:                application.MacTitleBarHiddenInset,
-		},
+	initialURL := "/"
+	if u := strings.TrimSpace(*hostURL); u != "" {
+		initialURL = u
+	}
+
+	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:             "main",
+		Title:            "DSH Desktop — Wails shell",
+		Width:            1280,
+		Height:           800,
+		MinWidth:         800,
+		MinHeight:        560,
 		BackgroundColour: application.NewRGB(6, 7, 15),
-		URL:              "/",
+		URL:              initialURL,
+		Hidden:           *startHidden,
+		Mac: application.MacWindow{
+			Backdrop: application.MacBackdropTranslucent,
+			TitleBar: application.MacTitleBarHiddenInset,
+		},
+	})
+	shell.attach(app, window)
+	if initialURL != "/" {
+		shell.setInitialHostURL(initialURL)
+	}
+
+	// Close-to-tray: keep the process alive for tray / Host sidecar lifecycle.
+	window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		window.Hide()
+		e.Cancel()
 	})
 
-	// Create a goroutine that emits an event containing the current time every second.
-	// The frontend can listen to this event and update the UI accordingly.
-	go func() {
-		for {
-			now := time.Now().Format(time.RFC1123)
-			app.Event.Emit("time", now)
-			time.Sleep(time.Second)
-		}
-	}()
+	setupApplicationMenu(app, shell, window)
+	setupSystemTray(app, shell, window)
 
-	// Run the application. This blocks until the application has been exited.
-	err := app.Run()
-
-	// If an error occurred while running the application, log it and exit.
-	if err != nil {
+	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func setupApplicationMenu(app *application.App, shell *ShellService, window *application.WebviewWindow) {
+	menu := app.NewMenu()
+	if runtime.GOOS == "darwin" {
+		menu.AddRole(application.AppMenu)
+	}
+
+	fileMenu := menu.AddSubmenu("File")
+	fileMenu.Add("Open Directory…").OnClick(func(ctx *application.Context) {
+		path, err := shell.OpenDirectoryDialog()
+		if err != nil {
+			app.Dialog.Error().SetTitle("Open Directory").SetMessage(err.Error()).Show()
+			return
+		}
+		if path == "" {
+			return
+		}
+		app.Dialog.Info().SetTitle("Selected Directory").SetMessage(path).Show()
+	})
+	fileMenu.AddSeparator()
+	fileMenu.Add("Quit DSH Desktop").OnClick(func(ctx *application.Context) {
+		app.Quit()
+	})
+
+	viewMenu := menu.AddSubmenu("View")
+	viewMenu.Add("Show Window").OnClick(func(ctx *application.Context) {
+		shell.ShowWindow()
+	})
+	viewMenu.Add("Hide Window").OnClick(func(ctx *application.Context) {
+		shell.HideWindow()
+	})
+	viewMenu.AddSeparator()
+	viewMenu.Add("Embedded Control UI").OnClick(func(ctx *application.Context) {
+		_ = shell.ShowControlUI()
+	})
+	viewMenu.Add("Reload Host URL").OnClick(func(ctx *application.Context) {
+		url := shell.CurrentURL()
+		if url == "" {
+			app.Dialog.Warning().
+				SetTitle("No Host URL").
+				SetMessage("Set -host-url / DSH_HOST_URL or call ShellService.LoadHostURL first.").
+				Show()
+			return
+		}
+		_ = shell.LoadHostURL(url)
+	})
+
+	helpMenu := menu.AddSubmenu("Help")
+	helpMenu.Add("About DSH Desktop (Wails)").OnClick(func(ctx *application.Context) {
+		app.Dialog.Info().
+			SetTitle("DSH Desktop").
+			SetMessage("Native shell powered by Go + Wails v3.\nElectron BrowserWindow/Tray/Dialog surface is being replaced here;\nCordis Host remains a Node sidecar during the hybrid migration.").
+			Show()
+	})
+
+	app.Menu.Set(menu)
+	_ = window
+}
+
+func setupSystemTray(app *application.App, shell *ShellService, window *application.WebviewWindow) {
+	tray := app.SystemTray.New()
+	if runtime.GOOS == "darwin" {
+		tray.SetTemplateIcon(icons.SystrayMacTemplate)
+	} else {
+		tray.SetIcon(icons.SystrayLight)
+	}
+	tray.SetTooltip("DSH Desktop")
+
+	trayMenu := app.NewMenu()
+	trayMenu.Add("Show DSH Desktop").OnClick(func(ctx *application.Context) {
+		shell.ShowWindow()
+	})
+	trayMenu.Add("Hide Window").OnClick(func(ctx *application.Context) {
+		shell.HideWindow()
+	})
+	trayMenu.AddSeparator()
+	trayMenu.Add("Control UI").OnClick(func(ctx *application.Context) {
+		_ = shell.ShowControlUI()
+	})
+	trayMenu.Add("About").OnClick(func(ctx *application.Context) {
+		shell.ShowInfoDialog(
+			"DSH Desktop",
+			"Wails v3 native shell\nHybrid: Cordis Host still boots via Node until rewritten.",
+		)
+	})
+	trayMenu.AddSeparator()
+	trayMenu.Add("Quit").OnClick(func(ctx *application.Context) {
+		app.Quit()
+	})
+	tray.SetMenu(trayMenu)
+
+	tray.OnClick(func() {
+		if window.IsVisible() {
+			window.Hide()
+		} else {
+			shell.ShowWindow()
+		}
+	})
+}
+
+func envOr(key, fallback string) string {
+	if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {
+		return v
+	}
+	return fallback
 }
