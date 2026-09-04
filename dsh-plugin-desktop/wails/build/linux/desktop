@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=DSH Desktop
+Comment=DSH Desktop native shell (Wails v3)
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/dsh-wails-shell %u
+Terminal=false
+Type=Application
+Icon=dsh-wails-shell
+Categories=Utility;
+StartupWMClass=dsh-wails-shell
+
+ 

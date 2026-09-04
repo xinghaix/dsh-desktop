@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MsixPackagingToolTemplate
+    xmlns="http://schemas.microsoft.com/msix/packaging/msixpackagingtool/template/2022">
+    <Settings
+        AllowTelemetry="false"
+        ApplyACLsToPackageFiles="true"
+        GenerateCommandLineFile="true"
+        AllowPromptForPassword="false">
+    </Settings>
+    <Installer
+        Path="dsh-wails-shell"
+        Arguments=""
+        InstallLocation="C:\Program Files\xinghaix\DSH Desktop">
+    </Installer>
+    <PackageInformation
+        PackageName="DSH Desktop"
+        PackageDisplayName="DSH Desktop"
+        PublisherName="CN=xinghaix"
+        PublisherDisplayName="xinghaix"
+        Version="0.1.0.0"
+        PackageDescription="DSH Desktop native shell (Wails v3)">
+        <Capabilities>
+            <Capability Name="runFullTrust" />
+            
+        </Capabilities>
+        <Applications>
+            <Application
+                Id="com.xinghaix.dsh-desktop"
+                Description="DSH Desktop native shell (Wails v3)"
+                DisplayName="DSH Desktop"
+                ExecutableName="dsh-wails-shell"
+                EntryPoint="Windows.FullTrustApplication">
+                
+            </Application>
+        </Applications>
+        <Resources>
+            <Resource Language="en-us" />
+        </Resources>
+        <Dependencies>
+            <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+        </Dependencies>
+        <Properties>
+            <Framework>false</Framework>
+            <DisplayName>DSH Desktop</DisplayName>
+            <PublisherDisplayName>xinghaix</PublisherDisplayName>
+            <Description>DSH Desktop native shell (Wails v3)</Description>
+            <Logo>Assets\AppIcon.png</Logo>
+        </Properties>
+    </PackageInformation>
+    <SaveLocation PackagePath="dsh-wails-shell.msix" />
+    <PackageIntegrity>
+        <CertificatePath></CertificatePath>
+    </PackageIntegrity>
+</MsixPackagingToolTemplate>
