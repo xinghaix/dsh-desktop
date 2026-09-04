@@ -238,3 +238,7 @@ Discord：[加入 DSH Desktop 社区](https://discord.gg/TJeGqKRNM)
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=anywhere-labs/deepseek-harness-desktop&type=date&legend=top-left&sealed_token=BRTkOyC4czCEkIyFb5-QxrsC-kaDotBJ8tsjxrWs-UGfmBqfRCXSwieZPlVTCYOjJVEZ29uLvmBjAPREB524J5dPN1jk-UA7ajFdLdrbjumJqoOBeGWmig" />
  </picture>
 </a>
+
+## Wails v3 native shell (experimental)
+
+An experimental Go 1.27 + Wails v3 shell lives in [`dsh-plugin-desktop/wails/`](dsh-plugin-desktop/wails/). It can host the same loopback Cordis Host UI URL Electron loads today. Migration notes: [`docs/wails-migration.md`](docs/wails-migration.md).

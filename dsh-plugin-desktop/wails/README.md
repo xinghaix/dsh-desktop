@@ -1,59 +1,72 @@
-# Welcome to Your New Wails3 Project!
+# DSH Desktop — Wails v3 native shell
 
-Congratulations on generating your Wails3 application! This README will guide you through the next steps to get your project up and running.
+Go **1.27** + **Wails v3.0.0-beta.16** shell that replaces Electron's
+BrowserWindow / Tray / Menu / Dialog surface over time.
 
-## Getting Started
+Placement: `dsh-plugin-desktop/wails/` (see `LOCATION.md`). Cordis Host still
+boots as a Node sidecar during the hybrid migration — see
+`../src/wails-shell-bridge.md` and `../../../docs/wails-migration.md`.
 
-1. Navigate to your project directory in the terminal.
+## Tooling (this cloud box)
 
-2. To run your application in development mode, use the following command:
+```bash
+export PATH="/home/box/sdk/go1.27.0/bin:/home/box/go/bin:$PATH"
+export GOPATH=/home/box/go
+go version          # go1.27.0
+wails3 version      # v3.0.0-beta.16
+```
 
-   ```
-   wails3 dev
-   ```
+Requires GTK4 + webkitgtk-6.0 (already installed on the migration box).
 
-   This will start your application and enable hot-reloading for both frontend and backend changes.
+## Build
 
-3. To build your application for production, use:
+```bash
+cd dsh-plugin-desktop/wails
 
-   ```
-   wails3 build
-   ```
+# Fast compile check (embeds frontend/dist)
+go build -o bin/dsh-wails-shell .
 
-   This will create a production-ready executable in the `build` directory.
+# Full Wails pipeline (builds frontend via Taskfile when JS toolchain is available)
+wails3 build
+```
 
-## Exploring Wails3 Features
+Regenerate TypeScript bindings after changing exported Go service methods:
 
-Now that you have your project set up, it's time to explore the features that Wails3 offers:
+```bash
+wails3 generate bindings -ts -i -b ./...
+```
 
-1. **Check out the examples**: The best way to learn is by example. Visit the `examples` directory in the `v3/examples` directory to see various sample applications.
+A minimal static control UI is committed under `frontend/dist/` so `go build`
+works without Vite. Prefer `frontend/` + Vite when the JS toolchain is usable.
 
-2. **Run an example**: To run any of the examples, navigate to the example's directory and use:
+## Run
 
-   ```
-   go run .
-   ```
+```bash
+# Control UI only
+go run .
 
-   Note: Some examples may be under development during the alpha phase.
+# Point at an already-running Cordis Host web UI (Electron's loadURL target)
+DSH_HOST_URL='http://127.0.0.1:PORT/' go run .
+# or:
+go run . -host-url 'http://127.0.0.1:PORT/'
 
-3. **Explore the documentation**: Visit the [Wails3 documentation](https://v3.wails.io/) for in-depth guides and API references.
+# Hybrid sidecar: spawn a host command and wait for readiness
+DSH_HOST_URL_FILE=/tmp/dsh-host-url \
+DSH_HOST_COMMAND='your-host-boot && node scripts/announce-host-ready.mjs http://127.0.0.1:PORT/' \
+  go run .
+```
 
-4. **Join the community**: Have questions or want to share your progress? Join the [Wails Discord](https://discord.gg/JDdSxwjhGf) or visit the [Wails discussions on GitHub](https://github.com/wailsapp/wails/discussions).
+`scripts/announce-host-ready.mjs` prints `DSH_HOST_READY <url>` and optionally
+writes `DSH_HOST_URL_FILE`.
 
-## Project Structure
+## Native APIs used (Wails v3, not v2)
 
-Take a moment to familiarize yourself with your project structure:
+- `application.New` / `app.Window.NewWithOptions` / `window.SetURL`
+- `app.SystemTray.New` + tray menu
+- `app.NewMenu` / `app.Menu.Set`
+- `app.Dialog.OpenFile` / `Info` / `Warning` / `Error`
+- Services + `wails3 generate bindings`
 
-- `frontend/`: Contains your frontend code (HTML, CSS, JavaScript/TypeScript)
-- `main.go`: The entry point of your Go backend
-- `app.go`: Define your application structure and methods here
-- `wails.json`: Configuration file for your Wails project
+## Remaining Electron debt
 
-## Next Steps
-
-1. Modify the frontend in the `frontend/` directory to create your desired UI.
-2. Add backend functionality in `main.go`.
-3. Use `wails3 dev` to see your changes in real-time.
-4. When ready, build your application with `wails3 build`.
-
-Happy coding with Wails3! If you encounter any issues or have questions, don't hesitate to consult the documentation or reach out to the Wails community.
+See `../../../docs/wails-migration.md` for the live checklist.

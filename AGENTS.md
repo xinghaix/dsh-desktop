@@ -19,6 +19,7 @@ This repository owns the desktop product around an unmodified DeepSeek Harness c
 
 - `deepseek-harness/` is a pinned upstream Git submodule. Never edit files inside it from a desktop feature branch.
 - `dsh-plugin-desktop/` owns the Cordis Host and Client faces, Electron bootstrap, packaging, and release tests.
+- `dsh-plugin-desktop/wails/` owns the experimental Go 1.27 + Wails v3 native shell (hybrid Cordis Host sidecar). Do not edit `deepseek-harness/` from Wails work. See `docs/wails-migration.md`.
 - `dsh-community-fabric/` owns the community interoperability RFC. Until schemas and a reviewed reference adapter exist, it remains a private documentation scaffold and must not declare loadable DSH or package entry points.
 - `dsh-community-market/` owns the community-market shell. Until its runtime is implemented, it remains a private documentation scaffold and must not declare loadable DSH or package entry points.
 - The outer repository and all owned packages use the root Yarn release with `nodeLinker: node-modules`.
