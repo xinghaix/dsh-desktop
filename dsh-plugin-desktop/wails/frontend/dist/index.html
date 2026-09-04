@@ -31,6 +31,7 @@
   </label>
   <div class="actions">
     <button id="btn-load" type="button">Load Host URL</button>
+    <button id="btn-sidecar" type="button">Start Host sidecar</button>
     <button id="btn-control" type="button" class="secondary">Control UI</button>
     <button id="btn-dir" type="button" class="secondary">Open Directory…</button>
     <button id="btn-about" type="button" class="secondary">About</button>
@@ -44,12 +45,16 @@ import { Call } from "/wails/runtime.js";
 const ID = {
   CurrentURL: 152939581,
   HideWindow: 1601551219,
+  HostSidecarStatus: 3320370882,
   LoadHostURL: 2329620894,
   OpenDirectoryDialog: 338629742,
   Quit: 3900019188,
   ShowControlUI: 2225449553,
   ShowInfoDialog: 1571402046,
+  ShowWindow: 1276471090,
+  StartHostSidecar: 205050758,
   Status: 1144694253,
+  StopHostSidecar: 536033496,
 };
 const statusEl = document.getElementById("status");
 const hostUrlEl = document.getElementById("host-url");
@@ -59,7 +64,9 @@ function log(msg) {
 }
 async function refresh() {
   try {
-    statusEl.textContent = await Call.ByID(ID.Status);
+    const shell = await Call.ByID(ID.Status);
+    const side = await Call.ByID(ID.HostSidecarStatus);
+    statusEl.textContent = shell + " | " + side;
     const current = await Call.ByID(ID.CurrentURL);
     if (current && !hostUrlEl.value) hostUrlEl.value = current;
   } catch (err) {

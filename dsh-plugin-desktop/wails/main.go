@@ -21,7 +21,8 @@ func main() {
 	startHidden := flag.Bool("hidden", false, "Start with the main window hidden (tray still runs)")
 	flag.Parse()
 
-	shell := NewShellService()
+	sidecar := NewHostSidecar()
+	shell := NewShellService(sidecar)
 
 	app := application.New(application.Options{
 		Name:        "DSH Desktop",
@@ -60,6 +61,15 @@ func main() {
 	shell.attach(app, window)
 	if initialURL != "/" {
 		shell.setInitialHostURL(initialURL)
+	} else if os.Getenv("DSH_HOST_COMMAND") != "" || os.Getenv("DSH_HOST_URL_FILE") != "" || os.Getenv("DSH_HOST_URL") != "" {
+		go func() {
+			ready, err := shell.StartHostSidecar("")
+			if err != nil {
+				log.Printf("dsh-wails-shell: host sidecar: %v", err)
+				return
+			}
+			log.Printf("dsh-wails-shell: loaded Cordis Host UI %s", ready)
+		}()
 	}
 
 	// Close-to-tray: keep the process alive for tray / Host sidecar lifecycle.

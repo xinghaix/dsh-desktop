@@ -27,6 +27,13 @@ export function HideWindow(): $CancellablePromise<void> {
 }
 
 /**
+ * HostSidecarStatus reports Cordis Host sidecar process state.
+ */
+export function HostSidecarStatus(): $CancellablePromise<string> {
+    return $Call.ByID(3320370882);
+}
+
+/**
  * LoadHostURL navigates the main window to a Cordis Host / desktop UI origin
  * (typically http://127.0.0.1:<port>/ from desktopLoopbackBrowserUrl).
  */
@@ -70,8 +77,23 @@ export function ShowWindow(): $CancellablePromise<void> {
 }
 
 /**
+ * StartHostSidecar starts/discovers the Cordis Host and navigates to its UI URL.
+ * Pass an empty url to use DSH_HOST_URL / DSH_HOST_COMMAND / DSH_HOST_URL_FILE.
+ */
+export function StartHostSidecar(url: string): $CancellablePromise<string> {
+    return $Call.ByID(205050758, url);
+}
+
+/**
  * Status returns a short diagnostic string for the control panel.
  */
 export function Status(): $CancellablePromise<string> {
     return $Call.ByID(1144694253);
+}
+
+/**
+ * StopHostSidecar stops a spawned Cordis Host process, if any.
+ */
+export function StopHostSidecar(): $CancellablePromise<void> {
+    return $Call.ByID(536033496);
 }

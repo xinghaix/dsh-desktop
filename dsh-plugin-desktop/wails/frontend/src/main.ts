@@ -14,13 +14,23 @@ function log(message: string) {
 
 async function refreshStatus() {
     try {
-        statusEl.textContent = await ShellService.Status();
+        statusEl.textContent = `${await ShellService.Status()} | ${await ShellService.HostSidecarStatus()}`;
         const current = await ShellService.CurrentURL();
         if (current && !hostUrlEl.value) hostUrlEl.value = current;
     } catch (err) {
         statusEl.textContent = `Shell unavailable: ${String(err)}`;
     }
 }
+
+document.getElementById("btn-sidecar")?.addEventListener("click", async () => {
+    try {
+        const ready = await ShellService.StartHostSidecar(hostUrlEl.value.trim());
+        log(`Host ready: ${ready}`);
+        await refreshStatus();
+    } catch (err) {
+        log(`StartHostSidecar failed: ${String(err)}`);
+    }
+});
 
 document.getElementById("btn-load")!.addEventListener("click", async () => {
     const url = hostUrlEl.value.trim();

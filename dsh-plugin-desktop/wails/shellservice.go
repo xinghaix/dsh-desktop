@@ -16,10 +16,14 @@ type ShellService struct {
 	app     *application.App
 	window  *application.WebviewWindow
 	hostURL string
+	sidecar *HostSidecar
 }
 
-func NewShellService() *ShellService {
-	return &ShellService{}
+func NewShellService(sidecar *HostSidecar) *ShellService {
+	if sidecar == nil {
+		sidecar = NewHostSidecar()
+	}
+	return &ShellService{sidecar: sidecar}
 }
 
 func (s *ShellService) attach(app *application.App, window *application.WebviewWindow) {
@@ -148,10 +152,56 @@ func (s *ShellService) ShowInfoDialog(title, message string) {
 func (s *ShellService) Quit() {
 	s.mu.Lock()
 	app := s.app
+	sidecar := s.sidecar
 	s.mu.Unlock()
+	if sidecar != nil {
+		_ = sidecar.Stop()
+	}
 	if app != nil {
 		app.Quit()
 	} else {
 		os.Exit(0)
 	}
 }
+
+// HostSidecarStatus reports Cordis Host sidecar process state.
+func (s *ShellService) HostSidecarStatus() string {
+	s.mu.Lock()
+	sidecar := s.sidecar
+	s.mu.Unlock()
+	if sidecar == nil {
+		return "sidecar=(nil)"
+	}
+	return sidecar.Status()
+}
+
+// StartHostSidecar starts/discovers the Cordis Host and navigates to its UI URL.
+// Pass an empty url to use DSH_HOST_URL / DSH_HOST_COMMAND / DSH_HOST_URL_FILE.
+func (s *ShellService) StartHostSidecar(url string) (string, error) {
+	s.mu.Lock()
+	sidecar := s.sidecar
+	s.mu.Unlock()
+	if sidecar == nil {
+		return "", fmt.Errorf("host sidecar is not configured")
+	}
+	ready, err := sidecar.Start(url)
+	if err != nil {
+		return "", err
+	}
+	if err := s.LoadHostURL(ready); err != nil {
+		return ready, err
+	}
+	return ready, nil
+}
+
+// StopHostSidecar stops a spawned Cordis Host process, if any.
+func (s *ShellService) StopHostSidecar() error {
+	s.mu.Lock()
+	sidecar := s.sidecar
+	s.mu.Unlock()
+	if sidecar == nil {
+		return nil
+	}
+	return sidecar.Stop()
+}
+
