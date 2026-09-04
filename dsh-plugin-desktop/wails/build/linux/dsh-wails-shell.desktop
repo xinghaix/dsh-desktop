@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=dsh-wails-shell
+Exec=dsh-wails-shell
+Icon=dsh-wails-shell
+Categories=Development;
+Terminal=false
+Keywords=wails
+Version=1.0
+StartupNotify=false

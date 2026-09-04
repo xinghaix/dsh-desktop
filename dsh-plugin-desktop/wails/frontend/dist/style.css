@@ -1,0 +1,49 @@
+:root {
+  color-scheme: dark;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #06070f;
+  color: #e8eaf2;
+}
+.panel {
+  max-width: 720px;
+  margin: 48px auto;
+  padding: 24px;
+}
+h1 { font-size: 1.6rem; margin: 0 0 8px; }
+.muted { color: #9aa3b5; font-weight: 500; }
+.lead, .status { color: #b7c0d1; line-height: 1.5; }
+.field { display: flex; flex-direction: column; gap: 6px; margin: 20px 0; }
+.field span { font-size: 0.9rem; color: #9aa3b5; }
+input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #2a3142;
+  background: #121624;
+  color: inherit;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 0;
+  background: #3b82f6;
+  color: white;
+  cursor: pointer;
+}
+button.secondary { background: #243049; }
+button.danger { background: #b91c1c; }
+.log {
+  margin-top: 20px;
+  padding: 12px;
+  background: #0d111c;
+  border-radius: 8px;
+  min-height: 96px;
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+code { color: #93c5fd; }
