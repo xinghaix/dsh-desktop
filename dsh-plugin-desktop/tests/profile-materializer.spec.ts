@@ -31,14 +31,14 @@ function fakeChild(): FakeChild {
 
 function options(spawn: ProfileMaterializerSpawn): ProfileMaterializerOptions {
   return {
-    appExecutable: '/Applications/DSH Desktop.app/Contents/MacOS/DSH Desktop',
+    nodeExecutable: '/Applications/DSH Desktop.app/Contents/MacOS/DSH Desktop',
     clearEnvironmentPath: '/private/clear-env.mjs',
     pnpmBinPath: '/private/pnpm/bin/pnpm.mjs',
     nodeBinDir: '/private/node-bin',
     nodeShimPath: '/private/node-bin/node',
     homeDir: '/Users/test/.dsh',
     profileDir: '/Users/test/.dsh/profiles/desktop',
-    electronVersion: '43.4.0',
+    nodeVersion: '43.4.0',
     spawn,
   }
 }

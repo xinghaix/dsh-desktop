@@ -2,14 +2,13 @@
 #
 # DO NOT commit this as a live workflow under .github/workflows until the pushing
 # credential has the GitHub workflow OAuth/PAT scope. Pushing a new workflow
-# file without that scope is rejected. Electron product CI (ci.yml / electron-builder)
-# remains the default release path.
+# file without that scope is rejected. Product ci.yml still needs packaging-script flip onto Wails smoke/package jobs.
 #
-# Enable when scope exists (from repo root on feat/wails3-shell):
+# Enable when scope exists (from repo root on feat/wails-user-dsh-home):
 #   cp docs/wails-ci-smoke.yml.example .github/workflows/wails-smoke.yml
 #   git add .github/workflows/wails-smoke.yml
 #   git commit -m "ci(wails): add additive wails-smoke workflow"
-#   git push origin feat/wails3-shell   # xinghaix remote in this fork
+#   git push origin feat/wails-user-dsh-home   # xinghaix remote in this fork
 #
 # Token scopes observed 2026-09-05 on xinghaix: gist, read:org, repo (no workflow).
 # Local equivalent without workflow scope:

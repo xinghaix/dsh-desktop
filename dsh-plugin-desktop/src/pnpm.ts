@@ -21,9 +21,9 @@ export interface DesktopPnpmBootstrap {
   readonly activeProfileName: string
   readonly activeProfileDir: string
   readonly homeDir: string
-  readonly appExecutable: string
+  readonly nodeExecutable: string
   readonly pnpmBinPath: string
-  readonly electronVersion: string
+  readonly nodeVersion: string
   readonly nodeBinDir: string
   readonly nodeShimPath: string
   readonly clearEnvironmentPath: string
@@ -119,14 +119,14 @@ function validateBootstrap(bootstrap: DesktopPnpmBootstrap): void {
   for (const [label, value] of [
     ['active Profile directory', bootstrap.activeProfileDir],
     ['Harness home', bootstrap.homeDir],
-    ['application executable', bootstrap.appExecutable],
+    ['application executable', bootstrap.nodeExecutable],
     ['pnpm entry', bootstrap.pnpmBinPath],
     ['Node command directory', bootstrap.nodeBinDir],
     ['Node command', bootstrap.nodeShimPath],
     ['environment preloader', bootstrap.clearEnvironmentPath],
     ['DSH bootstrap', bootstrap.dshBootstrapPath],
   ] as const) assertAbsolutePath(label, value)
-  if (bootstrap.electronVersion.length === 0 || bootstrap.electronVersion.includes('\0')) {
+  if (bootstrap.nodeVersion.length === 0 || bootstrap.nodeVersion.includes('\0')) {
     throw new Error(`${BIN_NAME}: desktop pnpm Electron version must not be empty or contain NUL`)
   }
 }
@@ -154,7 +154,7 @@ class DesktopPnpmService extends Service implements DesktopPnpm {
     const args = withDesktopPnpmPolicy(validatedArgv(argv))
     return this.start({
       argv: [
-        this.bootstrap.appExecutable,
+        this.bootstrap.nodeExecutable,
         '--import',
         pathToFileURL(this.bootstrap.clearEnvironmentPath).href,
         this.bootstrap.pnpmBinPath,
@@ -181,7 +181,7 @@ class DesktopPnpmService extends Service implements DesktopPnpm {
     assertAbsolutePath('plugin invoking directory', invokingDir)
     return this.start({
       argv: [
-        this.bootstrap.appExecutable,
+        this.bootstrap.nodeExecutable,
         '--expose-internals',
         this.bootstrap.dshBootstrapPath,
         'plugin',
@@ -218,7 +218,7 @@ class DesktopPnpmService extends Service implements DesktopPnpm {
         DSH_HOME: this.bootstrap.homeDir,
         CI: 'true',
         npm_config_runtime: 'electron',
-        npm_config_target: this.bootstrap.electronVersion,
+        npm_config_target: this.bootstrap.nodeVersion,
         npm_config_disturl: ELECTRON_HEADERS_URL,
       },
     }

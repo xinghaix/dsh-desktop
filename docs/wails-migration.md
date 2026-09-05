@@ -36,10 +36,10 @@ Shell: dsh-plugin-desktop/wails/
 
 ## Release notes — packaging path (legacy-builder vs Wails)
 
-**Shipping / product CI today:** legacy-builder remains the **authoritative** desktop
-release path (GitHub Actions product workflows, app.asar / platform installers).
-Do not announce Wails AppImage/deb as the primary download channel until an explicit
-release flip lands.
+**Shipping / product CI today:** Electron packaging scripts were removed from the tree;
+ci.yml still needs a flip onto smoke:wails / package:wails (win/mac soft-gated until Go/Wails
+are on those runners). Do not announce Wails AppImage/deb as the primary download channel
+until update URLs + signed artifacts + CI flip land.
 
 **Primary developer / hybrid run path today:** Wails + Node Cordis Host
 (start:wails / smoke:wails). LEGACY NativeWindow / Tray / main.ts is
@@ -53,7 +53,7 @@ allows committing the live wails-smoke workflow file.
 When writing release notes for a Wails-hybrid milestone:
 
 1. Call out hybrid run path first (Wails shell + Node Host).
-2. State clearly that **installers users download are still legacy-builder** until flip.
+2. State clearly that download URLs may still point at pre-Wails installers until flip.
 3. Mention AppImage/package:wails as preview/packaging R&D, not the default channel.
 4. Link docs/wails-migration.md and dsh-plugin-desktop/docs/legacy-shell-fallback.md.
 
@@ -72,8 +72,7 @@ documented in release notes + this file:
    retained as emergency QUARANTINED channel with a documented rollback.
 7. Explicit owner sign-off recorded in the PR that changes default CI / download channel.
 
-Until then: legacy-builder = authoritative shipping path; Wails = primary hybrid run path
-+ parallel packaging R&D.
+Until CI/update-URL flip: Wails = primary hybrid run path + packaging R&D; do not resurrect Electron packaging.
 
 ## macOS-only verification (out of Linux bed)
 

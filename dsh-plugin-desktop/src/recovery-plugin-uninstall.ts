@@ -11,7 +11,7 @@ const ELECTRON_HEADERS_URL = 'https://electronjs.org/headers'
 const PACKAGE_NAME_PATTERN = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/u
 
 export interface RecoveryPluginUninstallOptions {
-  readonly appExecutable: string
+  readonly nodeExecutable: string
   readonly dshBootstrapPath: string
   readonly profileName: string
   readonly profileDir: string
@@ -20,7 +20,7 @@ export interface RecoveryPluginUninstallOptions {
   readonly nodeShimPath: string
   /** Directory containing Desktop's packaged pnpm command shim. */
   readonly pnpmBinDir: string
-  readonly electronVersion: string
+  readonly nodeVersion: string
   readonly packageName: string
   readonly signal?: AbortSignal
   readonly timeoutMs?: number
@@ -69,7 +69,7 @@ export function recoveryPluginEnvironment(
     | 'nodeBinDir'
     | 'nodeShimPath'
     | 'pnpmBinDir'
-    | 'electronVersion'
+    | 'nodeVersion'
     | 'environment'>,
   platform: NodeJS.Platform = process.platform,
 ): NodeJS.ProcessEnv {
@@ -88,7 +88,7 @@ export function recoveryPluginEnvironment(
   environment.DSH_HOME = options.homeDir
   environment.CI = 'true'
   environment.npm_config_runtime = 'electron'
-  environment.npm_config_target = options.electronVersion
+  environment.npm_config_target = options.nodeVersion
   environment.npm_config_disturl = ELECTRON_HEADERS_URL
   return environment
 }
@@ -126,7 +126,7 @@ export async function removeRecoveryPlugin(
     throw new RecoveryPluginUninstallError('recovery plugin uninstall package name is invalid')
   }
   for (const [label, value] of [
-    ['application executable', options.appExecutable],
+    ['application executable', options.nodeExecutable],
     ['DSH bootstrap', options.dshBootstrapPath],
     ['Profile directory', options.profileDir],
     ['Harness home', options.homeDir],
@@ -134,7 +134,7 @@ export async function removeRecoveryPlugin(
     ['Node command', options.nodeShimPath],
     ['pnpm command directory', options.pnpmBinDir],
   ] as const) assertAbsolutePath(label, value)
-  if (options.electronVersion.length === 0 || options.electronVersion.includes('\0')) {
+  if (options.nodeVersion.length === 0 || options.nodeVersion.includes('\0')) {
     throw new RecoveryPluginUninstallError('recovery plugin uninstall Electron version is invalid')
   }
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
@@ -156,7 +156,7 @@ export async function removeRecoveryPlugin(
     options.packageName,
   ] as const
   return await new Promise<RecoveryPluginUninstallResult>((resolve, reject) => {
-    execFile(options.appExecutable, args, {
+    execFile(options.nodeExecutable, args, {
       cwd: options.profileDir,
       encoding: 'utf8',
       env: recoveryPluginEnvironment(options),

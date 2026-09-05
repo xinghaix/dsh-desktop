@@ -25,7 +25,7 @@ function fixture(source: string) {
   const dshBootstrapPath = join(root, 'desktop-cli.mjs')
   writeFileSync(dshBootstrapPath, source)
   return {
-    appExecutable: process.execPath,
+    nodeExecutable: process.execPath,
     dshBootstrapPath,
     profileName: 'desktop',
     profileDir,
@@ -33,7 +33,7 @@ function fixture(source: string) {
     nodeBinDir,
     nodeShimPath: join(nodeBinDir, 'node'),
     pnpmBinDir,
-    electronVersion: '43.4.0',
+    nodeVersion: '43.4.0',
     packageName: 'third-party-plugin',
   }
 }

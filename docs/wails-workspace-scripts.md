@@ -3,7 +3,7 @@
 Recommended hybrid entry (repo root or dsh-plugin-desktop):
 
 - start:wails / dev:wails / build:wails / package:wails / smoke:wails
-- start:host / start:host:node / start:host:legacy-as-node
+- start:host / start:host:node
 - sync:native-ui:wails (copies lib/native-ui into wails embed tree)
 - node scripts/wails-smoke.mjs (non-workflow smoke)
 - node dsh-plugin-desktop/wails/scripts/run-wails.mjs package-deps (AppImage tooling probe)
@@ -20,8 +20,7 @@ Go resolution: DSH_GO_BIN -> PATH go -> ~/sdk/go1.27.0/bin -> ~/go/bin -> /home/
 
 ## Enabling CI smoke when workflow scope exists
 
-LEGACY start/dev remain fallback Host+NativeWindow path. Product ci.yml stays LEGACY/Yarn
-based; wails-smoke is additive.
+Product path is Wails+Node Host. Packaging CI still needs flip off removed scripts; wails-smoke example stays until workflow scope.
 
 While the push token lacks workflow scope:
 
@@ -34,11 +33,10 @@ When a credential with workflow scope is available:
 cp docs/wails-ci-smoke.yml.example .github/workflows/wails-smoke.yml
 git add .github/workflows/wails-smoke.yml
 git commit -m "ci(wails): add additive wails-smoke workflow"
-git push origin feat/wails3-shell   # xinghaix remote in this fork
+git push origin feat/wails-user-dsh-home   # xinghaix remote in this fork
 ```
 
-Do not invent a second product release workflow; legacy-builder remains default until
-the release flip documented in docs/wails-migration.md.
+Do not resurrect retired packaging scripts. Prefer package:wails / smoke:wails; see docs/wails-migration.md and the debt doc.
 
 
 ## Credential note (xinghaix fork)
