@@ -1,0 +1,17 @@
+2026/09/05 09:17:52 dsh-wails-shell: crash-evidence=active dir=/home/box/.config/DSH Desktop/crash-evidence
+Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal
+dsh-plugin-desktop: previous desktop run did not shut down cleanly (startedAt: 2026-09-05T09:17:52.941672706Z, pid: 2328115, version: dev)
+dsh-plugin-desktop: Node Host using peer Electron version 43.3.0 for npm_config_target (process.versions.electron unset)
+
+** (process:2): WARNING **: 09:17:53.301: Can't connect to a11y bus: Could not connect: No such file or directory
+[dsh-host] DSH_HOST_LAN_HTTPS state=inactive port=null addresses=172.30.0.2 fingerprint=cb2cc5fd5dd31f5b797dbba6dd1efb38831361bbbfb1d8fea166daa799782d23 error=null urls=-
+[dsh-host] DSH_HOST_READY http://127.0.0.1:43123/?token=****
+[dsh-host] DSH_HOST_AUTH_HEADER x-dsh-desktop-renderer ****
+[dsh-host] DSH_HOST_LAN_HTTPS state=inactive port=null addresses=172.30.0.2 fingerprint=cb2cc5fd5dd31f5b797dbba6dd1efb38831361bbbfb1d8fea166daa799782d23 error=null urls=-
+dsh-plugin-desktop: Wails Host sidecar ready at http://127.0.0.1:43123/?token=**** (Electron-light GUI skipped=true)
+2026/09/05 09:17:54 dsh-wails-shell: loaded Cordis Host UI http://127.0.0.1:43601/
+
+** (process:2): WARNING **: 09:17:55.050: Can't connect to a11y bus: Could not connect: No such file or directory
+
+** (process:2): WARNING **: 09:17:55.307: Can't connect to a11y bus: Could not connect: No such file or directory
+GStreamer element appsink not found. Please install it.

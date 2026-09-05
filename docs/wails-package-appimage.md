@@ -64,3 +64,10 @@ After installing `file`, `node wails/scripts/run-wails.mjs package` produced (gi
 - bin/dsh-wails-shell native binary
 
 Still **not** the product download channel (electron-builder remains default until flip).
+
+### Runtime smoke (same bed)
+
+`--appimage-extract-and-run` + Host sidecar proved AuthProxy loopback Host load
+(API-key gate screenshot). See `docs/evidence/wails-p2-appimage-authproxy-20260905.log`.
+Direct FUSE mount of the AppImage was not required; extract-and-run is the bed path.
+

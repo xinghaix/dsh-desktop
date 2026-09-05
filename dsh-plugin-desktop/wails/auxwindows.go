@@ -294,17 +294,20 @@ func recoveryDebtMessage(kind string) string {
 	switch kind {
 	case "debt-checkpoint":
 		return "Checkpoint list / preview / restore is not wired in the Wails hybrid shell.\n\n" +
-			"Missing Host API (Electron DesktopStartupRecoveryController):\n" +
-			"- listHealthyCheckpoints(generationId)\n" +
-			"- previewCheckpointRestore(slotId) with TTL\n" +
-			"- confirmCheckpointRestore(slotId) + generation quiesce\n\n" +
-			"Wails can open Recovery and restart/safe-mode/quit/profiles only.\n" +
+			"In-process DesktopStartupRecoveryController exists (src/startup-recovery-controller.ts)\n" +
+			"but Host↔Wails transport is missing. On Wails recovery, host-main announces\n" +
+			"DSH_HOST_RECOVERY_REQUIRED, disposes the controller, and exits.\n\n" +
+			"Need Host keep-alive + RPC for:\n" +
+			"- snapshot() → checkpoints[] (not Cordis HTTP today)\n" +
+			"- previewCheckpointRestore(slotId) / executeCheckpointRestore(previewId)\n" +
+			"- generation assert / quiesce around restore\n\n" +
+			"Wails hybrid today: restart / safe-mode / quit / profiles / control only.\n" +
 			"See docs/wails-migration.md § Recovery controller debt."
 	case "debt-uninstall":
 		return "Plugin uninstall preview / confirm is not wired in the Wails hybrid shell.\n\n" +
-			"Missing Host API:\n" +
-			"- previewPluginUninstall(bundleId) + immutable-target rules\n" +
-			"- confirmPluginUninstall(bundleId) under one generation id\n\n" +
+			"Controller methods exist in-process only (no Host↔Wails endpoint):\n" +
+			"- previewUninstall(bundleId) + immutable-target rules\n" +
+			"- executeUninstall(previewId) under one generationId\n\n" +
 			"Do not claim Recovery plugin-tab parity in release notes."
 	case "debt-diagnostics":
 		return "Diagnostic archive export still needs Electron DesktopDialogWindow / Host controller paths.\n" +

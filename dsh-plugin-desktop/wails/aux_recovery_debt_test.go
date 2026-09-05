@@ -16,11 +16,11 @@ func TestNormalizeRecoveryActionMapsDebt(t *testing.T) {
 		t.Fatalf("preview-uninstall -> %q", got)
 	}
 	msg := recoveryDebtMessage("debt-checkpoint")
-	if !strings.Contains(msg, "listHealthyCheckpoints") || !strings.Contains(msg, "generation quiesce") {
+	if !strings.Contains(msg, "snapshot()") || !strings.Contains(msg, "Host↔Wails") || !strings.Contains(msg, "executeCheckpointRestore") {
 		t.Fatalf("checkpoint debt message incomplete: %q", msg)
 	}
 	msg = recoveryDebtMessage("debt-uninstall")
-	if !strings.Contains(msg, "previewPluginUninstall") {
+	if !strings.Contains(msg, "previewUninstall") || !strings.Contains(msg, "executeUninstall") {
 		t.Fatalf("uninstall debt message incomplete: %q", msg)
 	}
 }

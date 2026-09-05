@@ -23,3 +23,11 @@ Until the release flip, shipped downloads remain electron-builder. Preview Wails
 packages must keep AuthProxy required:true and Origin rewrite (CSRF otherwise fails).
 
 Smoke: node scripts/wails-smoke.mjs then Help -> Auth / Renderer Header.
+
+## Packaged AppImage live smoke (2026-09-05 Linux bed)
+
+`bin/dsh-wails-shell-x86_64.AppImage --appimage-extract-and-run` with Host sidecar
+(`DSH_WAILS_HOST_SIDECAR=1` + `DSH_HOST_COMMAND=…/host-main.js`) announced
+`DSH_HOST_READY` / `DSH_HOST_AUTH_HEADER`; shell loaded Cordis Host via loopback
+AuthProxy (`loaded Cordis Host UI http://127.0.0.1:<proxy>/`). Evidence:
+`docs/evidence/wails-p2-appimage-authproxy-20260905.log` + host screenshot.

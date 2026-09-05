@@ -98,20 +98,25 @@ Wails aux Recovery is **not** a full port of Electron
 DesktopStartupRecoveryController (src/startup-recovery-controller.ts +
 src/startup-recovery-window.ts).
 
+**Investigation (2026-09-05):** the controller and `DesktopProfileCheckpoint` **exist
+in-process** inside Node/Electron Host (`host-main.ts` constructs them). There is **no**
+Cordis HTTP / stdout RPC that the Go shell can call. On Wails recovery, `host-main`
+announces `DSH_HOST_RECOVERY_REQUIRED`, **disposes** the controller, and exits — so
+checkpoint/uninstall tabs stay Unavailable and map to debt InfoDialogs.
+
 | Surface | Wails hybrid today | Still Electron / Host debt |
 | --- | --- | --- |
 | Open Recovery window | AuxWindowService.OpenRecovery + native-ui /aux HTML | — |
 | Host ask for Recovery | DSH_HOST_RECOVERY_REQUIRED opens aux | — |
 | Restart / safe-mode / quit / profiles / control | CompleteRecovery shell actions | No generation quiesce contract |
-| Checkpoint list / restore preview / confirm | Not wired | Controller preview TTL + restore slots |
-| Plugin uninstall preview / confirm | Not wired | Controller uninstall preview + immutable-target rules |
-| Pre-Host generation authority | Absent in Go shell | DesktopStartupRecoveryController binds one generation id |
+| Checkpoint list / restore preview / confirm | Not wired | Need Host keep-alive + RPC: `snapshot()`, `previewCheckpointRestore`, `executeCheckpointRestore` |
+| Plugin uninstall preview / confirm | Not wired | Need RPC: `previewUninstall`, `executeUninstall` (+ immutable-target) |
+| Pre-Host generation authority | Absent in Go shell | Controller binds one `generationId`; must stay alive for Wails |
 | Destructive confirm dialogs | Status dialogs only | Electron DesktopDialogWindow confirm path |
 
 **Operator expectation:** Recovery Assistant in Wails can surface failure text and
 relaunch/switch-profile affordances. Checkpoint rollback and plugin uninstall from
-Recovery remain Electron-main / controller debt until a Host-facing recovery API
-owns that state for the sidecar. Do not claim parity with Electron Recovery tabs for
-uninstall/checkpoint in release notes.
+Recovery remain blocked on a **Host↔Wails recovery transport** (not missing TS types).
+Do not claim parity with Electron Recovery tabs for uninstall/checkpoint in release notes.
 
 Canonical surface map: dsh-plugin-desktop/src/wails-shell-bridge.md
