@@ -126,6 +126,8 @@ func (s *ShellService) HideWindow() {
 }
 
 // OpenDirectoryDialog opens a native directory picker and returns the path.
+// Cancel returns ("", nil) on Linux/macOS, or an error whose message contains
+// "cancel" on Windows. Callers should treat both as user cancel, not failure.
 func (s *ShellService) OpenDirectoryDialog() (string, error) {
 	s.mu.Lock()
 	app := s.app

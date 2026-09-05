@@ -123,6 +123,32 @@ func main() {
 	}
 }
 
+
+// showMenuStatus prefers AuxWindowService.OpenInfoDialog (status.html) so menu
+// feedback is visible on Linux hybrid beds where GTK MessageDialog can be silent.
+// Falls back to native Dialog.Info if the aux window cannot open.
+
+// isDialogCancelled reports native file/directory picker cancel (empty path on
+// Linux/macOS; "cancelled by user" error from the Windows common-file-dialog path).
+func isDialogCancelled(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "cancel")
+}
+
+func showMenuStatus(aux *AuxWindowService, app *application.App, title, message string) {
+	if aux != nil {
+		if err := aux.OpenInfoDialog(title, message); err == nil {
+			return
+		}
+	}
+	if app != nil {
+		app.Dialog.Info().SetTitle(title).SetMessage(message).Show()
+	}
+}
+
 func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWindowService, bridge *BridgeService, caps *CapabilitiesService, window *application.WebviewWindow) {
 	menu := app.NewMenu()
 	if runtime.GOOS == "darwin" {
@@ -133,28 +159,33 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 	fileMenu.Add("Open Directory…").OnClick(func(ctx *application.Context) {
 		path, err := shell.OpenDirectoryDialog()
 		if err != nil {
-			app.Dialog.Error().SetTitle("Open Directory").SetMessage(err.Error()).Show()
+			if isDialogCancelled(err) {
+				showMenuStatus(aux, app, "Open Directory", "Cancelled — no directory selected.")
+				return
+			}
+			showMenuStatus(aux, app, "Open Directory", "Failed:\n"+err.Error())
 			return
 		}
 		if path == "" {
+			showMenuStatus(aux, app, "Open Directory", "Cancelled — no directory selected.")
 			return
 		}
-		app.Dialog.Info().SetTitle("Selected Directory").SetMessage(path).Show()
+		showMenuStatus(aux, app, "Selected Directory", path)
 	})
 	fileMenu.AddSeparator()
 	fileMenu.Add("Setup Wizard…").OnClick(func(ctx *application.Context) {
 		if err := aux.OpenSetupWizard(); err != nil {
-			app.Dialog.Error().SetTitle("Setup Wizard").SetMessage(err.Error()).Show()
+			showMenuStatus(aux, app, "Setup Wizard", "Failed:\n"+err.Error())
 		}
 	})
 	fileMenu.Add("Switch Profile…").OnClick(func(ctx *application.Context) {
 		if err := aux.OpenProfileSelector(); err != nil {
-			app.Dialog.Error().SetTitle("Profiles").SetMessage(err.Error()).Show()
+			showMenuStatus(aux, app, "Profiles", "Failed:\n"+err.Error())
 		}
 	})
 	fileMenu.Add("Recovery Assistant…").OnClick(func(ctx *application.Context) {
 		if err := aux.OpenRecovery(""); err != nil {
-			app.Dialog.Error().SetTitle("Recovery").SetMessage(err.Error()).Show()
+			showMenuStatus(aux, app, "Recovery", "Failed:\n"+err.Error())
 		}
 	})
 	fileMenu.AddSeparator()
@@ -176,10 +207,7 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 	viewMenu.Add("Reload Host URL").OnClick(func(ctx *application.Context) {
 		url := shell.CurrentURL()
 		if url == "" {
-			app.Dialog.Warning().
-				SetTitle("No Host URL").
-				SetMessage("Set -host-url / DSH_HOST_URL or call ShellService.LoadHostURL first.").
-				Show()
+			showMenuStatus(aux, app, "No Host URL", "Set -host-url / DSH_HOST_URL or call ShellService.LoadHostURL first.")
 			return
 		}
 		_ = shell.LoadHostURL(url)
@@ -188,62 +216,60 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 	toolsMenu := menu.AddSubmenu("Tools")
 	toolsMenu.Add("Open Terminal…").OnClick(func(ctx *application.Context) {
 		if err := caps.OpenTerminal(""); err != nil {
-			app.Dialog.Error().SetTitle("Terminal").SetMessage(err.Error()).Show()
+			showMenuStatus(aux, app, "Terminal", "Failed:\n"+err.Error())
 		}
 	})
 	toolsMenu.Add("Export Text…").OnClick(func(ctx *application.Context) {
 		path, err := caps.ExportTextFile("dsh-shell-note.txt", "DSH Wails shell export\n")
 		if err != nil {
-			app.Dialog.Error().SetTitle("Export").SetMessage(err.Error()).Show()
+			showMenuStatus(aux, app, "Export", "Failed:\n"+err.Error())
 			return
 		}
 		if path != "" {
-			app.Dialog.Info().SetTitle("Exported").SetMessage(path).Show()
+			showMenuStatus(aux, app, "Exported", path)
 		}
 	})
 	toolsMenu.Add("Send Test Notification").OnClick(func(ctx *application.Context) {
 		if err := caps.NotifyAttention("DSH Desktop", "Native notification from the Wails shell."); err != nil {
-			app.Dialog.Error().SetTitle("Notification").SetMessage(err.Error()).Show()
+			showMenuStatus(aux, app, "Notification", "Failed:\n"+err.Error())
 		}
 	})
 	toolsMenu.Add("Request Dock / Taskbar Attention").OnClick(func(ctx *application.Context) {
 		_ = caps.RequestUserAttention(1)
-		app.Dialog.Info().SetTitle("Attention").SetMessage(caps.DockAttentionStatus()).Show()
+		showMenuStatus(aux, app, "Attention", caps.DockAttentionStatus())
 	})
 	toolsMenu.Add("Clear Dock Attention").OnClick(func(ctx *application.Context) {
 		_ = caps.ClearUserAttention()
+		showMenuStatus(aux, app, "Dock Attention Cleared", caps.DockAttentionStatus())
 	})
 	toolsMenu.Add("Check for Updates…").OnClick(func(ctx *application.Context) {
 		res := caps.CheckForUpdates()
-		app.Dialog.Info().SetTitle("Updates").SetMessage(res.Status + "\n" + res.Detail + "\ncurrent=" + res.CurrentHint + "\nlatest=" + res.LatestHint).Show()
+		showMenuStatus(aux, app, "Updates", res.Status+"\n"+res.Detail+"\ncurrent="+res.CurrentHint+"\nlatest="+res.LatestHint)
 	})
 	toolsMenu.Add("Download / Install Update…").OnClick(func(ctx *application.Context) {
 		res := caps.DownloadAndInstallUpdate()
-		app.Dialog.Info().SetTitle("Update download").SetMessage(res.Status + "\n" + res.Detail).Show()
+		showMenuStatus(aux, app, "Update download", res.Status+"\n"+res.Detail)
 	})
 	toolsMenu.AddSeparator()
 	toolsMenu.Add("LAN HTTPS Status").OnClick(func(ctx *application.Context) {
-		app.Dialog.Info().SetTitle("LAN HTTPS").SetMessage(caps.LanHttpsStatus()).Show()
+		showMenuStatus(aux, app, "LAN HTTPS", caps.LanHttpsStatus())
 	})
 
 	helpMenu := menu.AddSubmenu("Help")
 	helpMenu.Add("Auth / Renderer Header…").OnClick(func(ctx *application.Context) {
-		app.Dialog.Info().SetTitle("Auth bridge").SetMessage(bridge.BridgeStatus() + "\n\n" + bridge.PlatformAuthNotes()).Show()
+		showMenuStatus(aux, app, "Auth / Renderer Header", bridge.BridgeStatus()+"\n\n"+bridge.PlatformAuthNotes())
 	})
 	helpMenu.Add("Crash Evidence Status").OnClick(func(ctx *application.Context) {
-		app.Dialog.Info().SetTitle("Crash evidence").SetMessage(caps.CrashEvidenceStatus()).Show()
+		showMenuStatus(aux, app, "Crash evidence", caps.CrashEvidenceStatus())
 	})
 	helpMenu.Add("Platform Identity").OnClick(func(ctx *application.Context) {
 		id := caps.PlatformIdentity()
-		app.Dialog.Info().SetTitle("Platform identity").SetMessage(
-			"appId="+id.AppID+"\n"+id.AppUserModelID+"\n"+id.Dock+"\n"+id.CrashReporter+"\n"+id.PackagedUpdates+"\napplied="+id.Applied,
-		).Show()
+		showMenuStatus(aux, app, "Platform identity",
+			"appId="+id.AppID+"\n"+id.AppUserModelID+"\n"+id.Dock+"\n"+id.CrashReporter+"\n"+id.PackagedUpdates+"\napplied="+id.Applied)
 	})
 	helpMenu.Add("About DSH Desktop (Wails)").OnClick(func(ctx *application.Context) {
-		app.Dialog.Info().
-			SetTitle("DSH Desktop").
-			SetMessage("Native shell powered by Go + Wails v3.\nPrimary product path: Wails + Node Cordis Host.\nElectron main.ts is LAST-RESORT when forced by ABI (see docs/wails-migration.md).").
-			Show()
+		showMenuStatus(aux, app, "DSH Desktop",
+			"Native shell powered by Go + Wails v3.\nPrimary product path: Wails + Node Cordis Host.\nElectron main.ts is LAST-RESORT when forced by ABI (see docs/wails-migration.md).")
 	})
 
 	app.Menu.Set(menu)

@@ -44,12 +44,17 @@ func (b *BridgeService) attach(app *application.App) {
 }
 
 // BridgeStatus reports auth-bridge readiness for the control UI.
+// Never includes secret header values — only header name presence and proxy diagnostics.
 func (b *BridgeService) BridgeStatus() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	header := "(none)"
 	if b.authHeader != "" {
 		header = b.authHeader
+	}
+	hasToken := "no"
+	if b.authValue != "" {
+		hasToken = "yes"
 	}
 	auth := b.lastAuth
 	if auth == "" {
@@ -59,7 +64,7 @@ func (b *BridgeService) BridgeStatus() string {
 	if b.proxy != nil {
 		proxyStatus = b.proxy.Status()
 	}
-	return fmt.Sprintf("bridge=ready header=%s lastAuth=%s %s", header, auth, proxyStatus)
+	return fmt.Sprintf("bridge=ready header=%s hasToken=%s lastAuth=%s %s", header, hasToken, auth, proxyStatus)
 }
 
 // SetRendererAccessHeader stores the Host generation's renderer capability.
