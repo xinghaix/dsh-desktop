@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DESKTOP_RECOVERY_MODE_ARGUMENT,
   DESKTOP_SAFE_MODE_ARGUMENT,
+  DESKTOP_WAILS_HOST_SIDECAR_ARGUMENT,
   desktopDefaultRelaunchArguments,
   desktopRecoveryModeRequested,
   desktopRecoveryRelaunchArguments,
@@ -16,6 +17,7 @@ describe('Desktop relaunch arguments', () => {
     '--profile=work',
     DESKTOP_RECOVERY_MODE_ARGUMENT,
     DESKTOP_SAFE_MODE_ARGUMENT,
+    DESKTOP_WAILS_HOST_SIDECAR_ARGUMENT,
   ]
 
   it('strips one-shot markers, including Safe Mode, from an ordinary relaunch', () => {
@@ -39,5 +41,10 @@ describe('Desktop relaunch arguments', () => {
     ])
     expect(desktopSafeModeRequested(argv)).toBe(true)
     expect(desktopSafeModeRequested([argv[0]!, `${DESKTOP_SAFE_MODE_ARGUMENT}=true`])).toBe(false)
+  })
+
+  it('strips the Wails Host sidecar marker from an ordinary relaunch', () => {
+    expect(desktopDefaultRelaunchArguments(argv)).toEqual(['desktop-main.cjs', '--profile=work'])
+    expect(argv.includes(DESKTOP_WAILS_HOST_SIDECAR_ARGUMENT)).toBe(true)
   })
 })

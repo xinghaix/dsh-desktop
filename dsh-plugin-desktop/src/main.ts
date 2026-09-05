@@ -171,6 +171,10 @@ import {
   desktopSafeModeRequested,
 } from './relaunch-arguments.ts'
 import {
+  announceWailsHostReady,
+  desktopWailsHostSidecarRequested,
+} from './wails-host-sidecar.ts'
+import {
   cleanupDesktopSafeModeEnvironment,
   DESKTOP_SAFE_MODE_DEFAULTS,
   DESKTOP_SAFE_MODE_PROFILE_NAME,
@@ -1469,6 +1473,35 @@ async function start(): Promise<void> {
         )
       })
     })
+    if (desktopWailsHostSidecarRequested()) {
+      // Hybrid Wails shell: Cordis Host serves the UI; Electron skips BrowserWindow/Tray.
+      const hostUiUrl = ctx.connection.authenticatedUrl(
+        desktopLoopbackBrowserUrl(ctx.webServer.port),
+      )
+      announceWailsHostReady(hostUiUrl)
+      electronLogger.error(
+        `${BIN_NAME}: Wails Host sidecar ready at ${hostUiUrl}`,
+      )
+      const rendererReport = { status: 'healthy' as const }
+      lifecycleRecorder.startRendererBoot()
+      lifecycleRecorder.finishRendererBoot(rendererReport, 'renderer-failed')
+      startupStage = 'health-commit'
+      lifecycleRecorder.transitionStartupStage(startupStage)
+      try {
+        profileCheckpoint?.captureHealthy()
+      } catch (cause) {
+        electronLogger.error(
+          `${BIN_NAME}: failed to checkpoint the healthy profile configuration: ${cause instanceof Error ? cause.message : String(cause)}`,
+        )
+      }
+      lifecycleRecorder.completeStartup(startupStage, rendererReport)
+      notifySkippedOptionalEntries(runtime, electronLogger, prepared.skippedOptionalEntries)
+      notifyWindowsVolumeConcerns(runtime, electronLogger, windowsVolumeConcerns)
+      if (sessionProjectionCacheRecovery !== undefined) {
+        notifySessionProjectionCacheRecovery(runtime, electronLogger, sessionProjectionCacheRecovery)
+      }
+      return
+    }
     startupStage = 'renderer-startup'
     lifecycleRecorder.transitionStartupStage(startupStage)
     lifecycleRecorder.startRendererBoot()
