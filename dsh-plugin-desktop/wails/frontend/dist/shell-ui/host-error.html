@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Host problem / Host 异常</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <style>
+    body { margin: 0; background: #06070f; color: #e8ecf5; font-family: Inter, system-ui, sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 28px 24px 36px; }
+    h1 { font-size: 1.45rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+    .sub { color: #9aa3b8; margin: 0 0 22px; line-height: 1.5; }
+    .card { background: #121624; border: 1px solid #2a3142; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
+    .card h2 { font-size: 1rem; margin: 0 0 10px; }
+    .card ol, .card ul { margin: 0; padding-left: 1.2rem; color: #c5cce0; line-height: 1.55; }
+    .card code { background: #0b0d16; padding: 1px 6px; border-radius: 6px; font-size: 0.9em; }
+    .detail { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; color: #a9b3c9; max-height: 240px; overflow: auto; background: #0b0d16; border-radius: 10px; padding: 12px; border: 1px solid #1e2433; }
+    .kind { display: inline-block; background: #3b1d1d; color: #fecaca; border: 1px solid #7f1d1d; border-radius: 999px; padding: 2px 10px; font-size: 0.8rem; font-weight: 600; margin-bottom: 10px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    button { background: #3b82f6; color: #fff; border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer; font-weight: 600; }
+    button.secondary { background: #1e2433; color: #e8ecf5; border: 1px solid #2a3142; }
+    button:hover { filter: brightness(1.08); }
+    .note { color: #8b93a7; font-size: 0.88rem; margin-top: 16px; line-height: 1.45; }
+    .ok { color: #86efac; } .warn { color: #fbbf24; }
+  </style>
+  <script type="module">
+    import * as wails from "/wails/runtime.js";
+    window.__dshCall = (name, ...args) => wails.Call.ByName(name, ...args);
+  </script>
+</head>
+<body>
+<main>
+  <span class="kind" id="kind-badge">host-error</span>
+  <h1 id="title">Desktop Host 遇到问题</h1>
+  <p class="sub" id="subtitle">Something went wrong starting or keeping the Cordis Host. You can retry, open Recovery, or pick another install directory.</p>
+  <div class="card"><h2>建议 / What to try</h2><ol id="steps">
+    <li>Click <strong>Retry Host</strong> below.</li>
+    <li>If the install path is wrong, use <strong>Choose directory…</strong> or open the install-help page.</li>
+    <li>For profile / plugin damage, open <strong>Recovery Assistant</strong>.</li>
+  </ol></div>
+  <div class="card"><h2>详情 / Detail</h2><div class="detail" id="detail">Loading…</div></div>
+  <div class="actions">
+    <button id="btn-retry" type="button">Retry Host / 重试</button>
+    <button id="btn-choose" type="button" class="secondary">Choose directory…</button>
+    <button id="btn-install" type="button" class="secondary">Install help</button>
+    <button id="btn-recovery" type="button" class="secondary">Recovery…</button>
+    <button id="btn-control" type="button" class="secondary">Control UI</button>
+  </div>
+  <p class="note" id="status"></p>
+</main>
+<script type="module">
+  const call = (n, ...a) => window.__dshCall(n, ...a);
+  const q = new URLSearchParams(location.search);
+  const kind = (q.get("kind") || "host-error").trim();
+  const titles = {
+    "invalid-home": ["DSH_HOME / 目录不可用", "The chosen or DSH_HOME path is empty, missing, or has no usable Desktop Host entry."],
+    "not-usable": ["路径存在但不是可用 Host", "The path exists but does not contain a usable Cordis Desktop Host entry."],
+    "timeout": ["Host 就绪超时", "Timed out waiting for DSH_HOST_READY / Host UI URL."],
+    "start-failed": ["Host 启动失败", "The Host process failed to start."],
+    "crash": ["Host 意外退出", "The Host exited after start. Retry or open Recovery."],
+    "port-bind": ["端口占用 / 绑定失败", "Host could not bind its loopback port (often EADDRINUSE)."],
+    "profile": ["Profile / web 回退失败", "Could not use an existing profile or create/fallback to web."],
+    "missing": ["未找到 Host", "No user-installed Desktop Host was found."],
+    "host-error": ["Desktop Host 遇到问题", "Something went wrong with the Cordis Host sidecar."]
+  };
+  const stepsByKind = {
+    "invalid-home": ["Confirm DSH_HOME points at a real install root (e.g. ~/.dsh).", "Or Choose directory… and pick a folder with bin/dsh or node_modules/@deepseek-ai/dsh.", "Unset empty DSH_HOME if set by mistake."],
+    "not-usable": ["The directory exists but Host entry files are missing.", "Install @deepseek-ai/dsh into that root, or choose another directory.", "Ensure bin/dsh, bin/dsh-desktop, or node_modules/@deepseek-ai/dsh/lib/bin.js exists."],
+    "timeout": ["Wait and Retry Host.", "Check Host logs in the terminal / stderr.", "If port conflict is suspected, free the port or restart."],
+    "start-failed": ["Retry Host.", "Verify Node/Electron launcher and DSH_BIN / DSH_HOME.", "Open Recovery if the profile is damaged."],
+    "crash": ["Retry Host to relaunch the sidecar.", "Open Recovery Assistant for checkpoints / safe mode.", "Export diagnostics from Help if it keeps exiting."],
+    "port-bind": ["Another process may own the Host port.", "Stop the other instance, then Retry Host.", "Or set an alternate Host port via your install’s documented env if available."],
+    "profile": ["Shell falls back to profile web when no user profile exists.", "Open Switch Profile… or create a web profile from Recovery / Setup.", "Ensure ~/.dsh/profiles (or Desktop userData profiles) is writable."]
+  };
+  const pack = titles[kind] || titles["host-error"];
+  document.getElementById("kind-badge").textContent = kind;
+  document.getElementById("title").textContent = pack[0];
+  document.getElementById("subtitle").textContent = pack[1];
+  const steps = stepsByKind[kind];
+  if (steps) {
+    document.getElementById("steps").innerHTML = steps.map((s) => "<li>" + s + "</li>").join("");
+  }
+  const detailEl = document.getElementById("detail");
+  const status = document.getElementById("status");
+  async function loadDetail() {
+    try {
+      const fromQuery = q.get("message");
+      if (fromQuery) { detailEl.textContent = fromQuery; return; }
+      const d = await call("main.ShellService.LastHostErrorDetail");
+      detailEl.textContent = d || "(no detail)";
+    } catch (e) { detailEl.textContent = String(e); }
+  }
+  document.getElementById("btn-retry").onclick = async () => {
+    status.textContent = "Starting Host sidecar…";
+    try {
+      const ready = await call("main.ShellService.StartHostSidecar", "");
+      status.textContent = "Host ready: " + ready; status.className = "note ok";
+    } catch (e) {
+      status.textContent = String(e); status.className = "note warn";
+      try { await call("main.ShellService.ShowHostFailurePage", String(e)); } catch (_) {}
+      await loadDetail();
+    }
+  };
+  document.getElementById("btn-choose").onclick = async () => {
+    try {
+      const path = await call("main.ShellService.ChooseUserDshHomeDirectory");
+      status.textContent = path ? ("Saved DSH_HOME=" + path) : "Cancelled";
+      if (path) {
+        try {
+          const ready = await call("main.ShellService.StartHostSidecar", "");
+          status.textContent = "Host ready: " + ready; status.className = "note ok";
+        } catch (e) {
+          status.textContent = String(e); status.className = "note warn";
+          try { await call("main.ShellService.ShowHostFailurePage", String(e)); } catch (_) {}
+        }
+      }
+    } catch (e) { status.textContent = String(e); status.className = "note warn"; }
+  };
+  document.getElementById("btn-install").onclick = () => call("main.ShellService.ShowHostInstallPage");
+  document.getElementById("btn-recovery").onclick = () => call("main.ShellService.OpenRecovery", kind + ": " + (detailEl.textContent || ""));
+  document.getElementById("btn-control").onclick = () => call("main.ShellService.ShowControlUI");
+  loadDetail();
+</script>
+</body>
+</html>

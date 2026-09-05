@@ -1,0 +1,6 @@
+=== RUN   TestE2EProfileFallbackWeb
+--- PASS: TestE2EProfileFallbackWeb (0.00s)
+=== RUN   TestClassifyProfileCreateFailure
+--- PASS: TestClassifyProfileCreateFailure (0.00s)
+PASS
+ok  	github.com/xinghaix/dsh-desktop/dsh-plugin-desktop/wails	0.057s

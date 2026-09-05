@@ -1,0 +1,13 @@
+
+ RUN  v4.1.8 /workspace/repos/dsh-desktop/dsh-plugin-desktop
+
+dsh-desktop: HOME:~/.dsh:node_modules/@deepseek-ai/dsh/lib/bin.js -> /tmp/dsh-cli-packaged-test-MhM7jd/.dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+dsh-desktop: DSH_CLI_ALLOW_BUNDLED -> /workspace/repos/dsh-desktop/dsh-plugin-desktop/node_modules/@deepseek-ai/dsh/lib/bin.js
+dsh-desktop: DSH_CLI_ALLOW_BUNDLED -> /workspace/repos/dsh-desktop/dsh-plugin-desktop/node_modules/@deepseek-ai/dsh/lib/bin.js
+dsh-desktop: HOME:~/.dsh:node_modules/@deepseek-ai/dsh/lib/bin.js -> /tmp/dsh-cli-run-faIllN/.dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  12:57:58
+   Duration  221ms (transform 154ms, setup 0ms, import 216ms, tests 25ms, environment 0ms)
+

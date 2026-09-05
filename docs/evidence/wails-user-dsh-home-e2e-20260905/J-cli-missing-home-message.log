@@ -1,0 +1,21 @@
+No user-installed dsh CLI (@deepseek-ai/dsh) was found.
+Desktop will not silently use the bundled package copy.
+
+Checked paths:
+  - DSH_CLI_BIN=(unset)
+  - DSH_HOME=(unset)
+  - /tmp/dsh-cli-miss-zmIHJB/.dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+  - /tmp/dsh-cli-miss-zmIHJB/.dsh/lib/bin.js
+  - /tmp/dsh-cli-miss-zmIHJB/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+  - /tmp/dsh-cli-miss-zmIHJB/dsh/lib/bin.js
+  - /tmp/dsh-cli-miss-zmIHJB/.local/share/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+  - /tmp/dsh-cli-miss-zmIHJB/.local/share/dsh/lib/bin.js
+  - DSH_CLI_ALLOW_BUNDLED=(off)
+
+Next steps:
+  1. Install @deepseek-ai/dsh under the user home directory
+  2. Or point the CLI bin / home override variables
+  3. Or enable the documented bundled opt-in flag
+
+Note: Host is Cordis Web UI (dsh web profile family). Wails attaches a user-installed Host only; packaged host-main is off by default. This rule forces CLI entry to use the user home dsh.
+HIT= undefined

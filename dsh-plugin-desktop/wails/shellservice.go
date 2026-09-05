@@ -13,13 +13,15 @@ import (
 // future Cordis Host bridge callers. Methods are discovered by
 // `wails3 generate bindings`.
 type ShellService struct {
-	mu      sync.Mutex
-	app     *application.App
-	window  *application.WebviewWindow
-	hostURL string
-	sidecar *HostSidecar
-	aux     *AuxWindowService
-	bridge  *BridgeService
+	mu             sync.Mutex
+	app            *application.App
+	window         *application.WebviewWindow
+	hostURL        string
+	sidecar        *HostSidecar
+	aux            *AuxWindowService
+	bridge         *BridgeService
+	lastHostError  string
+	lastHostKind   string
 }
 
 func NewShellService(sidecar *HostSidecar) *ShellService {
@@ -252,6 +254,9 @@ func (s *ShellService) ShowHostInstallPage() error {
 }
 
 // ChooseUserDshHomeDirectory opens a folder picker, persists DSH_HOME, and returns the path.
+// Empty cancel returns ("", nil). Non-directory / empty path errors. A directory without a
+// Host entry is still persisted (install-into-folder), but StartHostSidecar will classify
+// it as not-usable / invalid-home and show the friendly host-error page.
 func (s *ShellService) ChooseUserDshHomeDirectory() (string, error) {
 	path, err := s.OpenDirectoryDialog()
 	if err != nil {
@@ -259,6 +264,13 @@ func (s *ShellService) ChooseUserDshHomeDirectory() (string, error) {
 	}
 	if strings.TrimSpace(path) == "" {
 		return "", nil
+	}
+	st, statErr := os.Stat(path)
+	if statErr != nil || !st.IsDir() {
+		msg := friendlyInvalidHomeMessage(path, "chosen")
+		s.rememberHostFailure(hostFailInvalidHome, msg)
+		_ = s.ShowHostErrorPage(hostFailInvalidHome, msg)
+		return "", fmt.Errorf("%s", msg)
 	}
 	if err := saveUserChosenDshHome(path); err != nil {
 		return "", err
@@ -276,6 +288,75 @@ func (s *ShellService) HostDiscoverCheckedPaths() string {
 	return strings.Join(rep.Checked, "\n")
 }
 
+// LastHostErrorDetail returns the most recent Host failure detail for host-error.html.
+func (s *ShellService) LastHostErrorDetail() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.lastHostError != "" {
+		return s.lastHostError
+	}
+	if s.sidecar != nil {
+		return s.sidecar.LastError()
+	}
+	return ""
+}
+
+// LastHostErrorKind returns the classified failure kind for the last Host error.
+func (s *ShellService) LastHostErrorKind() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastHostKind
+}
+
+func (s *ShellService) rememberHostFailure(kind, detail string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastHostKind = kind
+	s.lastHostError = detail
+}
+
+// ShowHostErrorPage loads the friendly abnormal-scenario page into the main window.
+func (s *ShellService) ShowHostErrorPage(kind, detail string) error {
+	if strings.TrimSpace(kind) == "" {
+		kind = hostFailGeneric
+	}
+	s.rememberHostFailure(kind, detail)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.window == nil {
+		return fmt.Errorf("main window is not attached")
+	}
+	s.hostURL = ""
+	s.window.SetURL(hostErrorPageURL(kind, detail))
+	s.window.SetTitle("DSH Desktop — Host problem")
+	s.window.Show()
+	s.window.Focus()
+	return nil
+}
+
+// ShowHostFailurePage classifies errText and shows install-help or host-error.
+func (s *ShellService) ShowHostFailurePage(errText string) error {
+	errText = strings.TrimSpace(errText)
+	var err error
+	if errText != "" {
+		err = fmt.Errorf("%s", errText)
+	}
+	rep := ProbeHostDiscovery()
+	kind := classifyHostFailure(err, &rep)
+	if kind == hostFailMissing {
+		s.rememberHostFailure(kind, errText)
+		return s.ShowHostInstallPage()
+	}
+	if kind == "" {
+		kind = hostFailGeneric
+	}
+	detail := errText
+	if detail == "" {
+		detail = rep.Message
+	}
+	return s.ShowHostErrorPage(kind, detail)
+}
+
 // StartHostSidecar starts/discovers the Cordis Host and navigates to its UI URL.
 // Pass an empty url to use DSH_HOST_URL / DSH_HOST_COMMAND / DSH_HOST_URL_FILE.
 func (s *ShellService) StartHostSidecar(url string) (string, error) {
@@ -287,6 +368,9 @@ func (s *ShellService) StartHostSidecar(url string) (string, error) {
 	}
 	ready, err := sidecar.Start(url)
 	if err != nil {
+		rep := ProbeHostDiscovery()
+		kind := classifyHostFailure(err, &rep)
+		s.rememberHostFailure(kind, err.Error())
 		return "", err
 	}
 	if ready == recoveryURLSentinel || strings.HasPrefix(ready, "recovery://") {

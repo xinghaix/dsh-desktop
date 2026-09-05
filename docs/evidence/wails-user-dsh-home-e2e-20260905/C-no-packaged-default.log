@@ -1,0 +1,97 @@
+12:58PM INF Build Info: Wails=v3.0.0-beta.16 Compiler=go1.27.0 -buildmode=exe -compiler=gc CGO_ENABLED=1 CGO_CPPFLAGS= CGO_LDFLAGS= GOAMD64=v1 vcs=git vcs.revision=953b55e5f6ce708828b8a36a5456d2346bb3e5cf CGO_CFLAGS= CGO_CXXFLAGS= GOARCH=amd64 GOOS=linux vcs.time=2026-09-05T12:29:51Z vcs.modified=true
+12:58PM INF AssetServer Info: middleware=true handler=true
+12:58PM INF Platform Info: ID=debian Name=Debian GNU/Linux Version=13 Branding=13 (trixie) GTK=4.18.6 WebKitGTK=2.52.6
+2026/09/05 12:58:05 dsh-wails-shell: crash-evidence=active dir=/tmp/e2e-C2-xdg/config/DSH Desktop/crash-evidence
+2026/09/05 12:58:05 dsh-wails-shell: host discover: no user install; packaged Host disabled by default
+未找到可用的 Desktop Host（Cordis Host）。
+No usable Desktop Host was found for the Wails shell.
+
+已检查 / Checked paths:
+  - DSH_BIN=(unset)
+  - DSH_HOME=(unset)
+  - /tmp/e2e-C2-home/.dsh/bin/dsh-desktop
+  - /tmp/e2e-C2-home/.dsh/bin/dsh-plugin-desktop
+  - /tmp/e2e-C2-home/.dsh/bin/dsh
+  - /tmp/e2e-C2-home/.dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+  - /tmp/e2e-C2-home/.dsh/lib/host-main.js
+  - /tmp/e2e-C2-home/.dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/e2e-C2-home/.dsh/lib/bin.js
+  - /tmp/e2e-C2-home/dsh/bin/dsh-desktop
+  - /tmp/e2e-C2-home/dsh/bin/dsh-plugin-desktop
+  - /tmp/e2e-C2-home/dsh/bin/dsh
+  - /tmp/e2e-C2-home/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+  - /tmp/e2e-C2-home/dsh/lib/host-main.js
+  - /tmp/e2e-C2-home/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/e2e-C2-home/dsh/lib/bin.js
+  - /tmp/e2e-C2-home/.local/share/dsh/bin/dsh-desktop
+  - /tmp/e2e-C2-home/.local/share/dsh/bin/dsh-plugin-desktop
+  - /tmp/e2e-C2-home/.local/share/dsh/bin/dsh
+  - /tmp/e2e-C2-home/.local/share/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+  - /tmp/e2e-C2-home/.local/share/dsh/lib/host-main.js
+  - /tmp/e2e-C2-home/.local/share/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/e2e-C2-home/.local/share/dsh/lib/bin.js
+  - /tmp/e2e-C2-xdg/data/dsh/bin/dsh-desktop
+  … and 18 more
+
+下一步 / Next steps:
+  1. 安装用户级 dsh（@deepseek-ai/dsh）到家目录，例如 ~/.dsh 或 ~/dsh；或在应用内「选择目录…」
+     Install user-level dsh (@deepseek-ai/dsh) under home (e.g. ~/.dsh or ~/dsh); or use in-app Choose directory…
+  2. 确保存在 bin/dsh、bin/dsh-desktop，或 node_modules/@deepseek-ai/dsh/lib/bin.js
+     Ensure bin/dsh, bin/dsh-desktop, or node_modules/@deepseek-ai/dsh/lib/bin.js exists
+  3. 或设置环境变量 / Or set:
+       export DSH_HOME=$HOME/.dsh
+       export DSH_BIN=/path/to/dsh   # or host-main.js / dsh-desktop
+  4. 把 dsh 放到 PATH / Or put dsh on PATH (~/.local/bin)
+  5. 已有运行中的 Host 时可设置 DSH_HOST_URL / Or attach with DSH_HOST_URL
+
+说明: 桌面 Wails 只附着用户安装的 dsh Host（同 `dsh --profile <your|web>`）；默认不使用包内/monorepo host-main。
+Note: Wails only attaches a user-installed dsh Host (same as `dsh --profile <your|web>`); packaged/monorepo host-main is off by default (DSH_ALLOW_PACKAGED_HOST=1 for dev only).
+2026/09/05 12:58:05 dsh-wails-shell: host sidecar: 未找到可用的 Desktop Host（Cordis Host）。
+No usable Desktop Host was found for the Wails shell.
+
+已检查 / Checked paths:
+  - DSH_BIN=(unset)
+  - DSH_HOME=(unset)
+  - /tmp/e2e-C2-home/.dsh/bin/dsh-desktop
+  - /tmp/e2e-C2-home/.dsh/bin/dsh-plugin-desktop
+  - /tmp/e2e-C2-home/.dsh/bin/dsh
+  - /tmp/e2e-C2-home/.dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+  - /tmp/e2e-C2-home/.dsh/lib/host-main.js
+  - /tmp/e2e-C2-home/.dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/e2e-C2-home/.dsh/lib/bin.js
+  - /tmp/e2e-C2-home/dsh/bin/dsh-desktop
+  - /tmp/e2e-C2-home/dsh/bin/dsh-plugin-desktop
+  - /tmp/e2e-C2-home/dsh/bin/dsh
+  - /tmp/e2e-C2-home/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+  - /tmp/e2e-C2-home/dsh/lib/host-main.js
+  - /tmp/e2e-C2-home/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/e2e-C2-home/dsh/lib/bin.js
+  - /tmp/e2e-C2-home/.local/share/dsh/bin/dsh-desktop
+  - /tmp/e2e-C2-home/.local/share/dsh/bin/dsh-plugin-desktop
+  - /tmp/e2e-C2-home/.local/share/dsh/bin/dsh
+  - /tmp/e2e-C2-home/.local/share/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+  - /tmp/e2e-C2-home/.local/share/dsh/lib/host-main.js
+  - /tmp/e2e-C2-home/.local/share/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/e2e-C2-home/.local/share/dsh/lib/bin.js
+  - /tmp/e2e-C2-xdg/data/dsh/bin/dsh-desktop
+  … and 18 more
+
+下一步 / Next steps:
+  1. 安装用户级 dsh（@deepseek-ai/dsh）到家目录，例如 ~/.dsh 或 ~/dsh；或在应用内「选择目录…」
+     Install user-level dsh (@deepseek-ai/dsh) under home (e.g. ~/.dsh or ~/dsh); or use in-app Choose directory…
+  2. 确保存在 bin/dsh、bin/dsh-desktop，或 node_modules/@deepseek-ai/dsh/lib/bin.js
+     Ensure bin/dsh, bin/dsh-desktop, or node_modules/@deepseek-ai/dsh/lib/bin.js exists
+  3. 或设置环境变量 / Or set:
+       export DSH_HOME=$HOME/.dsh
+       export DSH_BIN=/path/to/dsh   # or host-main.js / dsh-desktop
+  4. 把 dsh 放到 PATH / Or put dsh on PATH (~/.local/bin)
+  5. 已有运行中的 Host 时可设置 DSH_HOST_URL / Or attach with DSH_HOST_URL
+
+说明: 桌面 Wails 只附着用户安装的 dsh Host（同 `dsh --profile <your|web>`）；默认不使用包内/monorepo host-main。
+Note: Wails only attaches a user-installed dsh Host (same as `dsh --profile <your|web>`); packaged/monorepo host-main is off by default (DSH_ALLOW_PACKAGED_HOST=1 for dev only).
+12:58PM WRN [WARNING] Failed to connect to system bus; sleep/wake events will not fire: dial unix /var/run/dbus/system_bus_socket: connect: no such file or directory
+Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal
+
+** (process:2): WARNING **: 12:58:05.874: Can't connect to a11y bus: Could not connect: No such file or directory
+12:58PM INF [AssetFileServerFS] Handling request url=/shell-ui/host-install.html file=shell-ui/host-install.html
+12:58PM INF [AssetFileServerFS] Handling request url=/style.css file=style.css

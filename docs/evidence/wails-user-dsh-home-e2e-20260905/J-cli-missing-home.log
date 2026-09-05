@@ -1,0 +1,10 @@
+
+ RUN  v4.1.8 /workspace/repos/dsh-desktop/dsh-plugin-desktop
+
+dsh-desktop: HOME:~/.dsh:node_modules/@deepseek-ai/dsh/lib/bin.js -> /tmp/dsh-cli-run-9YQV0f/.dsh/node_modules/@deepseek-ai/dsh/lib/bin.js
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  12:55:41
+   Duration  207ms (transform 75ms, setup 0ms, import 103ms, tests 12ms, environment 0ms)
+

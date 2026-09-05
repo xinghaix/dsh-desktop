@@ -516,6 +516,7 @@ func ProbeHostDiscovery() hostDiscoverReport {
 	}
 
 	dshHome := strings.TrimSpace(os.Getenv("DSH_HOME"))
+	dshHomeUnusable := false
 	if dshHome != "" {
 		if hit, ok := probeHomeRoot(dshHome, "DSH_HOME", &checked); ok {
 			report.Hit = hit
@@ -523,6 +524,8 @@ func ProbeHostDiscovery() hostDiscoverReport {
 			report.Message = "Desktop Host via " + hit.Reason + " → " + hit.Path
 			return report
 		}
+		dshHomeUnusable = true
+		checked = appendUnique(checked, "DSH_HOME=(set but no usable Host entry):"+dshHome)
 	} else {
 		checked = appendUnique(checked, "DSH_HOME=(unset)")
 	}
@@ -563,7 +566,11 @@ func ProbeHostDiscovery() hostDiscoverReport {
 	}
 
 	report.Checked = checked
-	report.Message = friendlyHostMissingMessage(checked)
+	if dshHomeUnusable {
+		report.Message = friendlyInvalidHomeMessage(dshHome, "DSH_HOME") + "\n" + friendlyHostMissingMessage(checked)
+	} else {
+		report.Message = friendlyHostMissingMessage(checked)
+	}
 	return report
 }
 

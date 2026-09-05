@@ -35,6 +35,9 @@ type HostSidecar struct {
 	caps             *CapabilitiesService
 	recoveryDetail   string
 	recoveryRPC      *RecoveryRpcClient
+	onUnexpectedExit func(err error)
+	readyAnnounced   bool
+	lastStdoutHint   string
 }
 
 func NewHostSidecar() *HostSidecar {
@@ -80,6 +83,20 @@ func (h *HostSidecar) RecoveryRPC() *RecoveryRpcClient {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return h.recoveryRPC
+}
+
+// LastError returns the last sidecar failure string, if any.
+func (h *HostSidecar) LastError() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.lastErr
+}
+
+// OnUnexpectedExit registers a callback when the Host process exits after READY.
+func (h *HostSidecar) OnUnexpectedExit(fn func(err error)) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onUnexpectedExit = fn
 }
 
 // SetPreferredProfile asks the next Host spawn to prefer this profile name.
@@ -158,6 +175,8 @@ func (h *HostSidecar) Start(explicitURL string) (string, error) {
 	h.cancel = cancel
 	h.running = true
 	h.lastErr = ""
+	h.readyAnnounced = false
+	h.lastStdoutHint = ""
 	h.mu.Unlock()
 
 	if command != "" {
@@ -256,6 +275,13 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 		for scanner.Scan() {
 			line := scanner.Text()
 			fmt.Fprintln(os.Stderr, "[dsh-host]", line)
+			lowerLine := strings.ToLower(line)
+			if strings.Contains(lowerLine, "eaddrinuse") || strings.Contains(lowerLine, "address already in use") ||
+				strings.Contains(lowerLine, "profile") && strings.Contains(lowerLine, "fail") {
+				h.mu.Lock()
+				h.lastStdoutHint = line
+				h.mu.Unlock()
+			}
 			if strings.HasPrefix(line, hostReadyPrefix) {
 				u := strings.TrimSpace(strings.TrimPrefix(line, hostReadyPrefix))
 				if u != "" {
@@ -303,11 +329,25 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 	go func() {
 		err := cmd.Wait()
 		h.mu.Lock()
+		wasReady := h.readyAnnounced
+		cb := h.onUnexpectedExit
 		h.running = false
-		if err != nil && h.lastErr == "" {
-			h.lastErr = err.Error()
+		var notify error
+		if err != nil {
+			if h.lastErr == "" {
+				h.lastErr = err.Error()
+			}
+			notify = fmt.Errorf("Host exited unexpectedly: %v", err)
+		} else if wasReady {
+			if h.lastErr == "" {
+				h.lastErr = "Host process exited after READY"
+			}
+			notify = fmt.Errorf("Host exited unexpectedly after READY (exit 0)")
 		}
 		h.mu.Unlock()
+		if wasReady && cb != nil && notify != nil {
+			cb(notify)
+		}
 	}()
 	return nil
 }
@@ -340,6 +380,19 @@ func (h *HostSidecar) waitForURL(ctx context.Context, urlFile string, deadline t
 		case <-ctx.Done():
 			return "", fmt.Errorf("host sidecar cancelled")
 		case <-timer.C:
+			h.mu.Lock()
+			exitHint := h.lastErr
+			stdoutHint := h.lastStdoutHint
+			h.mu.Unlock()
+			if stdoutHint != "" {
+				if exitHint != "" {
+					return "", fmt.Errorf("timed out waiting for Cordis Host UI URL (%s; host exited: %s)", stdoutHint, exitHint)
+				}
+				return "", fmt.Errorf("timed out waiting for Cordis Host UI URL (%s)", stdoutHint)
+			}
+			if exitHint != "" {
+				return "", fmt.Errorf("timed out waiting for Cordis Host UI URL (host exited: %s)", exitHint)
+			}
 			return "", fmt.Errorf("timed out waiting for Cordis Host UI URL")
 		case <-tick.C:
 		}
@@ -350,6 +403,9 @@ func (h *HostSidecar) setURL(url string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.url = url
+	if url != "" && url != recoveryURLSentinel && !strings.HasPrefix(url, "recovery://") {
+		h.readyAnnounced = true
+	}
 }
 
 func (h *HostSidecar) fail(err error) {

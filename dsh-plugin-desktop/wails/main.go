@@ -38,6 +38,13 @@ func main() {
 	sidecar.AttachCaps(caps)
 	caps.attachCrash(crash)
 	aux.attachCaps(caps)
+	sidecar.OnUnexpectedExit(func(err error) {
+		log.Printf("dsh-wails-shell: host unexpected exit: %v", err)
+		if pageErr := shell.ShowHostFailurePage(err.Error()); pageErr != nil {
+			log.Printf("dsh-wails-shell: host-error page: %v", pageErr)
+			_ = aux.OpenRecovery(err.Error())
+		}
+	})
 
 	app := application.New(application.Options{
 		Name:        "DSH Desktop",
@@ -105,10 +112,10 @@ func main() {
 			ready, err := shell.StartHostSidecar("")
 			if err != nil {
 				log.Printf("dsh-wails-shell: host sidecar: %v", err)
-				if pageErr := shell.ShowHostInstallPage(); pageErr != nil {
-					log.Printf("dsh-wails-shell: install page: %v", pageErr)
+				if pageErr := shell.ShowHostFailurePage(err.Error()); pageErr != nil {
+					log.Printf("dsh-wails-shell: failure page: %v", pageErr)
 					msg := err.Error()
-					if openErr := aux.OpenInfoDialog("Desktop Host not found", msg); openErr != nil {
+					if openErr := aux.OpenInfoDialog("Desktop Host problem", msg); openErr != nil {
 						_ = aux.OpenRecovery(msg)
 					}
 				}
