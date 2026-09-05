@@ -3,6 +3,7 @@
 Timezone: log timestamps **UTC**; user local **Asia/Shanghai (UTC+8)**.
 
 - Branch: `feat/wails-user-dsh-home`
+- Tip: `1cebf9722f`
 - Scope: when the user-installed Cordis Host sidecar exits unexpectedly after READY, the Wails shell auto-restarts it with backoff; intentional Quit/Stop/Recovery quit do not.
 
 ## Behavior

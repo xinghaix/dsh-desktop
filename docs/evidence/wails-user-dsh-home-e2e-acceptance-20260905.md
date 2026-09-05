@@ -3,8 +3,8 @@
 Timezone: log timestamps below are **UTC**; user local **Asia/Shanghai (UTC+8)**.
 
 - Branch: `feat/wails-user-dsh-home`
-- Base commit at start: 
-- Tip (auto-relaunch): `953b55e5f6`
+- Base commit at start: `953b55e5f6`
+- Tip (auto-relaunch): `1cebf9722f`
 - Evidence dir: `docs/evidence/wails-user-dsh-home-e2e-20260905/`
 - Binary: `/tmp/dsh-wails-shell` (copy of `dsh-plugin-desktop/wails/bin/dsh-wails-shell`), DISPLAY=:5, GTK_A11Y=none
 - Tooling: Go 1.27 `/home/box/sdk/go1.27.0/bin`, Node 22 `/home/box/sdk/node-v22.19.0-linux-x64/bin`
