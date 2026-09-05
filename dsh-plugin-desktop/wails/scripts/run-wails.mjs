@@ -78,21 +78,28 @@ function probeCmd(cmd, args = ['--version']) {
  * a host has wails3 + linuxdeploy-capable tooling (see docs/wails-package-appimage.md).
  */
 function reportPackageDeps() {
+  const appimageScript = path.join(root, 'build', 'linux', 'appimage', 'build.sh')
   const checks = [
     ['go', probeCmd('go', ['version'])],
     ['wails3', probeCmd('wails3', ['version'])],
     ['wget', probeCmd('wget', ['--version'])],
+    ['file', probeCmd('file', ['--version'])],
     ['fusermount', probeCmd('fusermount', ['-V']) || probeCmd('fusermount3', ['-V'])],
+    ['appimage-build.sh', existsSync(appimageScript)],
   ]
   console.log('package:wails / AppImage dependency probe (informational):')
   for (const [name, ok] of checks) {
     console.log(`  ${ok ? 'OK ' : 'MISS'} ${name}`)
   }
+  const byName = Object.fromEntries(checks)
+  const ready = byName.go && byName.wails3 && byName.fusermount && byName.file
+  console.log(`  appimage-host-ready=${ready ? 'likely' : 'no'} (needs go+wails3+FUSE+file(1); linuxdeploy fetched at package time)`)
   if (!checks[1][1]) {
     console.log('  note: without wails3, package:wails falls back to bin/dsh-wails-shell (go build)')
   }
   console.log('  note: electron-builder remains default product CI until the release flip')
-  console.log('  note: full AppImage needs linuxdeploy (fetched by wails3 generate appimage) + FUSE on Linux')
+  console.log('  note: full AppImage needs linuxdeploy (fetched by wails3 generate appimage) + FUSE + file(1) on Linux')
+  console.log('  note: see docs/wails-package-appimage.md for host deps and flip criteria')
 }
 
 switch (mode) {

@@ -107,22 +107,40 @@ func (c *CrashEvidenceService) MarkClean() {
 	c.clean = true
 }
 
+// Dir returns the crash-evidence directory when known (empty if not started).
+func (c *CrashEvidenceService) Dir() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.dir
+}
+
 // Status reports crash-evidence readiness for control UI / PlatformIdentity.
+// Multi-line so Help → Crash Evidence Status / Control UI are readable on Linux.
 func (c *CrashEvidenceService) Status() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if !c.installed {
-		return "crash-evidence=not-started (file-based; Crashpad unavailable)"
+		return strings.Join([]string{
+			"crash-evidence=not-started",
+			"backend=file-based (Electron Crashpad/minidumps unavailable in Wails)",
+			"upload=never (local markers + panic dumps only)",
+			"hint=Help → Reveal Crash Evidence Folder after BeginRun",
+		}, "\n")
 	}
 	state := "active"
 	if c.clean {
 		state = "clean"
 	}
-	msg := fmt.Sprintf("crash-evidence=%s dir=%s", state, c.dir)
-	if c.previous != "" {
-		msg += "; " + c.previous
+	lines := []string{
+		"crash-evidence=" + state,
+		"dir=" + c.dir,
+		"backend=file-based active-run.json + panic-*.txt",
+		"upload=never",
 	}
-	return msg
+	if c.previous != "" {
+		lines = append(lines, "previous="+c.previous)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // WritePanicDump persists a panic stack to crash-evidence (best-effort).

@@ -39,3 +39,9 @@ git push origin feat/wails3-shell   # xinghaix remote in this fork
 
 Do not invent a second product release workflow; electron-builder remains default until
 the release flip documented in docs/wails-migration.md.
+
+
+## Credential note (xinghaix fork)
+
+`gh auth status` (2026-09-05): scopes gist, read:org, repo — **no workflow**. Live wails-smoke
+workflow stays blocked; keep iterating the example + local smoke.

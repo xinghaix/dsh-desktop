@@ -16,11 +16,43 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+export function ApplyPlatformIdentity(): $CancellablePromise<$models.PlatformIdentityStatus> {
+    return $Call.ByID(3072473608);
+}
+
+/**
+ * CapabilitiesStatus aggregates hybrid shell capability readiness for Help / smoke.
+ */
+export function CapabilitiesStatus(): $CancellablePromise<string> {
+    return $Call.ByID(2167313555);
+}
+
 /**
  * CheckForUpdates probes the public Desktop version endpoint (same as Electron checker).
  */
 export function CheckForUpdates(): $CancellablePromise<$models.UpdateCheckResult> {
     return $Call.ByID(3300687414);
+}
+
+/**
+ * ClearUserAttention clears dock/taskbar flash and tray badge count.
+ */
+export function ClearUserAttention(): $CancellablePromise<void> {
+    return $Call.ByID(797617523);
+}
+
+/**
+ * CrashEvidenceStatus exposes file-based crash evidence (Crashpad alternative).
+ */
+export function CrashEvidenceStatus(): $CancellablePromise<string> {
+    return $Call.ByID(126388985);
+}
+
+/**
+ * DockAttentionStatus documents maximized Wails dock/attention APIs in use.
+ */
+export function DockAttentionStatus(): $CancellablePromise<string> {
+    return $Call.ByID(3609937444);
 }
 
 /**
@@ -47,6 +79,8 @@ export function IngestLanHttpsAnnounceLine(line: string): $CancellablePromise<bo
 
 /**
  * LanHttpsStatus reports Host-announced LAN HTTPS state when available.
+ * Empty internal state means the Host has not announced yet (TLS remains Host-owned).
+ * Dialog-oriented: multi-line key=value when announced so Tools → LAN HTTPS Status is readable.
  */
 export function LanHttpsStatus(): $CancellablePromise<string> {
     return $Call.ByID(3796462409);
@@ -71,6 +105,26 @@ export function NotifyAttention(title: string, body: string): $CancellablePromis
  */
 export function OpenTerminal(workdir: string): $CancellablePromise<void> {
     return $Call.ByID(3461547347, workdir);
+}
+
+export function PlatformIdentity(): $CancellablePromise<$models.PlatformIdentityStatus> {
+    return $Call.ByID(1305877414);
+}
+
+/**
+ * RequestUserAttention flashes the dock/taskbar and updates tray badge text.
+ * Wails v3 beta has no Electron app.setBadgeCount; Flash() bounces the macOS
+ * Dock / flashes the Windows taskbar. Badge count is reflected in the tray tooltip.
+ */
+export function RequestUserAttention(count: number): $CancellablePromise<void> {
+    return $Call.ByID(3600174339, count);
+}
+
+/**
+ * RevealCrashEvidenceFolder opens the local crash-evidence directory in the file manager.
+ */
+export function RevealCrashEvidenceFolder(): $CancellablePromise<void> {
+    return $Call.ByID(3885615316);
 }
 
 /**

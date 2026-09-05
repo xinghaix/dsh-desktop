@@ -27,6 +27,7 @@ Minimum for the installer path (not required for smoke:wails):
 - Network to fetch linuxdeploy AppImages (see build/linux/appimage/build.sh)
 - FUSE / fusermount so linuxdeploy AppImages can run on the packager host
 - GTK / WebKitGTK build libs already needed to compile the shell
+- file(1) / libmagic — required by appimagetool (blocked AppImage until apt install file on 2026-09-05 bed)
 - Optional: wget (used by the vendor AppImage script)
 
 Informational probe (does not fail smoke):
@@ -38,8 +39,28 @@ node dsh-plugin-desktop/wails/scripts/run-wails.mjs package-deps
 
 On this cloud box, expect wails3 and/or FUSE to be MISS; use the Go binary for hybrid verification.
 
+## Release flip gate
+
+AppImage/package:wails becoming the *shipping* Linux channel requires the release flip
+checklist in docs/wails-migration.md (signed artifacts, AuthProxy on package, CI green).
+Until then package:wails is R&D / preview only.
+
 ## CI note
 
 The live workflow file under .github/workflows is not committed while the push credential lacks workflow scope.
 Keep docs/wails-ci-smoke.yml.example in sync and copy it when scope exists (see docs/wails-workspace-scripts.md).
 Product release CI stays electron-builder until flipped.
+
+
+Token scopes observed on xinghaix cloud credential (2026-09-05): gist, read:org, repo — missing workflow.
+Do not commit .github/workflows/wails-smoke.yml until workflow scope exists.
+
+## Bed evidence (2026-09-05)
+
+After installing `file`, `node wails/scripts/run-wails.mjs package` produced (gitignored under wails/bin/):
+
+- dsh-wails-shell-x86_64.AppImage (~102MiB)
+- dsh-wails-shell.deb / .rpm / .pkg.tar.zst
+- bin/dsh-wails-shell native binary
+
+Still **not** the product download channel (electron-builder remains default until flip).

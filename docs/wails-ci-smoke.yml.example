@@ -11,6 +11,7 @@
 #   git commit -m "ci(wails): add additive wails-smoke workflow"
 #   git push origin feat/wails3-shell   # xinghaix remote in this fork
 #
+# Token scopes observed 2026-09-05 on xinghaix: gist, read:org, repo (no workflow).
 # Local equivalent without workflow scope:
 #   node scripts/wails-smoke.mjs
 #   node dsh-plugin-desktop/wails/scripts/run-wails.mjs package-deps

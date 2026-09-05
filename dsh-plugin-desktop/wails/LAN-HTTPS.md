@@ -19,8 +19,10 @@ the installation-local CA.
 4. `HostSidecar` forwards matching stdout lines to
    `CapabilitiesService.IngestLanHttpsAnnounceLine`.
 5. Operators inspect Tools → **LAN HTTPS Status** or Help → **Capabilities Status**.
-   Status strings use `lan-https=awaiting-host-announce` until the first valid announce,
-   then `lan-https=announced …` (no double `lan-https=` prefix).
+   **LAN HTTPS Status** is multi-line (state/port/addresses/fingerprint/error/urls) for
+   dialog readability. **Capabilities Status** keeps a compact `lan-https=announced …`
+   one-liner. Awaiting state explains Host ownership until the first valid announce
+   (no double `lan-https=` prefix).
 
 Example Host stdout line:
 

@@ -12,6 +12,18 @@ export interface AuxWindowResult {
 }
 
 /**
+ * PlatformIdentityStatus documents what the hybrid shell owns vs Electron-only.
+ */
+export interface PlatformIdentityStatus {
+    "appId": string;
+    "appUserModelId": string;
+    "dock": string;
+    "crashReporter": string;
+    "packagedUpdates": string;
+    "applied": string;
+}
+
+/**
  * UpdateCheckResult is the hybrid update probe / download result.
  */
 export interface UpdateCheckResult {

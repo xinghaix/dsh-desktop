@@ -274,6 +274,13 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 	helpMenu.Add("Crash Evidence Status").OnClick(func(ctx *application.Context) {
 		showMenuStatus(aux, app, "Crash evidence", caps.CrashEvidenceStatus())
 	})
+	helpMenu.Add("Reveal Crash Evidence Folder").OnClick(func(ctx *application.Context) {
+		if err := caps.RevealCrashEvidenceFolder(); err != nil {
+			showMenuStatus(aux, app, "Crash evidence", "Reveal failed:\n"+err.Error()+"\n\n"+caps.CrashEvidenceStatus())
+			return
+		}
+		showMenuStatus(aux, app, "Crash evidence", "Opened folder.\n\n"+caps.CrashEvidenceStatus())
+	})
 	helpMenu.Add("Platform Identity").OnClick(func(ctx *application.Context) {
 		id := caps.PlatformIdentity()
 		showMenuStatus(aux, app, "Platform identity",

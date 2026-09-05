@@ -219,39 +219,103 @@ func (a *AuxWindowService) CompleteProfileCreate(action, profile string) error {
 }
 
 // CompleteRecovery records a recovery outcome.
-// action: restart | safe-mode | quit | profiles | control.
+// Supported hybrid actions: restart | safe-mode | quit | profiles | control.
+// Checkpoint / plugin-uninstall / diagnostics / config actions return a clear
+// Host-controller debt dialog (see docs/wails-migration.md Recovery section).
 func (a *AuxWindowService) CompleteRecovery(action string) error {
+	action = normalizeRecoveryAction(action)
 	switch action {
 	case "restart", "safe-mode", "quit", "profiles", "control":
+		a.settle("recovery", action, "", "")
+		switch action {
+		case "quit":
+			if a.shell != nil {
+				a.shell.Quit()
+			}
+		case "profiles":
+			return a.OpenProfileSelector()
+		case "control":
+			if a.shell != nil {
+				return a.shell.ShowControlUI()
+			}
+		case "restart", "safe-mode":
+			if a.shell != nil {
+				if action == "safe-mode" {
+					a.shell.setSafeMode(true)
+				}
+				go func() {
+					_ = a.shell.StopHostSidecar()
+					if _, err := a.shell.StartHostSidecar(""); err != nil {
+						_ = a.OpenRecovery(err.Error())
+					}
+				}()
+			}
+		}
+		return nil
+	case "debt-checkpoint", "debt-uninstall", "debt-diagnostics", "debt-config", "debt-other":
+		return a.ReportRecoveryDebt(action)
 	default:
 		return fmt.Errorf("unknown recovery action %q", action)
 	}
-	a.settle("recovery", action, "", "")
+}
+
+func normalizeRecoveryAction(action string) string {
 	switch action {
-	case "quit":
-		if a.shell != nil {
-			a.shell.Quit()
-		}
-	case "profiles":
-		return a.OpenProfileSelector()
-	case "control":
-		if a.shell != nil {
-			return a.shell.ShowControlUI()
-		}
-	case "restart", "safe-mode":
-		if a.shell != nil {
-			if action == "safe-mode" {
-				a.shell.setSafeMode(true)
-			}
-			go func() {
-				_ = a.shell.StopHostSidecar()
-				if _, err := a.shell.StartHostSidecar(""); err != nil {
-					_ = a.OpenRecovery(err.Error())
-				}
-			}()
-		}
+	case "enter-safe-mode", "safemode":
+		return "safe-mode"
+	case "preview-checkpoint", "open-checkpoint", "confirm-checkpoint", "rollback-checkpoint":
+		return "debt-checkpoint"
+	case "preview-uninstall", "confirm-uninstall", "uninstall-plugin":
+		return "debt-uninstall"
+	case "export-diagnostics", "show-diagnostics", "save-diagnostics":
+		return "debt-diagnostics"
+	case "open-settings-document", "open-profile-patch", "open-profile-manifest", "open-profile-directory":
+		return "debt-config"
+	case "open-terminal", "open-profile-creator", "switch-profile":
+		// Profiles creator/switch partially covered elsewhere; mark as debt when
+		// invoked from Recovery scheme without profile token authority.
+		return "debt-other"
+	default:
+		return action
 	}
-	return nil
+}
+
+// ReportRecoveryDebt surfaces precise Host API gaps for Recovery checkpoint/uninstall.
+func (a *AuxWindowService) ReportRecoveryDebt(kind string) error {
+	title := "Recovery — Host controller required"
+	body := recoveryDebtMessage(kind)
+	a.mu.Lock()
+	a.last = AuxWindowResult{Kind: "recovery", Action: kind, Detail: body}
+	a.mu.Unlock()
+	return a.OpenInfoDialog(title, body)
+}
+
+func recoveryDebtMessage(kind string) string {
+	switch kind {
+	case "debt-checkpoint":
+		return "Checkpoint list / preview / restore is not wired in the Wails hybrid shell.\n\n" +
+			"Missing Host API (Electron DesktopStartupRecoveryController):\n" +
+			"- listHealthyCheckpoints(generationId)\n" +
+			"- previewCheckpointRestore(slotId) with TTL\n" +
+			"- confirmCheckpointRestore(slotId) + generation quiesce\n\n" +
+			"Wails can open Recovery and restart/safe-mode/quit/profiles only.\n" +
+			"See docs/wails-migration.md § Recovery controller debt."
+	case "debt-uninstall":
+		return "Plugin uninstall preview / confirm is not wired in the Wails hybrid shell.\n\n" +
+			"Missing Host API:\n" +
+			"- previewPluginUninstall(bundleId) + immutable-target rules\n" +
+			"- confirmPluginUninstall(bundleId) under one generation id\n\n" +
+			"Do not claim Recovery plugin-tab parity in release notes."
+	case "debt-diagnostics":
+		return "Diagnostic archive export still needs Electron DesktopDialogWindow / Host controller paths.\n" +
+			"Crash-evidence folder is available via Help → Reveal Crash Evidence Folder."
+	case "debt-config":
+		return "Opening settings.yaml / Profile patch / manifest from Recovery requires Host generation authority.\n" +
+			"Use Control UI or a normal Host session after restart when possible."
+	default:
+		return "This Recovery action needs DesktopStartupRecoveryController state that the Go shell does not own yet.\n" +
+			"Supported hybrid actions: restart, safe-mode, quit, profiles, control."
+	}
 }
 
 // ListKnownProfiles returns profile names discovered from the default DSH home,
@@ -337,7 +401,7 @@ func (a *AuxWindowService) OpenInfoDialog(title, message string) error {
 	q.Set("title", title)
 	q.Set("message", message)
 	q.Set("wails", "1")
-	return a.open("info-dialog", title, "/shell-ui/status.html?"+q.Encode(), 520, 320, 420, 240)
+	return a.open("info-dialog", title, "/shell-ui/status.html?"+q.Encode(), 560, 420, 420, 280)
 }
 
 // CloseInfoDialog closes the Info status window.

@@ -15,7 +15,18 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as url$0 from "../../../../../net/url/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+/**
+ * CloseInfoDialog closes the Info status window.
+ */
+export function CloseInfoDialog(): $CancellablePromise<void> {
+    return $Call.ByID(1877340953);
+}
 
 /**
  * CompleteProfileCreate records a create-profile outcome.
@@ -35,7 +46,9 @@ export function CompleteProfileSelection(action: string, profile: string): $Canc
 
 /**
  * CompleteRecovery records a recovery outcome.
- * action: restart | safe-mode | quit | profiles | control.
+ * Supported hybrid actions: restart | safe-mode | quit | profiles | control.
+ * Checkpoint / plugin-uninstall / diagnostics / config actions return a clear
+ * Host-controller debt dialog (see docs/wails-migration.md Recovery section).
  */
 export function CompleteRecovery(action: string): $CancellablePromise<void> {
     return $Call.ByID(3261780963, action);
@@ -65,6 +78,14 @@ export function ListKnownProfiles(): $CancellablePromise<string[] | null> {
 }
 
 /**
+ * OpenInfoDialog opens a small webview Info dialog with title/message.
+ * Used on Linux hybrid beds where GTK MessageDialog can be silent from menus.
+ */
+export function OpenInfoDialog(title: string, message: string): $CancellablePromise<void> {
+    return $Call.ByID(73972947, title, message);
+}
+
+/**
  * OpenProfileCreate opens the create-profile window.
  */
 export function OpenProfileCreate(): $CancellablePromise<void> {
@@ -88,6 +109,7 @@ export function OpenRecovery(detail: string): $CancellablePromise<void> {
 
 /**
  * OpenSetupWizard opens (or focuses) the setup wizard window.
+ * Prefers Vite-built React native-ui when present under frontend/dist/shell-ui.
  */
 export function OpenSetupWizard(): $CancellablePromise<void> {
     return $Call.ByID(2781172827);
@@ -98,4 +120,18 @@ export function OpenSetupWizard(): $CancellablePromise<void> {
  */
 export function RecoveryDetail(): $CancellablePromise<string> {
     return $Call.ByID(80258133);
+}
+
+/**
+ * ReportRecoveryDebt surfaces precise Host API gaps for Recovery checkpoint/uninstall.
+ */
+export function ReportRecoveryDebt(kind: string): $CancellablePromise<void> {
+    return $Call.ByID(2747606995, kind);
+}
+
+/**
+ * ResolveAuxURLForTest exposes resolveAuxURL for unit tests.
+ */
+export function ResolveAuxURLForTest(name: string, query: url$0.Values): $CancellablePromise<string> {
+    return $Call.ByID(3592518973, name, query);
 }

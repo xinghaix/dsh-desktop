@@ -420,13 +420,70 @@ func (c *CapabilitiesService) IngestLanHttpsAnnounceLine(line string) bool {
 
 // LanHttpsStatus reports Host-announced LAN HTTPS state when available.
 // Empty internal state means the Host has not announced yet (TLS remains Host-owned).
+// Dialog-oriented: multi-line key=value when announced so Tools → LAN HTTPS Status is readable.
 func (c *CapabilitiesService) LanHttpsStatus() string {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.lanHTTPS == "" {
-		return "lan-https=awaiting-host-announce (Host-owned DesktopLanHttpsRuntime; expect DSH_HOST_LAN_HTTPS on sidecar stdout)"
+	payload := c.lanHTTPS
+	c.mu.Unlock()
+	return formatLanHttpsStatus(payload)
+}
+
+// formatLanHttpsStatus turns raw announce payload into operator-facing status text.
+func formatLanHttpsStatus(payload string) string {
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return strings.Join([]string{
+			"lan-https=awaiting-host-announce",
+			"owner=Host DesktopLanHttpsRuntime / LanHttpsIngress",
+			"expect=DSH_HOST_LAN_HTTPS on sidecar stdout when networkExposure=lan",
+			"shell=mirrors announce only (no Wails-native TLS toggle yet)",
+		}, "\n")
 	}
-	return "lan-https=announced " + c.lanHTTPS
+	fields := parseSpaceKeyValues(payload)
+	order := []string{"state", "port", "addresses", "fingerprint", "error", "urls"}
+	lines := []string{"lan-https=announced"}
+	seen := map[string]bool{}
+	for _, key := range order {
+		if v, ok := fields[key]; ok {
+			lines = append(lines, key+"="+v)
+			seen[key] = true
+		}
+	}
+	for _, key := range sortedKeys(fields) {
+		if seen[key] {
+			continue
+		}
+		lines = append(lines, key+"="+fields[key])
+	}
+	lines = append(lines, "note=CA download /.well-known/dsh-desktop-ca.crt is Host-served")
+	return strings.Join(lines, "\n")
+}
+
+func parseSpaceKeyValues(payload string) map[string]string {
+	out := map[string]string{}
+	for _, part := range strings.Fields(payload) {
+		eq := strings.IndexByte(part, '=')
+		if eq <= 0 {
+			continue
+		}
+		out[part[:eq]] = part[eq+1:]
+	}
+	return out
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	for i := 0; i < len(keys); i++ {
+		for j := i + 1; j < len(keys); j++ {
+			if keys[j] < keys[i] {
+				keys[i], keys[j] = keys[j], keys[i]
+			}
+		}
+	}
+	return keys
 }
 
 // CapabilitiesStatus aggregates hybrid shell capability readiness for Help / smoke.
@@ -440,6 +497,7 @@ func (c *CapabilitiesService) CapabilitiesStatus() string {
 	c.mu.Unlock()
 	lanLine := "lan-https=awaiting-host-announce"
 	if lan != "" {
+		// Compact one-liner for the aggregate (full multi-line is LanHttpsStatus).
 		lanLine = "lan-https=announced " + lan
 	}
 	updateLine := "updates=not-checked"
@@ -448,7 +506,8 @@ func (c *CapabilitiesService) CapabilitiesStatus() string {
 	}
 	crashLine := "crash-evidence=not-attached"
 	if crash != nil {
-		crashLine = crash.Status()
+		// Compact first line for aggregate; full multi-line is CrashEvidenceStatus().
+		crashLine = strings.SplitN(crash.Status(), "\n", 2)[0]
 	}
 	if identity == "" {
 		identity = "pending"
@@ -482,9 +541,32 @@ func (c *CapabilitiesService) CrashEvidenceStatus() string {
 	crash := c.crash
 	c.mu.Unlock()
 	if crash == nil {
-		return "crash-evidence=not-attached (file-based; Electron Crashpad unavailable)"
+		return strings.Join([]string{
+			"crash-evidence=not-attached",
+			"backend=file-based (Electron Crashpad unavailable)",
+			"hint=service attach happens at shell boot (BeginRun)",
+		}, "\n")
 	}
 	return crash.Status()
+}
+
+// RevealCrashEvidenceFolder opens the local crash-evidence directory in the file manager.
+func (c *CapabilitiesService) RevealCrashEvidenceFolder() error {
+	c.mu.Lock()
+	crash := c.crash
+	c.mu.Unlock()
+	dir := ""
+	if crash != nil {
+		dir = crash.Dir()
+	}
+	if dir == "" {
+		var err error
+		dir, err = crashEvidenceDir()
+		if err != nil {
+			return err
+		}
+	}
+	return c.RevealInFileManager(dir, false)
 }
 
 // RequestUserAttention flashes the dock/taskbar and updates tray badge text.

@@ -14,5 +14,6 @@ export {
 
 export type {
     AuxWindowResult,
+    PlatformIdentityStatus,
     UpdateCheckResult
 } from "./models.js";

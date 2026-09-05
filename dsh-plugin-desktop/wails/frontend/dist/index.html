@@ -30,6 +30,9 @@
         <button id="btn-terminal" type="button" class="secondary">Terminal</button>
         <button id="btn-export" type="button" class="secondary">Export…</button>
         <button id="btn-updates" type="button" class="secondary">Updates</button>
+        <button id="btn-lan" type="button" class="secondary">LAN HTTPS</button>
+        <button id="btn-crash" type="button" class="secondary">Crash evidence</button>
+        <button id="btn-caps" type="button" class="secondary">Capabilities</button>
         <button id="btn-dir" type="button" class="secondary">Open Directory…</button>
         <button id="btn-about" type="button" class="secondary">About</button>
         <button id="btn-hide" type="button" class="secondary">Hide to tray</button>
@@ -52,6 +55,9 @@
   document.getElementById("btn-terminal")?.addEventListener("click", () => call("main.CapabilitiesService.OpenTerminal", "").then(() => log("Terminal")).catch((e) => log(String(e))));
   document.getElementById("btn-export")?.addEventListener("click", () => call("main.CapabilitiesService.ExportTextFile", "dsh-shell-note.txt", "DSH Wails export\n").then((p) => log(p ? "Exported "+p : "cancelled")).catch((e) => log(String(e))));
   document.getElementById("btn-updates")?.addEventListener("click", () => call("main.CapabilitiesService.CheckForUpdates").then((r) => log(JSON.stringify(r))).catch((e) => log(String(e))));
+  document.getElementById("btn-lan")?.addEventListener("click", () => call("main.CapabilitiesService.LanHttpsStatus").then((s) => log(s)).catch((e) => log(String(e))));
+  document.getElementById("btn-crash")?.addEventListener("click", () => call("main.CapabilitiesService.CrashEvidenceStatus").then((s) => log(s)).catch((e) => log(String(e))));
+  document.getElementById("btn-caps")?.addEventListener("click", () => call("main.CapabilitiesService.CapabilitiesStatus").then((s) => log(s)).catch((e) => log(String(e))));
 </script>
 </body>
 </html>

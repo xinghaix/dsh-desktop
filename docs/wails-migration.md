@@ -17,10 +17,10 @@ Shell: dsh-plugin-desktop/wails/
 - AuthProxy production path (loopback hardened)
 - Aux Recovery/Setup/Profile; prefers lib/native-ui + scheme bridge
 - Notifications, export, reveal, terminal, updates (mac/win/linux AppImage download URL)
-- File-based crash evidence (active-run + panic/exception dumps)
+- File-based crash evidence (active-run + panic dumps; Reveal folder + Control UI status)
 - Dock/taskbar attention via Flash + tray tooltip count
 - Windows AppUserModelID; Node AES-GCM LAN HTTPS protector
-- Host DSH_HOST_LAN_HTTPS announce -> Capabilities LAN HTTPS / Capabilities Status
+- Host DSH_HOST_LAN_HTTPS announce -> multi-line LAN HTTPS Status + compact Capabilities Status
 - Root/workspace wails scripts; scripts/wails-smoke.mjs; docs/wails-ci-smoke.yml.example (workflow push needs workflow scope)
 - package:wails Go-binary fallback + AppImage dependency probe (package-deps)
 - host-main/host-launcher/node-desktop-runtime tsc --emitDeclarationOnly clean
@@ -32,7 +32,7 @@ Shell: dsh-plugin-desktop/wails/
 - Electron Crashpad/minidumps (file-based substitute only)
 - macOS numeric Dock badge / setBadgeCount (Flash + tooltip only)
 - Interactive GUI on truly headless Linux (this cloud box has DISPLAY — see docs/wails-linux-smoke.md)
-- wails3 package AppImage host deps may be missing (go binary fallback OK)
+- wails3 package AppImage needs file(1)+FUSE+linuxdeploy; Linux bed produced AppImage 2026-09-05 (preview only; electron-builder still ships)
 
 ## Release notes — packaging path (electron-builder vs Wails)
 
@@ -56,6 +56,41 @@ When writing release notes for a Wails-hybrid milestone:
 2. State clearly that **installers users download are still electron-builder** until flip.
 3. Mention AppImage/package:wails as preview/packaging R&D, not the default channel.
 4. Link docs/wails-migration.md and dsh-plugin-desktop/docs/electron-shell-fallback.md.
+
+## Release flip checklist (electron-builder → Wails primary)
+
+Do **not** flip product CI casually. Flip only when all of the following are true and
+documented in release notes + this file:
+
+1. Live `.github/workflows/wails-smoke.yml` green on linux (and preferably mac/win runners).
+2. `wails3 package` produces signed/notarized (or equivalent) installers for each shipping OS.
+3. AuthProxy Origin rewrite + CookieJar verified on those packaged artifacts (not only go-build smoke).
+4. Recovery Host API owns checkpoint/uninstall generation state (or release notes explicitly
+   defer those tabs with operator guidance).
+5. AppImage/FUSE/linuxdeploy (or platform equivalents) available on packaging runners.
+6. Product download URLs and update checker pointed at Wails artifacts; electron-builder
+   retained as emergency LAST-RESORT channel with a documented rollback.
+7. Explicit owner sign-off recorded in the PR that changes default CI / download channel.
+
+Until then: electron-builder = authoritative shipping path; Wails = primary hybrid run path
++ parallel packaging R&D.
+
+## macOS-only verification (out of Linux bed)
+
+This cloud Linux bed cannot validate:
+
+- macOS Dock badge / template tray icons / notarization
+- MacOptions titlebar / backdrop appearance
+- codesign / notarize / Sparkle-adjacent update handoff on Darwin
+
+Track macOS verification on a Darwin host; do not block Linux hybrid P2 on those items.
+
+## Formal CI blocker (workflow scope)
+
+`gh auth status` on the xinghaix push credential (2026-09-05): scopes `gist`, `read:org`, `repo` —
+**no `workflow` scope**. Pushing `.github/workflows/wails-smoke.yml` is rejected until a
+credential with workflow scope is available. Keep `docs/wails-ci-smoke.yml.example` in sync;
+local smoke remains `node scripts/wails-smoke.mjs`.
 
 ## Recovery controller debt
 

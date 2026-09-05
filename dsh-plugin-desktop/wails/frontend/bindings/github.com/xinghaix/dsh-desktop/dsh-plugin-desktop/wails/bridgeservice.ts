@@ -42,6 +42,7 @@ export function AuthenticateHostSession(authenticationURL: string, uiURL: string
 
 /**
  * BridgeStatus reports auth-bridge readiness for the control UI.
+ * Never includes secret header values — only header name presence and proxy diagnostics.
  */
 export function BridgeStatus(): $CancellablePromise<string> {
     return $Call.ByID(1659680535);

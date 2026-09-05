@@ -22,7 +22,7 @@ func TestLanHttpsAnnounceIngestAndStatus(t *testing.T) {
 		t.Fatal("expected announce ingest")
 	}
 	status := caps.LanHttpsStatus()
-	if !strings.HasPrefix(status, "lan-https=announced ") {
+	if !strings.HasPrefix(status, "lan-https=announced") {
 		t.Fatalf("expected announced prefix, got %q", status)
 	}
 	if strings.Contains(status, "lan-https=lan-https=") {
@@ -30,6 +30,12 @@ func TestLanHttpsAnnounceIngestAndStatus(t *testing.T) {
 	}
 	if !strings.Contains(status, "state=ready") || !strings.Contains(status, "port=8443") {
 		t.Fatalf("missing announce fields: %q", status)
+	}
+	if !strings.Contains(status, "\nstate=ready") {
+		t.Fatalf("expected multi-line dialog formatting, got %q", status)
+	}
+	if !strings.Contains(awaiting, "\nowner=") {
+		t.Fatalf("awaiting status should be multi-line with owner hint: %q", awaiting)
 	}
 	agg := caps.CapabilitiesStatus()
 	if !strings.Contains(agg, "lan-https=announced ") {

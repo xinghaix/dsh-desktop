@@ -65,6 +65,8 @@ func recoveryNativeState(detail string, profiles []string) string {
 		// Omit notice: JSON null crashes RecoveryNoticeSurface (useEffect deps
 		// read notice.body while only undefined is treated as "no toast").
 		"wailsHybrid":             true,
+		// snapshot omitted on purpose: checkpoint/uninstall tabs show Unavailable
+		// until a Host-facing recovery API owns DesktopStartupRecoveryController state.
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
@@ -145,7 +147,20 @@ const schemeBridgeJS = `
     const action = (url.hostname || url.pathname.replace(/^\//,'') || '').toLowerCase();
     const name = url.searchParams.get('name') || '';
     if (protocol === 'dsh-recovery:') {
-      const map = {restart:'restart','safe-mode':'safe-mode',safemode:'safe-mode',quit:'quit',profiles:'profiles',control:'control'};
+      const map = {
+        restart:'restart','safe-mode':'safe-mode',safemode:'safe-mode','enter-safe-mode':'safe-mode',
+        quit:'quit',profiles:'profiles',control:'control',
+        'preview-checkpoint':'preview-checkpoint','open-checkpoint':'open-checkpoint',
+        'confirm-checkpoint':'confirm-checkpoint','rollback-checkpoint':'rollback-checkpoint',
+        'preview-uninstall':'preview-uninstall','confirm-uninstall':'confirm-uninstall',
+        'uninstall-plugin':'uninstall-plugin',
+        'export-diagnostics':'export-diagnostics','show-diagnostics':'show-diagnostics',
+        'save-diagnostics':'save-diagnostics',
+        'open-settings-document':'open-settings-document','open-profile-patch':'open-profile-patch',
+        'open-profile-manifest':'open-profile-manifest','open-profile-directory':'open-profile-directory',
+        'open-terminal':'open-terminal','open-profile-creator':'open-profile-creator',
+        'switch-profile':'switch-profile'
+      };
       const mapped = map[action]; if (!mapped) return false;
       await call('main.AuxWindowService.CompleteRecovery', mapped); return true;
     }

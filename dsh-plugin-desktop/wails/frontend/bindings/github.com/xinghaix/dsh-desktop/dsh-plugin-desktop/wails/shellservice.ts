@@ -20,6 +20,13 @@ export function CurrentURL(): $CancellablePromise<string> {
 }
 
 /**
+ * FlashMainWindow requests dock/taskbar attention (macOS Dock bounce / Windows flash).
+ */
+export function FlashMainWindow(enabled: boolean): $CancellablePromise<void> {
+    return $Call.ByID(1316978206, enabled);
+}
+
+/**
  * HideWindow hides the main window (tray keeps the process alive).
  */
 export function HideWindow(): $CancellablePromise<void> {
@@ -43,6 +50,8 @@ export function LoadHostURL(url: string): $CancellablePromise<void> {
 
 /**
  * OpenDirectoryDialog opens a native directory picker and returns the path.
+ * Cancel returns ("", nil) on Linux/macOS, or an error whose message contains
+ * "cancel" on Windows. Callers should treat both as user cancel, not failure.
  */
 export function OpenDirectoryDialog(): $CancellablePromise<string> {
     return $Call.ByID(338629742);
