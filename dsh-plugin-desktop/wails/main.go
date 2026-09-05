@@ -40,10 +40,7 @@ func main() {
 	aux.attachCaps(caps)
 	sidecar.OnUnexpectedExit(func(err error) {
 		log.Printf("dsh-wails-shell: host unexpected exit: %v", err)
-		if pageErr := shell.ShowHostFailurePage(err.Error()); pageErr != nil {
-			log.Printf("dsh-wails-shell: host-error page: %v", pageErr)
-			_ = aux.OpenRecovery(err.Error())
-		}
+		shell.HandleUnexpectedHostExit(err)
 	})
 
 	app := application.New(application.Options{
@@ -214,7 +211,7 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 	})
 	fileMenu.AddSeparator()
 	fileMenu.Add("Quit DSH Desktop").OnClick(func(ctx *application.Context) {
-		app.Quit()
+		shell.Quit()
 	})
 
 	viewMenu := menu.AddSubmenu("View")
@@ -358,7 +355,7 @@ func setupSystemTray(app *application.App, shell *ShellService, caps *Capabiliti
 	})
 	trayMenu.AddSeparator()
 	trayMenu.Add("Quit").OnClick(func(ctx *application.Context) {
-		app.Quit()
+		shell.Quit()
 	})
 	tray.SetMenu(trayMenu)
 

@@ -38,6 +38,9 @@ type HostSidecar struct {
 	onUnexpectedExit func(err error)
 	readyAnnounced   bool
 	lastStdoutHint   string
+	exitExpected     bool // set by Stop / ExpectExit; suppresses OnUnexpectedExit
+	readyAt          time.Time
+	spawnSeq         uint64
 }
 
 func NewHostSidecar() *HostSidecar {
@@ -177,6 +180,10 @@ func (h *HostSidecar) Start(explicitURL string) (string, error) {
 	h.lastErr = ""
 	h.readyAnnounced = false
 	h.lastStdoutHint = ""
+	// Invalidate any in-flight Wait from a prior spawn before clearing exitExpected.
+	h.spawnSeq++
+	h.exitExpected = false
+	h.readyAt = time.Time{}
 	h.mu.Unlock()
 
 	if command != "" {
@@ -203,9 +210,24 @@ func (h *HostSidecar) Start(explicitURL string) (string, error) {
 	return url, nil
 }
 
+// ExpectExit marks the next process exit as intentional (no OnUnexpectedExit / auto-relaunch).
+func (h *HostSidecar) ExpectExit() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.exitExpected = true
+}
+
+// ReadyAt returns when DSH_HOST_READY was last observed (zero if never).
+func (h *HostSidecar) ReadyAt() time.Time {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.readyAt
+}
+
 // Stop terminates a spawned sidecar process, if any.
 func (h *HostSidecar) Stop() error {
 	h.mu.Lock()
+	h.exitExpected = true
 	cancel := h.cancel
 	cmd := h.cmd
 	h.cancel = nil
@@ -326,29 +348,44 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 			}
 		}
 	}()
-	go func() {
+	h.mu.Lock()
+	spawnID := h.spawnSeq
+	h.mu.Unlock()
+	go func(spawnID uint64) {
 		err := cmd.Wait()
 		h.mu.Lock()
+		// Ignore exits from superseded spawns (Stop+Start races a lingering Wait).
+		if spawnID != h.spawnSeq {
+			h.mu.Unlock()
+			return
+		}
+		expected := h.exitExpected
+		h.exitExpected = false
 		wasReady := h.readyAnnounced
 		cb := h.onUnexpectedExit
+		if h.cmd == cmd {
+			h.cmd = nil
+		}
 		h.running = false
 		var notify error
-		if err != nil {
-			if h.lastErr == "" {
-				h.lastErr = err.Error()
+		if !expected {
+			if err != nil {
+				if h.lastErr == "" {
+					h.lastErr = err.Error()
+				}
+				notify = fmt.Errorf("Host exited unexpectedly: %v", err)
+			} else if wasReady {
+				if h.lastErr == "" {
+					h.lastErr = "Host process exited after READY"
+				}
+				notify = fmt.Errorf("Host exited unexpectedly after READY (exit 0)")
 			}
-			notify = fmt.Errorf("Host exited unexpectedly: %v", err)
-		} else if wasReady {
-			if h.lastErr == "" {
-				h.lastErr = "Host process exited after READY"
-			}
-			notify = fmt.Errorf("Host exited unexpectedly after READY (exit 0)")
 		}
 		h.mu.Unlock()
-		if wasReady && cb != nil && notify != nil {
+		if !expected && wasReady && cb != nil && notify != nil {
 			cb(notify)
 		}
-	}()
+	}(spawnID)
 	return nil
 }
 
@@ -405,6 +442,9 @@ func (h *HostSidecar) setURL(url string) {
 	h.url = url
 	if url != "" && url != recoveryURLSentinel && !strings.HasPrefix(url, "recovery://") {
 		h.readyAnnounced = true
+		if h.readyAt.IsZero() {
+			h.readyAt = time.Now()
+		}
 	}
 }
 

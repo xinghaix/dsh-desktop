@@ -1,0 +1,12 @@
+1:30PM INF Platform Info: ID=debian Name=Debian GNU/Linux Version=13 Branding=13 (trixie) GTK=4.18.6 WebKitGTK=2.52.6
+1:30PM INF Build Info: Wails=v3.0.0-beta.16 Compiler=go1.27.0 -buildmode=exe -compiler=gc CGO_ENABLED=1 CGO_CFLAGS= CGO_CPPFLAGS= CGO_CXXFLAGS= GOARCH=amd64 vcs=git CGO_LDFLAGS= GOOS=linux GOAMD64=v1 vcs.revision=80ef134a3942f8caccddf159ce23d9a4cd172171 vcs.time=2026-09-05T12:58:56Z vcs.modified=true
+1:30PM INF AssetServer Info: middleware=true handler=true
+2026/09/05 13:30:33 dsh-wails-shell: crash-evidence=active dir=/tmp/e2e-K-stop-xdg/config/DSH Desktop/crash-evidence
+2026/09/05 13:30:33 dsh-wails-shell: host discover: Desktop Host via HOME:~/.dsh:bin/dsh-desktop → /tmp/e2e-K-stop-home/.dsh/bin/dsh-desktop
+1:30PM WRN [WARNING] Failed to connect to system bus; sleep/wake events will not fire: dial unix /var/run/dbus/system_bus_socket: connect: no such file or directory
+[dsh-host] DSH_HOST_READY http://127.0.0.1:9/
+[dsh-host] stable-for-stop
+Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal
+2026/09/05 13:30:33 dsh-wails-shell: loaded Cordis Host UI http://127.0.0.1:9/
+
+** (process:2): WARNING **: 13:30:33.693: Can't connect to a11y bus: Could not connect: No such file or directory

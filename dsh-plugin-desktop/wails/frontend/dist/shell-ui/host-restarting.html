@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Restarting Host…</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <style>
+    body { margin: 0; background: #06070f; color: #e8ecf5; font-family: Inter, system-ui, sans-serif; }
+    main { max-width: 560px; margin: 0 auto; padding: 48px 24px; text-align: center; }
+    h1 { font-size: 1.35rem; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .sub { color: #9aa3b8; margin: 0 0 22px; line-height: 1.5; }
+    .pulse { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #3b82f6; margin-bottom: 18px;
+      animation: pulse 1.1s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 0.35; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
+    .meta { color: #c5cce0; font-size: 0.95rem; margin-bottom: 16px; }
+    .detail { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; color: #8b93a7;
+      background: #121624; border: 1px solid #2a3142; border-radius: 12px; padding: 12px 14px; text-align: left; max-height: 180px; overflow: auto; }
+    .note { color: #8b93a7; font-size: 0.85rem; margin-top: 18px; line-height: 1.45; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="pulse" aria-hidden="true"></div>
+  <h1 id="title">Restarting Host…</h1>
+  <p class="sub">Host 意外退出，正在自动拉起 / The Cordis Host exited and the shell is restarting it.</p>
+  <p class="meta" id="meta">Attempt —</p>
+  <div class="detail" id="detail"></div>
+  <p class="note">If this keeps failing, a friendly error page with manual Retry will appear. Intentional Quit / Stop will not auto-relaunch.</p>
+</main>
+<script>
+  const q = new URLSearchParams(location.search);
+  const attempt = q.get("attempt") || "?";
+  const max = q.get("max") || "?";
+  document.getElementById("meta").textContent = "Attempt " + attempt + " / " + max;
+  document.title = "Restarting Host… (" + attempt + "/" + max + ")";
+  const msg = q.get("message");
+  if (msg) document.getElementById("detail").textContent = msg;
+</script>
+</body>
+</html>

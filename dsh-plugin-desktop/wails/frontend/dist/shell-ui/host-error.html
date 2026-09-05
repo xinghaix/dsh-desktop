@@ -68,7 +68,7 @@
     "not-usable": ["The directory exists but Host entry files are missing.", "Install @deepseek-ai/dsh into that root, or choose another directory.", "Ensure bin/dsh, bin/dsh-desktop, or node_modules/@deepseek-ai/dsh/lib/bin.js exists."],
     "timeout": ["Wait and Retry Host.", "Check Host logs in the terminal / stderr.", "If port conflict is suspected, free the port or restart."],
     "start-failed": ["Retry Host.", "Verify Node/Electron launcher and DSH_BIN / DSH_HOME.", "Open Recovery if the profile is damaged."],
-    "crash": ["Retry Host to relaunch the sidecar.", "Open Recovery Assistant for checkpoints / safe mode.", "Export diagnostics from Help if it keeps exiting."],
+    "crash": ["The shell already tried automatic relaunch; use Retry Host for another manual attempt.", "Open Recovery Assistant for checkpoints / safe mode.", "Export diagnostics from Help if it keeps exiting."],
     "port-bind": ["Another process may own the Host port.", "Stop the other instance, then Retry Host.", "Or set an alternate Host port via your install’s documented env if available."],
     "profile": ["Shell falls back to profile web when no user profile exists.", "Open Switch Profile… or create a web profile from Recovery / Setup.", "Ensure ~/.dsh/profiles (or Desktop userData profiles) is writable."]
   };

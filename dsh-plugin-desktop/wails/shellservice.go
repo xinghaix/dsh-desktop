@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -13,15 +15,18 @@ import (
 // future Cordis Host bridge callers. Methods are discovered by
 // `wails3 generate bindings`.
 type ShellService struct {
-	mu             sync.Mutex
-	app            *application.App
-	window         *application.WebviewWindow
-	hostURL        string
-	sidecar        *HostSidecar
-	aux            *AuxWindowService
-	bridge         *BridgeService
-	lastHostError  string
-	lastHostKind   string
+	mu               sync.Mutex
+	app              *application.App
+	window           *application.WebviewWindow
+	hostURL          string
+	sidecar          *HostSidecar
+	aux              *AuxWindowService
+	bridge           *BridgeService
+	lastHostError    string
+	lastHostKind     string
+	relaunchAttempts int
+	relaunching      bool
+	suppressRelaunch bool
 }
 
 func NewShellService(sidecar *HostSidecar) *ShellService {
@@ -186,6 +191,7 @@ func (s *ShellService) ShowInfoDialog(title, message string) {
 
 // Quit requests application shutdown.
 func (s *ShellService) Quit() {
+	s.ExpectHostExit()
 	s.mu.Lock()
 	app := s.app
 	sidecar := s.sidecar
@@ -198,6 +204,32 @@ func (s *ShellService) Quit() {
 	} else {
 		os.Exit(0)
 	}
+}
+
+// ExpectHostExit suppresses auto-relaunch for the next intentional Host stop/quit.
+func (s *ShellService) ExpectHostExit() {
+	s.mu.Lock()
+	s.suppressRelaunch = true
+	s.relaunching = false
+	sidecar := s.sidecar
+	s.mu.Unlock()
+	if sidecar != nil {
+		sidecar.ExpectExit()
+	}
+}
+
+// ClearHostExitExpectation re-enables auto-relaunch (e.g. after manual Retry).
+func (s *ShellService) ClearHostExitExpectation() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.suppressRelaunch = false
+}
+
+// RelaunchStatus returns a short diagnostic for tests / control UI.
+func (s *ShellService) RelaunchStatus() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return fmt.Sprintf("relaunching=%v attempts=%d suppress=%v", s.relaunching, s.relaunchAttempts, s.suppressRelaunch)
 }
 
 // HostSidecarStatus reports Cordis Host sidecar process state.
@@ -362,6 +394,10 @@ func (s *ShellService) ShowHostFailurePage(errText string) error {
 func (s *ShellService) StartHostSidecar(url string) (string, error) {
 	s.mu.Lock()
 	sidecar := s.sidecar
+	// Manual / scheduled start should accept unexpected exits again.
+	if !s.relaunching {
+		s.suppressRelaunch = false
+	}
 	s.mu.Unlock()
 	if sidecar == nil {
 		return "", fmt.Errorf("host sidecar is not configured")
@@ -373,6 +409,13 @@ func (s *ShellService) StartHostSidecar(url string) (string, error) {
 		s.rememberHostFailure(kind, err.Error())
 		return "", err
 	}
+	// Fresh READY — if we are not in a crash storm loop, allow counter reset on stable uptime
+	// (handled in HandleUnexpectedHostExit via ReadyAt). Manual retry from host-error clears storm.
+	s.mu.Lock()
+	if !s.relaunching {
+		s.relaunchAttempts = 0
+	}
+	s.mu.Unlock()
 	if ready == recoveryURLSentinel || strings.HasPrefix(ready, "recovery://") {
 		// Host is in Recovery RPC keep-alive; AuxWindowService already opened Recovery.
 		return ready, nil
@@ -395,7 +438,9 @@ func (s *ShellService) StartHostSidecar(url string) (string, error) {
 }
 
 // StopHostSidecar stops a spawned Cordis Host process, if any.
+// Intentional stop does not auto-relaunch.
 func (s *ShellService) StopHostSidecar() error {
+	s.ExpectHostExit()
 	s.mu.Lock()
 	sidecar := s.sidecar
 	s.mu.Unlock()
@@ -403,6 +448,129 @@ func (s *ShellService) StopHostSidecar() error {
 		return nil
 	}
 	return sidecar.Stop()
+}
+
+// ShowHostRestartingPage shows a brief in-window status while auto-relaunch runs.
+func (s *ShellService) ShowHostRestartingPage(attempt, max int, detail string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.window == nil {
+		return fmt.Errorf("main window is not attached")
+	}
+	s.hostURL = ""
+	s.window.SetURL(hostRestartingPageURL(attempt, max, detail))
+	s.window.SetTitle(hostRelaunchStatusLine(attempt, max))
+	s.window.Show()
+	s.window.Focus()
+	return nil
+}
+
+// HandleUnexpectedHostExit runs backoff auto-relaunch, then host-error on exhaustion.
+// Safe to call from the HostSidecar OnUnexpectedExit callback (non-blocking).
+func (s *ShellService) HandleUnexpectedHostExit(err error) {
+	if err == nil {
+		return
+	}
+	policy := loadHostRelaunchPolicy()
+	s.mu.Lock()
+	if s.suppressRelaunch {
+		s.mu.Unlock()
+		log.Printf("dsh-wails-shell: host exit ignored (intentional stop/quit): %v", err)
+		return
+	}
+	if s.relaunching {
+		s.mu.Unlock()
+		log.Printf("dsh-wails-shell: host exit while relaunch in progress: %v", err)
+		return
+	}
+	sidecar := s.sidecar
+	attempts := s.relaunchAttempts
+	s.mu.Unlock()
+
+	uptime := time.Duration(0)
+	if sidecar != nil {
+		if readyAt := sidecar.ReadyAt(); !readyAt.IsZero() {
+			uptime = time.Since(readyAt)
+		}
+	}
+	should, attempt, delay := policy.nextRelaunchAttempt(attempts, uptime)
+	if !should {
+		log.Printf("dsh-wails-shell: host relaunch exhausted (attempts=%d uptime=%s): %v", attempts, uptime, err)
+		s.mu.Lock()
+		s.relaunchAttempts = attempts
+		s.relaunching = false
+		s.mu.Unlock()
+		if pageErr := s.ShowHostFailurePage(err.Error()); pageErr != nil {
+			log.Printf("dsh-wails-shell: host-error page: %v", pageErr)
+		}
+		return
+	}
+
+	s.mu.Lock()
+	s.relaunching = true
+	s.relaunchAttempts = attempt
+	s.mu.Unlock()
+	log.Printf("dsh-wails-shell: host unexpected exit; auto-relaunch %d/%d in %s: %v", attempt, policy.MaxAttempts, delay, err)
+	_ = s.ShowHostRestartingPage(attempt, policy.MaxAttempts, err.Error())
+
+	go s.runHostRelaunch(attempt, policy.MaxAttempts, delay, err.Error())
+}
+
+func (s *ShellService) runHostRelaunch(attempt, max int, delay time.Duration, lastErr string) {
+	if delay > 0 {
+		time.Sleep(delay)
+	}
+	s.mu.Lock()
+	suppress := s.suppressRelaunch
+	s.mu.Unlock()
+	if suppress {
+		log.Printf("dsh-wails-shell: aborting auto-relaunch (intentional stop)")
+		s.mu.Lock()
+		s.relaunching = false
+		s.mu.Unlock()
+		return
+	}
+	// Clear suppress from a prior Stop so Start can own a fresh generation.
+	s.ClearHostExitExpectation()
+	ready, startErr := s.StartHostSidecar("")
+	s.mu.Lock()
+	s.relaunching = false
+	if startErr == nil {
+		// Successful relaunch — keep attempt count until stable uptime resets on next crash.
+		s.suppressRelaunch = false
+		s.mu.Unlock()
+		log.Printf("dsh-wails-shell: host auto-relaunch succeeded (%d/%d) → %s", attempt, max, ready)
+		return
+	}
+	attempts := s.relaunchAttempts
+	s.mu.Unlock()
+	log.Printf("dsh-wails-shell: host auto-relaunch failed (%d/%d): %v", attempt, max, startErr)
+	policy := loadHostRelaunchPolicy()
+	should, next, nextDelay := policy.nextRelaunchAttempt(attempts, 0)
+	if should {
+		s.mu.Lock()
+		s.relaunching = true
+		s.relaunchAttempts = next
+		s.mu.Unlock()
+		_ = s.ShowHostRestartingPage(next, policy.MaxAttempts, startErr.Error())
+		s.runHostRelaunch(next, policy.MaxAttempts, nextDelay, startErr.Error())
+		return
+	}
+	detail := startErr.Error()
+	if lastErr != "" {
+		detail = lastErr + "\n\nRelaunch failed: " + detail
+	}
+	if pageErr := s.ShowHostFailurePage(detail); pageErr != nil {
+		log.Printf("dsh-wails-shell: host-error page: %v", pageErr)
+	}
+}
+
+// ResetHostRelaunchAttempts clears the crash-storm counter (manual Retry / stable recovery).
+func (s *ShellService) ResetHostRelaunchAttempts() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.relaunchAttempts = 0
+	s.relaunching = false
 }
 
 // RecoveryRPC returns the Host Recovery RPC client when the sidecar announced one.

@@ -1,0 +1,24 @@
+1:30PM INF AssetServer Info: middleware=true handler=true
+1:30PM INF Platform Info: ID=debian Name=Debian GNU/Linux Version=13 Branding=13 (trixie) GTK=4.18.6 WebKitGTK=2.52.6
+1:30PM INF Build Info: Wails=v3.0.0-beta.16 Compiler=go1.27.0 GOARCH=amd64 GOAMD64=v1 vcs.revision=80ef134a3942f8caccddf159ce23d9a4cd172171 vcs.time=2026-09-05T12:58:56Z vcs.modified=true -buildmode=exe CGO_ENABLED=1 CGO_CXXFLAGS= CGO_LDFLAGS= GOOS=linux vcs=git -compiler=gc CGO_CFLAGS= CGO_CPPFLAGS=
+2026/09/05 13:30:47 dsh-wails-shell: crash-evidence=active dir=/tmp/e2e-K-exhaust-xdg/config/DSH Desktop/crash-evidence; previous unclean exit marker present: {
+  "startedAt": "2026-09-05T13:30:27.767354529Z",
+  "pid": 2447900,
+  "version": "dev",
+  "ownerId": "2447900-1788615027767260613",
+  "shell": "wails",
+  "goos": "linux",
+  "goarch": "amd64"
+}
+2026/09/05 13:30:47 dsh-wails-shell: host discover: Desktop Host via HOME:~/.dsh:bin/dsh-desktop → /tmp/e2e-K-exhaust-home/.dsh/bin/dsh-desktop
+[dsh-host] DSH_HOST_READY http://127.0.0.1:9/
+1:30PM WRN [WARNING] Failed to connect to system bus; sleep/wake events will not fire: dial unix /var/run/dbus/system_bus_socket: connect: no such file or directory
+Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal
+2026/09/05 13:30:47 dsh-wails-shell: loaded Cordis Host UI http://127.0.0.1:9/
+[dsh-host] simulating crash
+2026/09/05 13:30:47 dsh-wails-shell: host unexpected exit: Host exited unexpectedly: exit status 1
+2026/09/05 13:30:47 dsh-wails-shell: host unexpected exit; auto-relaunch 1/3 in 3s: Host exited unexpectedly: exit status 1
+
+** (process:2): WARNING **: 13:30:47.673: Can't connect to a11y bus: Could not connect: No such file or directory
+1:30PM INF [AssetFileServerFS] Handling request url=/shell-ui/host-restarting.html file=shell-ui/host-restarting.html
+1:30PM INF [AssetFileServerFS] Handling request url=/style.css file=style.css

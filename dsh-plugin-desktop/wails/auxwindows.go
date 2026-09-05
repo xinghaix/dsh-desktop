@@ -280,6 +280,10 @@ func (a *AuxWindowService) CompleteRecovery(action string, targetId string) erro
 	action = normalizeRecoveryAction(action)
 	switch action {
 	case "restart", "safe-mode", "quit", "profiles", "control":
+		if a.shell != nil && (action == "restart" || action == "safe-mode" || action == "quit") {
+			// Suppress auto-relaunch before Host may exit from /v1/complete quiesce.
+			a.shell.ExpectHostExit()
+		}
 		if client := a.recoveryClient(); client != nil && (action == "restart" || action == "safe-mode" || action == "quit") {
 			// Ordered shutdown: Host quiesce (fiber dispose) via /v1/complete, then StopHostSidecar.
 			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
