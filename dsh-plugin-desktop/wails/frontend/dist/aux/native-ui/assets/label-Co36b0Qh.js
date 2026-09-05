@@ -1,0 +1,2 @@
+import{I as e,M as t,a as n}from"./DesktopFrame-Dv-n-ZuF.js";var r=t(`x`,[[`path`,{d:`M18 6 6 18`,key:`1bl5f8`}],[`path`,{d:`m6 6 12 12`,key:`d8bk6v`}]]),i=e();function a({className:e,...t}){return(0,i.jsx)(`label`,{className:n(`text-sm leading-none font-medium select-none peer-disabled:cursor-not-allowed peer-disabled:opacity-50`,e),"data-slot":`label`,...t})}export{r as n,a as t};
+//# sourceMappingURL=label-Co36b0Qh.js.map

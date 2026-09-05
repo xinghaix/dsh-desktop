@@ -4,25 +4,21 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"time"
 )
 
-// nativeUIDocument resolves a Vite-built React native-ui HTML document when the
-// desktop plugin has been built (lib/native-ui/*.html). Falls back to empty.
+// nativeUIDocument resolves Vite React native-ui under frontend/dist/aux/native-ui only.
+// Falls back to empty so resolveAuxURL uses simplified /aux HTML (never file://).
 func nativeUIDocument(name string) string {
 	_, pluginDir, _, err := locateWailsLayout()
 	if err != nil {
 		return ""
 	}
-	// Only Vite-built lib/native-ui documents are usable (bundled assets).
+	// Prefer frontend/dist/aux/native-ui (asset-server / go:embed). Never use lib/ via file://.
 	candidates := []string{
 		filepath.Join(pluginDir, "wails", "frontend", "dist", "aux", "native-ui", name+".html"),
-		filepath.Join(pluginDir, "lib", "native-ui", name+".html"),
 	}
 	for _, c := range candidates {
 		if st, err := os.Stat(c); err == nil && !st.IsDir() {
@@ -30,16 +26,6 @@ func nativeUIDocument(name string) string {
 		}
 	}
 	return ""
-}
-
-func fileURLWithQuery(path string, query url.Values) string {
-	u := url.URL{Scheme: "file", Path: filepath.ToSlash(path)}
-	if runtime.GOOS == "windows" {
-		// file:///C:/...
-		u.Path = "/" + strings.ReplaceAll(filepath.ToSlash(path), "\\", "/")
-	}
-	u.RawQuery = query.Encode()
-	return u.String()
 }
 
 func recoveryNativeState(detail string, profiles []string) string {

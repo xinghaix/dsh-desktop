@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"net/url"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -98,11 +96,8 @@ func (a *AuxWindowService) resolveAuxURL(name string, query url.Values) string {
 	}
 	query.Set("wails", "1")
 	if doc := nativeUIDocument(name); doc != "" {
-		// Embedded under frontend/dist → asset-server path (same origin as Wails bindings).
-		if strings.Contains(filepath.ToSlash(doc), "/frontend/dist/aux/native-ui/") {
-			return "/aux/native-ui/" + name + ".html?" + query.Encode()
-		}
-		return fileURLWithQuery(doc, query)
+		// Asset-server path only (go:embed frontend/dist). Never file://.
+		return "/aux/native-ui/" + name + ".html?" + query.Encode()
 	}
 	fallback := "/aux/" + name + ".html"
 	if len(query) > 0 {
@@ -308,4 +303,27 @@ func (a *AuxWindowService) settle(kind, action, profile, detail string) {
 	a.last = AuxWindowResult{Kind: kind, Action: action, Profile: profile, Detail: detail}
 	a.mu.Unlock()
 	a.close(kind)
+}
+
+// OpenInfoDialog opens a small webview Info dialog with title/message.
+// Used on Linux hybrid beds where GTK MessageDialog can be silent from menus.
+func (a *AuxWindowService) OpenInfoDialog(title, message string) error {
+	if title == "" {
+		title = "Info"
+	}
+	q := url.Values{}
+	q.Set("title", title)
+	q.Set("message", message)
+	q.Set("wails", "1")
+	return a.open("info-dialog", title, "/aux/status.html?"+q.Encode(), 520, 320, 420, 240)
+}
+
+// CloseInfoDialog closes the Info status window.
+func (a *AuxWindowService) CloseInfoDialog() {
+	a.close("info-dialog")
+}
+
+// ResolveAuxURLForTest exposes resolveAuxURL for unit tests.
+func (a *AuxWindowService) ResolveAuxURLForTest(name string, query url.Values) string {
+	return a.resolveAuxURL(name, query)
 }
