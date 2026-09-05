@@ -28,7 +28,7 @@ Shell: dsh-plugin-desktop/wails/
 - Electron Crashpad/minidumps (file-based substitute only)
 - macOS numeric Dock badge / setBadgeCount (Flash + tooltip only)
 - Full Electron Recovery checkpoint uninstall UX without Host controller state
-- Interactive GUI verification on headless Linux
+- Interactive GUI on truly headless Linux (this cloud box has DISPLAY — see docs/wails-linux-smoke.md)
 - wails3 package AppImage host deps may be missing (go binary fallback OK)
 - electron-builder remains default product CI until release flip
 
