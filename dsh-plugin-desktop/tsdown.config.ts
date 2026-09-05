@@ -31,7 +31,7 @@ export default defineConfig([
       'host-main': 'src/host-main.ts',
       'node-desktop-runtime': 'src/node-desktop-runtime.ts',
       'host-paths': 'src/host-paths.ts',
-      'peer-electron-version': 'src/peer-electron-version.ts',
+      'peer-node-version': 'src/peer-node-version.ts',
     },
     outDir: 'lib',
     format: 'esm',

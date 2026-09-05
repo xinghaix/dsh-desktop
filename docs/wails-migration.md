@@ -1,4 +1,4 @@
-# Electron to Wails v3 migration
+# LEGACY to Wails v3 migration
 
 Branch: feat/wails3-shell
 Shell: dsh-plugin-desktop/wails/
@@ -8,12 +8,12 @@ Shell: dsh-plugin-desktop/wails/
 - start:wails / dev:wails / smoke:wails (repo root scripts)
 - start:host (Node Host sidecar)
 - node scripts/wails-smoke.mjs
-- Electron main.ts is LAST-RESORT (docs/electron-shell-fallback.md)
+- LEGACY main.ts is QUARANTINED (docs/legacy-shell-fallback.md)
 
 ## Done
 
 - Main webview, tray, menus, dialogs
-- Host sidecar auto-start (Node / Electron-as-Node / LAST-RESORT Electron main)
+- Host sidecar auto-start (Node / LEGACY-as-Node / QUARANTINED LEGACY main)
 - AuthProxy production path (loopback hardened)
 - Aux Recovery/Setup/Profile; prefers lib/native-ui + scheme bridge
 - Notifications, export, reveal, terminal, updates (mac/win/linux AppImage download URL)
@@ -29,21 +29,21 @@ Shell: dsh-plugin-desktop/wails/
 ## Permanently platform-blocked
 
 - Native webview per-request header hooks (AuthProxy workaround)
-- Electron Crashpad/minidumps (file-based substitute only)
+- LEGACY Crashpad/minidumps (file-based substitute only)
 - macOS numeric Dock badge / setBadgeCount (Flash + tooltip only)
 - Interactive GUI on truly headless Linux (this cloud box has DISPLAY — see docs/wails-linux-smoke.md)
-- wails3 package AppImage needs file(1)+FUSE+linuxdeploy; Linux bed produced AppImage 2026-09-05 (preview only; electron-builder still ships)
+- wails3 package AppImage needs file(1)+FUSE+linuxdeploy; Linux bed produced AppImage 2026-09-05 (preview only; legacy-builder still ships)
 
-## Release notes — packaging path (electron-builder vs Wails)
+## Release notes — packaging path (legacy-builder vs Wails)
 
-**Shipping / product CI today:** electron-builder remains the **authoritative** desktop
+**Shipping / product CI today:** legacy-builder remains the **authoritative** desktop
 release path (GitHub Actions product workflows, app.asar / platform installers).
 Do not announce Wails AppImage/deb as the primary download channel until an explicit
 release flip lands.
 
 **Primary developer / hybrid run path today:** Wails + Node Cordis Host
-(start:wails / smoke:wails). Electron BrowserWindow / Tray / main.ts is
-last-resort Host GUI only.
+(start:wails / smoke:wails). LEGACY NativeWindow / Tray / main.ts is
+quarantined Host GUI only.
 
 **Parallel packaging:** package:wails exercises wails3 package when the host has
 tooling; otherwise it writes bin/dsh-wails-shell. Linux AppImage dependency details:
@@ -53,11 +53,11 @@ allows committing the live wails-smoke workflow file.
 When writing release notes for a Wails-hybrid milestone:
 
 1. Call out hybrid run path first (Wails shell + Node Host).
-2. State clearly that **installers users download are still electron-builder** until flip.
+2. State clearly that **installers users download are still legacy-builder** until flip.
 3. Mention AppImage/package:wails as preview/packaging R&D, not the default channel.
-4. Link docs/wails-migration.md and dsh-plugin-desktop/docs/electron-shell-fallback.md.
+4. Link docs/wails-migration.md and dsh-plugin-desktop/docs/legacy-shell-fallback.md.
 
-## Release flip checklist (electron-builder → Wails primary)
+## Release flip checklist (legacy-builder → Wails primary)
 
 Do **not** flip product CI casually. Flip only when all of the following are true and
 documented in release notes + this file:
@@ -68,11 +68,11 @@ documented in release notes + this file:
 4. Recovery Host API owns checkpoint/uninstall generation state (or release notes explicitly
    defer those tabs with operator guidance).
 5. AppImage/FUSE/linuxdeploy (or platform equivalents) available on packaging runners.
-6. Product download URLs and update checker pointed at Wails artifacts; electron-builder
-   retained as emergency LAST-RESORT channel with a documented rollback.
+6. Product download URLs and update checker pointed at Wails artifacts; legacy-builder
+   retained as emergency QUARANTINED channel with a documented rollback.
 7. Explicit owner sign-off recorded in the PR that changes default CI / download channel.
 
-Until then: electron-builder = authoritative shipping path; Wails = primary hybrid run path
+Until then: legacy-builder = authoritative shipping path; Wails = primary hybrid run path
 + parallel packaging R&D.
 
 ## macOS-only verification (out of Linux bed)
@@ -94,12 +94,12 @@ local smoke remains `node scripts/wails-smoke.mjs`.
 
 ## Recovery Host↔Wails RPC (transport Done + confirm UX)
 
-Wails aux Recovery is **not** a full port of Electron
+Wails aux Recovery is **not** a full port of LEGACY
 DesktopStartupRecoveryWindow (native DesktopDialogWindow chrome), but Host↔Wails
 RPC + hybrid confirm flow now exist.
 
 **Landed (2026-09-05):**
-- `host-main` / LAST-RESORT `main` keep `DesktopStartupRecoveryController` alive in
+- `host-main` / QUARANTINED `main` keep `DesktopStartupRecoveryController` alive in
   Wails sidecar recovery mode (no immediate dispose/exit).
 - Loopback Recovery RPC (`src/wails-recovery-rpc.ts`): announce
   `DSH_HOST_RECOVERY_RPC http://127.0.0.1:PORT/ token=…`

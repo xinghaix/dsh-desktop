@@ -1,7 +1,8 @@
 import type { LogFileSink } from './log-files.ts'
 import { maskSecrets } from './mask-secrets.ts'
+import { writeDesktopExceptionDump } from './crash-evidence.ts'
 
-/** Logger for Electron-main-scope messages that bypass Cordis `ctx.logger`. */
+/** Logger for Host-scope messages that bypass Cordis `ctx.logger`. */
 export interface DesktopLogger {
   /** Log an error message to the sink (and stderr for dev visibility). */
   error(message: string): void
@@ -23,18 +24,18 @@ export interface DesktopChildProcessDetails {
   readonly name?: string
 }
 
-/** Electron app events that expose native child process failures. */
+/** Optional app events that expose native child process failures. */
 export interface DesktopChildProcessSource {
   on(event: 'child-process-gone', listener: (event: unknown, details: DesktopChildProcessDetails) => void): unknown
   off(event: 'child-process-gone', listener: (event: unknown, details: DesktopChildProcessDetails) => void): unknown
 }
 
-/** Render signed Electron exit codes with their Windows NTSTATUS bit pattern. */
+/** Render signed process exit codes with their Windows NTSTATUS bit pattern. */
 export function formatDesktopExitCode(exitCode: number): string {
   return `${String(exitCode)} / 0x${(exitCode >>> 0).toString(16).padStart(8, '0')}`
 }
 
-/** Persist unexpected utility, GPU, and other Electron child process exits. */
+/** Persist unexpected utility, GPU, and other child process exits. */
 export function installDesktopChildProcessLogging(
   app: DesktopChildProcessSource,
   logger: DesktopLogger,
@@ -53,17 +54,27 @@ export function installDesktopChildProcessLogging(
   return () => { app.off('child-process-gone', handler) }
 }
 
+export interface DesktopUncaughtExceptionOptions {
+  /** Directory for file-based crash dumps (Crashpad alternative on Node Host). */
+  readonly evidenceDir?: string
+}
+
 /** Persist the first uncaught exception before requesting a fatal exit. */
 export function installDesktopUncaughtExceptionLogging(
   proc: DesktopUncaughtExceptionProcess,
   logger: DesktopLogger,
   exit: (code: number) => void,
+  options: DesktopUncaughtExceptionOptions = {},
 ): () => void {
   let handled = false
   const handler = (error: Error): void => {
     if (handled) return
     handled = true
     proc.off('uncaughtException', handler)
+    if (options.evidenceDir !== undefined) {
+      const dump = writeDesktopExceptionDump(options.evidenceDir, error, 'uncaughtException')
+      if (dump !== undefined) logger.error(`dsh-plugin-desktop: wrote crash dump ${dump}`)
+    }
     logger.errorCause(error)
     exit(1)
   }
@@ -72,7 +83,7 @@ export function installDesktopUncaughtExceptionLogging(
 }
 
 /** DesktopLogger that writes to the shared sink and mirrors to process.stderr. */
-export class ElectronStderrLogger implements DesktopLogger {
+export class DesktopStderrLogger implements DesktopLogger {
   constructor(private readonly sink: LogFileSink | undefined) {}
 
   /** Accept one fail-loud stderr diagnostic through the persistent logger. */

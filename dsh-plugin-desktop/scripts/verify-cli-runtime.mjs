@@ -1,11 +1,10 @@
-/** Headless artifact smoke for the Electron-backed dsh and pnpm command entries. */
+/** Headless artifact smoke for the Node-backed dsh and pnpm command entries. */
 
 import { spawnSync } from 'node:child_process'
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import electronPath from 'electron'
 import { installDesktopPnpmRuntime } from '../lib/desktop-runtime-environment.js'
 
 const packageRoot = new URL('../', import.meta.url)
@@ -16,7 +15,7 @@ const dshPackage = fileURLToPath(new URL('node_modules/@deepseek-ai/dsh/', packa
 const pnpmCli = fileURLToPath(new URL('node_modules/pnpm/bin/pnpm.mjs', packageRoot))
 const dshVersion = JSON.parse(readFileSync(new URL('node_modules/@deepseek-ai/dsh/package.json', packageRoot), 'utf8')).version
 const pnpmVersion = JSON.parse(readFileSync(new URL('node_modules/pnpm/package.json', packageRoot), 'utf8')).version
-const electronVersion = JSON.parse(readFileSync(new URL('node_modules/electron/package.json', packageRoot), 'utf8')).version
+const nodeVersion = process.versions.node
 const RUNNER_ENVIRONMENT_NAMES = new Set([
   'ELECTRON_RUN_AS_NODE',
   'NPM_CONFIG_RUNTIME',
@@ -60,11 +59,10 @@ function verifyResult(label, result, expectedOutput) {
   }
 }
 
-function runElectronEntry(label, nodeArgs, entry, args, expectedOutput, extraEnvironment = {}) {
+function runNodeEntry(label, nodeArgs, entry, args, expectedOutput, extraEnvironment = {}) {
   const env = cleanEnvironment()
   Object.assign(env, extraEnvironment)
-  env.ELECTRON_RUN_AS_NODE = '1'
-  const result = spawnSync(electronPath, [...nodeArgs, entry, ...args], {
+  const result = spawnSync(process.execPath, [...nodeArgs, entry, ...args], {
     encoding: 'utf8',
     env,
     shell: false,
@@ -123,9 +121,9 @@ function verifyLifecycleEnvironment(stateRoot, installation, env) {
     runAsNode: [],
     node: installation.nodeShimPath,
     npmNodeExecPath: installation.nodeShimPath,
-    runtime: 'electron',
-    target: electronVersion,
-    disturl: 'https://electronjs.org/headers',
+    runtime: 'node',
+    target: nodeVersion,
+    disturl: undefined,
   }
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`pnpm lifecycle smoke returned ${JSON.stringify(actual)} instead of ${JSON.stringify(expected)}`)
@@ -139,9 +137,9 @@ function runPackagedPnpmShim() {
   try {
     installation = installDesktopPnpmRuntime({
       platform: process.platform,
-      appExecutable: electronPath,
+      appExecutable: process.execPath,
       pnpmBinPath: pnpmCli,
-      electronVersion,
+      electronVersion: nodeVersion,
       stateDir: join(stateRoot, 'runtime'),
       environment: env,
     })
@@ -173,7 +171,7 @@ function runFlatProfileDshEntry() {
     symlinkSync(dshAppBootPackage, linkedAppBootPackage, process.platform === 'win32' ? 'junction' : 'dir')
     symlinkSync(dshAtomicWritePackage, linkedAtomicWritePackage, process.platform === 'win32' ? 'junction' : 'dir')
     symlinkSync(dshPackage, linkedDshPackage, process.platform === 'win32' ? 'junction' : 'dir')
-    runElectronEntry(
+    runNodeEntry(
       'flat profile dsh plugin help',
       ['--expose-internals'],
       join(desktopPackage, 'lib', 'desktop-cli.js'),
@@ -186,6 +184,6 @@ function runFlatProfileDshEntry() {
   }
 }
 
-runElectronEntry('dsh', ['--expose-internals'], desktopCli, ['--version'], dshVersion)
+runNodeEntry('dsh', ['--expose-internals'], desktopCli, ['--version'], dshVersion)
 runFlatProfileDshEntry()
 runPackagedPnpmShim()

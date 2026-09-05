@@ -33,7 +33,7 @@
 | [Wails 迁移](wails-migration.md) | 当前主路径状态、已完成项与永久平台限制 |
 | [Wails 工作区脚本](wails-workspace-scripts.md) | start:wails / start:host 等推荐入口 |
 | [Node Host 启动](wails-node-host-boot.md) | Node-first Host 启动顺序与环境变量 |
-| [Electron shell fallback](../dsh-plugin-desktop/docs/electron-shell-fallback.md) | 显式允许的最后手段 Electron main 路径 |
+| [Electron shell fallback](../dsh-plugin-desktop/docs/legacy-shell-fallback.md) | 显式允许的最后手段 Electron main 路径 |
 | [Desktop service 参考](../dsh-plugin-desktop/docs/plugin-services.md) | `desktopProfiles`、`desktopPnpm` 的稳定 contract 和 TypeScript 示例 |
 | [包级参考](../dsh-plugin-desktop/README.md) | 完整的构建、运行、发布和已知限制 |
 

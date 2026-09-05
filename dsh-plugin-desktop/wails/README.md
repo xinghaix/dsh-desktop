@@ -1,7 +1,7 @@
 # DSH Desktop — Wails v3 native shell
 
-Go **1.27** + **Wails v3.0.0-beta.16** shell that replaces Electron's
-BrowserWindow / Tray / Menu / Dialog surface over time.
+Go **1.27** + **Wails v3.0.0-beta.16** shell that replaces LEGACY's
+NativeWindow / Tray / Menu / Dialog surface over time.
 
 Placement: `dsh-plugin-desktop/wails/` (see `LOCATION.md`). Cordis Host still
 boots as a Node sidecar during the hybrid migration — see
@@ -45,7 +45,7 @@ works without Vite. Prefer `frontend/` + Vite when the JS toolchain is usable.
 # Control UI only
 go run .
 
-# Point at an already-running Cordis Host web UI (Electron's loadURL target)
+# Point at an already-running Cordis Host web UI (LEGACY's loadURL target)
 DSH_HOST_URL='http://127.0.0.1:PORT/' go run .
 # or:
 go run . -host-url 'http://127.0.0.1:PORT/'
@@ -67,7 +67,7 @@ writes `DSH_HOST_URL_FILE`.
 - `app.Dialog.OpenFile` / `Info` / `Warning` / `Error`
 - Services + `wails3 generate bindings`
 
-## Remaining Electron debt
+## Remaining LEGACY debt
 
 See docs/wails-migration.md for done vs permanently blocked items.
 
@@ -77,7 +77,7 @@ By default the shell auto-starts Cordis Host via the existing desktop start path
 
 ## Workspace scripts (preferred hybrid entry)
 
-Preferred hybrid entry (also mirrored at repo root): build:wails, start:wails, dev:wails, package:wails, smoke:wails, start:host. Electron start/dev remain last-resort BrowserWindow/Tray fallback; electron-builder stays default product CI until the release flip.
+Preferred hybrid entry (also mirrored at repo root): build:wails, start:wails, dev:wails, package:wails, smoke:wails, start:host. LEGACY start/dev remain quarantined NativeWindow/Tray fallback; product packaging is package:wails (CI flip outstanding).
 
 
 ## Auth / updates / LAN HTTPS
@@ -86,7 +86,7 @@ Preferred hybrid entry (also mirrored at repo root): build:wails, start:wails, d
 - Updates: CheckForUpdates + DownloadAndInstallUpdate (macOS/Windows/Linux AppImage URL).
 - LAN HTTPS: Host-owned TLS; DSH_HOST_LAN_HTTPS announce (LAN-HTTPS.md); Help -> Capabilities Status.
 - Packaging: package:wails / package-deps:wails; docs/wails-package-appimage.md; CI example docs/wails-ci-smoke.yml.example.
-- Recovery controller debt: docs/wails-migration.md (aux UI only; checkpoint/uninstall still Electron controller).
+- Recovery controller debt: docs/wails-migration.md (aux UI only; checkpoint/uninstall still LEGACY controller).
 
 ## Crash evidence / dock / updates
 

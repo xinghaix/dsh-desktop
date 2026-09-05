@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  ElectronStderrLogger,
+  DesktopStderrLogger,
   installDesktopChildProcessLogging,
   installDesktopUncaughtExceptionLogging,
 } from '../src/desktop-logger.ts'
@@ -23,7 +23,7 @@ function sink(): { s: LogFileSink; dir: string } {
   return { s: new LogFileSink(dir, { maxFileBytes: 1e6, maxDirectoryBytes: 1e7 }), dir }
 }
 
-describe('ElectronStderrLogger', () => {
+describe('DesktopStderrLogger', () => {
   it('logs Electron child process crashes with the Windows exception code', () => {
     const app = new EventEmitter()
     const logger = { error: vi.fn(), errorCause: vi.fn() }
@@ -47,7 +47,7 @@ describe('ElectronStderrLogger', () => {
   it('writes to the sink and to stderr', () => {
     const { s, dir } = sink()
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
-    const logger = new ElectronStderrLogger(s)
+    const logger = new DesktopStderrLogger(s)
     logger.error('boom')
     expect(stderrSpy).toHaveBeenCalled()
     stderrSpy.mockRestore()
@@ -57,13 +57,13 @@ describe('ElectronStderrLogger', () => {
 
   it('renders an unknown cause as a string', () => {
     const { s } = sink()
-    const logger = new ElectronStderrLogger(s)
+    const logger = new DesktopStderrLogger(s)
     expect(() => logger.errorCause({ code: 42 })).not.toThrow()
   })
 
   it('uses the error stack for Error causes', () => {
     const { s, dir } = sink()
-    const logger = new ElectronStderrLogger(s)
+    const logger = new DesktopStderrLogger(s)
     logger.errorCause(new Error('crash here'))
     const day = todaySuffix()
     expect(readFileSync(join(dir, `dsh-${day}.log`), 'utf8')).toContain('crash here')
@@ -72,7 +72,7 @@ describe('ElectronStderrLogger', () => {
   it('masks secrets in the file and stderr outputs', () => {
     const { s, dir } = sink()
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
-    const logger = new ElectronStderrLogger(s)
+    const logger = new DesktopStderrLogger(s)
 
     logger.error('request failed with Bearer abc.def.secret')
 
@@ -87,7 +87,7 @@ describe('ElectronStderrLogger', () => {
   it('accepts fail-loud stderr chunks without adding a second newline', () => {
     const { s, dir } = sink()
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
-    const logger = new ElectronStderrLogger(s)
+    const logger = new DesktopStderrLogger(s)
 
     logger.write('dsh-plugin-desktop: fatal load failure: Bearer abc.def.secret\n')
 
@@ -102,7 +102,7 @@ describe('ElectronStderrLogger', () => {
   it('logs the first uncaught exception and requests a fatal exit', () => {
     const { s, dir } = sink()
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
-    const logger = new ElectronStderrLogger(s)
+    const logger = new DesktopStderrLogger(s)
     const proc = new EventEmitter()
     const exit = vi.fn()
 
@@ -126,7 +126,7 @@ describe('ElectronStderrLogger', () => {
     const { s } = sink()
     vi.spyOn(s, 'write').mockImplementation(() => { throw new Error('disk full') })
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
-    const logger = new ElectronStderrLogger(s)
+    const logger = new DesktopStderrLogger(s)
 
     expect(() => { logger.error('failed with Bearer abc.def.secret') }).not.toThrow()
     expect(stderrSpy).toHaveBeenCalledWith('failed with Bearer ****\n')

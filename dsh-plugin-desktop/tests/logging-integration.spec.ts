@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ElectronStderrLogger } from '../src/desktop-logger.ts'
+import { DesktopStderrLogger } from '../src/desktop-logger.ts'
 import { FileExporter } from '../src/file-exporter.ts'
 import { LogFileSink } from '../src/log-files.ts'
 
@@ -39,10 +39,10 @@ describe('logging end-to-end', () => {
     expect(error).not.toContain('hello from info')
   })
 
-  it('logs an uncaught-exception cause through ElectronStderrLogger', () => {
+  it('logs an uncaught-exception cause through DesktopStderrLogger', () => {
     const dir = mkdtempSync(join(tmpdir(), 'dsh-log-e2e-'))
     const sink = new LogFileSink(dir, { maxFileBytes: 10 * 1024 * 1024, maxDirectoryBytes: 200 * 1024 * 1024 })
-    const logger = new ElectronStderrLogger(sink)
+    const logger = new DesktopStderrLogger(sink)
     logger.errorCause(new Error('crash in main'))
     const day = todaySuffix()
     expect(readFileSync(join(dir, `dsh-${day}.log`), 'utf8')).toContain('crash in main')

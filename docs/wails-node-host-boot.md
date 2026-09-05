@@ -3,8 +3,8 @@
 ## Preferred launch order
 
 1. Stock Node host-main
-2. Electron-as-Node when Electron ABI natives are present
-3. LAST RESORT Electron main (DSH_HOST_LAUNCHER=electron-main; may need DSH_ALLOW_ELECTRON_MAIN=1)
+2. LEGACY-as-Node when LEGACY ABI natives are present
+3. LAST RESORT LEGACY main (DSH_HOST_LAUNCHER=legacy-main; may need DSH_ALLOW_ELECTRON_MAIN=1)
 
 ## Env
 

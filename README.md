@@ -83,7 +83,7 @@ DSH Desktop 将 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 | 了解桌面插件可以使用的能力 | [桌面插件接口说明](dsh-plugin-desktop/docs/plugin-services.zh.md) |
 | 了解桌面应用如何工作 | [架构说明](docs/architecture.md) |
 | Wails 主路径与迁移 | [Wails 迁移](docs/wails-migration.md) · [工作区脚本](docs/wails-workspace-scripts.md) · [Node Host 启动](docs/wails-node-host-boot.md) |
-| Electron 最后手段 fallback | [electron-shell-fallback](dsh-plugin-desktop/docs/electron-shell-fallback.md) |
+| LEGACY 最后手段 fallback | [legacy-shell-fallback](dsh-plugin-desktop/docs/legacy-shell-fallback.md) |
 | 查阅包级构建与发布细节 | [`dsh-plugin-desktop/README.md`](dsh-plugin-desktop/README.md) |
 
 ## 主要功能
@@ -163,7 +163,7 @@ DSH Desktop 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek
 
 ## 开发
 
-稳定版与 Beta 桌面包分别位于 `dsh-plugin-desktop/` 和 `dsh-plugin-desktop-beta/`。外层仓库使用 Yarn，固定的 `deepseek-harness/` 子模块继续使用自己的 pnpm workspace。当前主路径是 **Go 1.27 + Wails v3 原生壳**（`dsh-plugin-desktop/wails/`）+ **Node-first Cordis Host** sidecar；Electron BrowserWindow/Tray 仍保留为最后手段 fallback。从仓库根目录执行：
+稳定版与 Beta 桌面包分别位于 `dsh-plugin-desktop/` 和 `dsh-plugin-desktop-beta/`。外层仓库使用 Yarn，固定的 `deepseek-harness/` 子模块继续使用自己的 pnpm workspace。当前主路径是 **Go 1.27 + Wails v3 原生壳**（`dsh-plugin-desktop/wails/`）+ **Node-first Cordis Host** sidecar；LEGACY NativeWindow/Tray 仍保留为最后手段 fallback。从仓库根目录执行：
 
 ```sh
 git submodule update --init --recursive
@@ -172,10 +172,10 @@ corepack yarn start:wails   # 主路径：Wails 壳
 corepack yarn start:host    # Node-first Host sidecar
 corepack yarn dev:wails     # Wails 开发循环
 corepack yarn smoke:wails   # 冒烟
-corepack yarn dev           # 最后手段：Electron 壳
+corepack yarn dev           # 最后手段：LEGACY 壳
 ```
 
-headless 检查使用 `corepack yarn check`。迁移与脚本见 [`docs/wails-migration.md`](docs/wails-migration.md)、[`docs/wails-workspace-scripts.md`](docs/wails-workspace-scripts.md)、[`docs/wails-node-host-boot.md`](docs/wails-node-host-boot.md)；Electron fallback 见 [`electron-shell-fallback.md`](dsh-plugin-desktop/docs/electron-shell-fallback.md)。完整构建/测试/发布边界见[架构说明](docs/architecture.md)和包级 [`README`](dsh-plugin-desktop/README.md)。如何参与贡献见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+headless 检查使用 `corepack yarn check`。迁移与脚本见 [`docs/wails-migration.md`](docs/wails-migration.md)、[`docs/wails-workspace-scripts.md`](docs/wails-workspace-scripts.md)、[`docs/wails-node-host-boot.md`](docs/wails-node-host-boot.md)；LEGACY fallback 见 [`legacy-shell-fallback.md`](dsh-plugin-desktop/docs/legacy-shell-fallback.md)。完整构建/测试/发布边界见[架构说明](docs/architecture.md)和包级 [`README`](dsh-plugin-desktop/README.md)。如何参与贡献见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 社区交流
 
@@ -248,9 +248,9 @@ Discord：[加入 DSH Desktop 社区](https://discord.gg/TJeGqKRNM)
 ## Wails v3 原生壳（当前主路径）
 
 - 原生壳：Go 1.27 + Wails v3，位于 [`dsh-plugin-desktop/wails/`](dsh-plugin-desktop/wails/)
-- Host：Node-first `host-main.ts` / `NodeDesktopRuntime`（无 `app.whenReady`）；launcher 自动 Node → ELECTRON_RUN_AS_NODE → 最后手段 Electron `main.ts`（需显式允许）
+- Host：Node-first `host-main.ts` / `NodeDesktopRuntime`（无 `app.whenReady`）；launcher 自动 Node → ELECTRON_RUN_AS_NODE → 最后手段 LEGACY `main.ts`（需显式允许）
 - Auth：AuthProxy 生产路径 + BridgeService；Aux Recovery/Setup/Profile 经 AuxWindowService（优先 native-ui）
 - 推荐入口：`start:wails` / `dev:wails` / `smoke:wails` / `start:host`
-- Electron BrowserWindow/Tray **不是**当前主产品路径；代码仍保留，见 [`electron-shell-fallback.md`](dsh-plugin-desktop/docs/electron-shell-fallback.md)
+- LEGACY NativeWindow/Tray **不是**当前主产品路径；代码仍保留，见 [`legacy-shell-fallback.md`](dsh-plugin-desktop/docs/legacy-shell-fallback.md)
 - 文档：[`wails-migration.md`](docs/wails-migration.md)、[`wails-shell-bridge.md`](dsh-plugin-desktop/src/wails-shell-bridge.md)、[`wails-node-host-boot.md`](docs/wails-node-host-boot.md)、[`wails/README.md`](dsh-plugin-desktop/wails/README.md) / [LOCATION.md](dsh-plugin-desktop/wails/LOCATION.md)
-- 发布切换完成前，electron-builder 仍是默认产品 CI 打包路径
+- 发布切换完成前，legacy-builder 仍是默认产品 CI 打包路径

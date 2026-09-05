@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import type { DesktopLogger } from './desktop-logger.ts'
 import type { RendererBootReport } from './renderer-boot-contract.ts'
-import type { DesktopStartupFailureStage } from './startup-recovery-window.ts'
+import type { DesktopStartupFailureStage } from './recovery-copy.ts'
 
 export const DESKTOP_LIFECYCLE_SCHEMA_VERSION = 1
 export const DESKTOP_LIFECYCLE_EVIDENCE_ENTRY = 'lifecycle-events/startup.jsonl'

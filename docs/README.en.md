@@ -33,7 +33,7 @@ Ordinary users can start with the [user guide](user-guide.en.md) and never need 
 | [Wails migration](wails-migration.md) | Current primary-path status, completed work, permanent platform limits |
 | [Wails workspace scripts](wails-workspace-scripts.md) | Recommended start:wails / start:host entry points |
 | [Node Host boot](wails-node-host-boot.md) | Node-first Host launch order and env vars |
-| [Electron shell fallback](../dsh-plugin-desktop/docs/electron-shell-fallback.md) | Explicit-allow last-resort Electron main path |
+| [Electron shell fallback](../dsh-plugin-desktop/docs/legacy-shell-fallback.md) | Explicit-allow last-resort Electron main path |
 | [Desktop service reference](../dsh-plugin-desktop/docs/plugin-services.md) | Stable `desktopProfiles` and `desktopPnpm` contracts with TypeScript examples |
 | [Package reference](../dsh-plugin-desktop/README.md) | Detailed build, runtime, release, and limitation notes |
 

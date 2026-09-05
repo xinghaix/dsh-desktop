@@ -55,9 +55,9 @@ function RecoveryNoticeEffect({ notice }: { readonly notice: RecoveryNotice }): 
 }
 
 /** Shared Recovery-style notification surface for native Desktop windows. */
-export function RecoveryNoticeSurface({ notice }: { readonly notice: RecoveryNotice | undefined }): JSX.Element {
+export function RecoveryNoticeSurface({ notice }: { readonly notice: RecoveryNotice | null | undefined }): JSX.Element {
   return <>
-    {notice === undefined ? null : <RecoveryNoticeEffect notice={notice} />}
+    {notice == null ? null : <RecoveryNoticeEffect notice={notice} />}
     <Toaster closeButton offset={{ top: 52, right: 24 }} position="top-right" richColors />
   </>
 }

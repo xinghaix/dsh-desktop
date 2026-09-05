@@ -16,7 +16,7 @@ export const DESKTOP_RELEASE_IDENTITIES = Object.freeze({
 
 export type DesktopProductIdentity = typeof DESKTOP_RELEASE_IDENTITIES[keyof typeof DESKTOP_RELEASE_IDENTITIES]
 
-/** Beta release-channel identities that must stay aligned with electron-builder. */
+/** Beta release-channel identities that must stay aligned across release channels. */
 export const DESKTOP_PRODUCT_IDENTITY = DESKTOP_RELEASE_IDENTITIES.beta
 export const OTHER_DESKTOP_PRODUCT_IDENTITY = DESKTOP_RELEASE_IDENTITIES.stable
 export const DESKTOP_PACKAGE_NAME = DESKTOP_PRODUCT_IDENTITY.packageName

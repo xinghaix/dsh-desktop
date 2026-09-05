@@ -1,15 +1,13 @@
-/** Private RunAsNode bootstrap for the packaged DeepSeek Harness CLI. */
+/** Private RunAsNode bootstrap for the DeepSeek Harness CLI (home-first). */
 
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { packagedDependencyPath } from './packaged-runtime-path.ts'
+import { requireDesktopCliEntry } from './cli-home-resolve.ts'
 import { assertDesktopProfileName } from './profile-manager.ts'
 import { withoutForwardedDesktopPnpmPolicy } from './pnpm-policy.ts'
 
 const RUN_AS_NODE = 'ELECTRON_RUN_AS_NODE'
 const DEFAULT_PROFILE = 'DSH_DESKTOP_DEFAULT_PROFILE'
-const DSH_ENTRY_URL = pathToFileURL(
-  packagedDependencyPath(import.meta.url, '@deepseek-ai/dsh/lib/bin.js'),
-).href
 
 export function clearElectronRunAsNode(environment: NodeJS.ProcessEnv): void {
   for (const key of Object.keys(environment)) {
@@ -43,7 +41,7 @@ function takeDefaultProfile(environment: NodeJS.ProcessEnv): string | undefined 
 }
 
 /**
- * Enter the packaged DSH CLI without any plugin-install transaction wrapper.
+ * Enter the home-first DSH CLI without any plugin-install transaction wrapper.
  * Manual plugin commands and Market operations rely on unified checkpoints.
  */
 export async function runDesktopDshCli(
@@ -57,7 +55,15 @@ export async function runDesktopDshCli(
     ? argv.slice(2)
     : withDefaultDesktopProfile(argv.slice(2), profileName)
   argv.splice(2, argv.length - 2, ...withoutForwardedDesktopPnpmPolicy(selected))
-  await load(DSH_ENTRY_URL)
+  const bundledEntryPath = packagedDependencyPath(import.meta.url, 
+    '@deepseek-ai/' + 'dsh/lib/bin.js',
+  )
+  const hit = requireDesktopCliEntry({
+    environment,
+    bundledEntryPath,
+  })
+  process.stderr.write("dsh-desktop: " + hit.reason + " -> " + hit.path + "\n")
+  await load(pathToFileURL(hit.path).href)
 }
 
 function isDirectExecution(): boolean {
@@ -67,7 +73,7 @@ function isDirectExecution(): boolean {
 
 if (isDirectExecution()) {
   void runDesktopDshCli().catch((cause: unknown) => {
-    process.stderr.write(`dsh-desktop: failed to start packaged dsh: ${cause instanceof Error ? cause.stack ?? cause.message : String(cause)}\n`)
+    process.stderr.write(`dsh-desktop: failed to start dsh CLI: ${cause instanceof Error ? cause.stack ?? cause.message : String(cause)}\n`)
     process.exitCode = 1
   })
 }

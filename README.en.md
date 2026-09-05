@@ -83,7 +83,7 @@ Ordinary users can start with the [user guide](docs/user-guide.en.md); the devel
 | See what Desktop plugins can use | [Desktop plugin API](dsh-plugin-desktop/docs/plugin-services.md) |
 | Understand how the desktop works | [Architecture](docs/architecture.en.md) |
 | Wails primary path and migration | [Wails migration](docs/wails-migration.md) · [workspace scripts](docs/wails-workspace-scripts.md) · [Node Host boot](docs/wails-node-host-boot.md) |
-| Electron last-resort fallback | [electron-shell-fallback](dsh-plugin-desktop/docs/electron-shell-fallback.md) |
+| Legacy shell note | [legacy-shell-fallback](dsh-plugin-desktop/docs/legacy-shell-fallback.md) |
 | Read package-level build and release details | [`dsh-plugin-desktop/README.md`](dsh-plugin-desktop/README.md) |
 
 ## Features
@@ -163,7 +163,7 @@ Also, and you.
 
 ## Development
 
-Desktop source lives in `dsh-plugin-desktop/`. The outer repository uses Yarn, while the pinned `deepseek-harness/` submodule keeps its own pnpm workspace. The current primary path is the **Go 1.27 + Wails v3 native shell** (`dsh-plugin-desktop/wails/`) plus a **Node-first Cordis Host** sidecar; Electron BrowserWindow/Tray remains as last-resort fallback. From the repository root:
+Desktop source lives in `dsh-plugin-desktop/`. The outer repository uses Yarn, while the pinned `deepseek-harness/` submodule keeps its own pnpm workspace. The current primary path is the **Go 1.27 + Wails v3 native shell** (`dsh-plugin-desktop/wails/`) plus a **Node-first Cordis Host** sidecar; Legacy shell sources are archived (not a product path). From the repository root:
 
 ```sh
 git submodule update --init --recursive
@@ -171,11 +171,10 @@ corepack yarn install --immutable
 corepack yarn start:wails   # primary: Wails shell
 corepack yarn start:host    # Node-first Host sidecar
 corepack yarn dev:wails     # Wails development loop
-corepack yarn smoke:wails   # smoke without workflow scope
-corepack yarn dev           # last-resort: Electron shell
+corepack yarn smoke:wails   # smoke without workflow scope; use package:wails for artifacts
 ```
 
-Use `corepack yarn check` for the headless gate. Migration and scripts: [`docs/wails-migration.md`](docs/wails-migration.md), [`docs/wails-workspace-scripts.md`](docs/wails-workspace-scripts.md), [`docs/wails-node-host-boot.md`](docs/wails-node-host-boot.md); Electron fallback: [`electron-shell-fallback.md`](dsh-plugin-desktop/docs/electron-shell-fallback.md). The [architecture](docs/architecture.en.md) and package [`README`](dsh-plugin-desktop/README.md) describe the full build, test, and release boundaries. See [CONTRIBUTING.en.md](CONTRIBUTING.en.md) for how to contribute.
+Use `corepack yarn check` for the headless gate. Migration and scripts: [`docs/wails-migration.md`](docs/wails-migration.md), [`docs/wails-workspace-scripts.md`](docs/wails-workspace-scripts.md), [`docs/wails-node-host-boot.md`](docs/wails-node-host-boot.md); LEGACY fallback: [`legacy-shell-fallback.md`](dsh-plugin-desktop/docs/legacy-shell-fallback.md). The [architecture](docs/architecture.en.md) and package [`README`](dsh-plugin-desktop/README.md) describe the full build, test, and release boundaries. See [CONTRIBUTING.en.md](CONTRIBUTING.en.md) for how to contribute.
 
 ## Community
 
@@ -246,9 +245,9 @@ This project is licensed under the [MIT License](LICENSE).
 ## Wails v3 native shell (current primary path)
 
 - Native shell: Go 1.27 + Wails v3 in [`dsh-plugin-desktop/wails/`](dsh-plugin-desktop/wails/)
-- Host: Node-first `host-main.ts` / `NodeDesktopRuntime` (no `app.whenReady`); launcher auto Node -> ELECTRON_RUN_AS_NODE -> LAST-RESORT Electron `main.ts` (explicit allow)
+- Host: Node-first `host-main.ts` / `NodeDesktopRuntime` (no `app.whenReady`); launcher auto Node -> ELECTRON_RUN_AS_NODE -> QUARANTINED LEGACY `main.ts` (explicit allow)
 - Auth: AuthProxy production path + BridgeService; Aux Recovery/Setup/Profile via AuxWindowService (prefer native-ui)
 - Recommended entry: `start:wails` / `dev:wails` / `smoke:wails` / `start:host`
-- Electron BrowserWindow/Tray is **not** the primary product path anymore; code remains — see [`electron-shell-fallback.md`](dsh-plugin-desktop/docs/electron-shell-fallback.md)
+- Legacy NativeWindow/Tray is archived — see [`legacy-shell-fallback.md`](dsh-plugin-desktop/docs/legacy-shell-fallback.md)
 - Docs: [`wails-migration.md`](docs/wails-migration.md), [`wails-shell-bridge.md`](dsh-plugin-desktop/src/wails-shell-bridge.md), [`wails-node-host-boot.md`](docs/wails-node-host-boot.md), [`wails/README.md`](dsh-plugin-desktop/wails/README.md) / [LOCATION.md](dsh-plugin-desktop/wails/LOCATION.md)
-- Until the release flip, electron-builder remains the default product CI packaging path
+- Until the release flip, product packaging is package:wails (CI flip outstanding)

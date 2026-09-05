@@ -16,10 +16,10 @@ default production path. See authproxy.go and bridgeservice.go.
 | Artifact | AuthProxy expectation |
 | --- | --- |
 | bin/dsh-wails-shell (smoke / package fallback) | Same production AuthProxy; Host sidecar required |
-| wails3 package AppImage/deb (when tooling exists) | Must ship Go AuthProxy; no Electron session.webRequest |
-| electron-builder installers (current product CI) | Electron session headers; AuthProxy unused |
+| wails3 package AppImage/deb (when tooling exists) | Must ship Go AuthProxy; no LEGACY session.webRequest |
+| legacy-builder installers (current product CI) | LEGACY session headers; AuthProxy unused |
 
-Until the release flip, shipped downloads remain electron-builder. Preview Wails
+Until the release flip, shipped downloads remain legacy-builder. Preview Wails
 packages must keep AuthProxy required:true and Origin rewrite (CSRF otherwise fails).
 
 Smoke: node scripts/wails-smoke.mjs then Help -> Auth / Renderer Header.

@@ -3,7 +3,7 @@
 Recommended hybrid entry (repo root or dsh-plugin-desktop):
 
 - start:wails / dev:wails / build:wails / package:wails / smoke:wails
-- start:host / start:host:node / start:host:electron-as-node
+- start:host / start:host:node / start:host:legacy-as-node
 - sync:native-ui:wails (copies lib/native-ui into wails embed tree)
 - node scripts/wails-smoke.mjs (non-workflow smoke)
 - node dsh-plugin-desktop/wails/scripts/run-wails.mjs package-deps (AppImage tooling probe)
@@ -15,12 +15,12 @@ Go resolution: DSH_GO_BIN -> PATH go -> ~/sdk/go1.27.0/bin -> ~/go/bin -> /home/
 ## Packaging
 
 - package:wails prefers wails3 package; falls back to bin/dsh-wails-shell.
-- AppImage host deps and electron-builder primacy: docs/wails-package-appimage.md.
+- AppImage host deps and legacy-builder primacy: docs/wails-package-appimage.md.
 - smoke:wails always runs go test + go build, then prints the package-deps probe.
 
 ## Enabling CI smoke when workflow scope exists
 
-Electron start/dev remain fallback Host+BrowserWindow path. Product ci.yml stays Electron/Yarn
+LEGACY start/dev remain fallback Host+NativeWindow path. Product ci.yml stays LEGACY/Yarn
 based; wails-smoke is additive.
 
 While the push token lacks workflow scope:
@@ -37,7 +37,7 @@ git commit -m "ci(wails): add additive wails-smoke workflow"
 git push origin feat/wails3-shell   # xinghaix remote in this fork
 ```
 
-Do not invent a second product release workflow; electron-builder remains default until
+Do not invent a second product release workflow; legacy-builder remains default until
 the release flip documented in docs/wails-migration.md.
 
 

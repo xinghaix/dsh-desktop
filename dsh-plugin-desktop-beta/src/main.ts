@@ -26,7 +26,7 @@ import {
 import { desktopProductVersion, ElectronDesktopRuntime } from './electron-runtime.ts'
 import { getOrCreateDesktopInstallationId } from './desktop-installation-id.ts'
 import {
-  ElectronStderrLogger,
+  DesktopStderrLogger,
   installDesktopChildProcessLogging,
   installDesktopUncaughtExceptionLogging,
   type DesktopLogger,
@@ -423,7 +423,7 @@ async function start(): Promise<void> {
     process.stderr.write(`${BIN_NAME}: file logging unavailable: ${maskSecrets(detail)}\n`)
     logSink = undefined
   }
-  const electronLogger = new ElectronStderrLogger(logSink)
+  const desktopLogger = new DesktopStderrLogger(logSink)
   if (safeModeRequested) {
     safeModePaths = ensureDesktopSafeModeEnvironment(desktopUserDataDir)
   } else {
@@ -431,17 +431,17 @@ async function start(): Promise<void> {
     try {
       cleanupDesktopSafeModeEnvironment(desktopUserDataDir)
     } catch (cause) {
-      electronLogger.error(`${BIN_NAME}: failed to remove the previous Safe Mode environment: ${cause instanceof Error ? cause.message : String(cause)}`)
+      desktopLogger.error(`${BIN_NAME}: failed to remove the previous Safe Mode environment: ${cause instanceof Error ? cause.message : String(cause)}`)
     }
   }
-  const generation = new DesktopStartupGeneration({ logger: electronLogger })
+  const generation = new DesktopStartupGeneration({ logger: desktopLogger })
   const generationId = generation.id
   const lifecycleRecorder = createDesktopLifecycleRecorder({
     userDataDir: app.getPath('userData'),
     appVersion,
     platform: process.platform,
     arch: process.arch,
-    logger: electronLogger,
+    logger: desktopLogger,
   })
   lifecycleRecorder.startStartup(startupStage)
   try {
@@ -452,7 +452,7 @@ async function start(): Promise<void> {
       arch: process.arch,
     })
   } catch (cause) {
-    electronLogger.error(`${BIN_NAME}: local crash reporting unavailable: ${cause instanceof Error ? cause.message : String(cause)}`)
+    desktopLogger.error(`${BIN_NAME}: local crash reporting unavailable: ${cause instanceof Error ? cause.message : String(cause)}`)
   }
   let desktopRun: DesktopRun | undefined
   try {
@@ -466,14 +466,14 @@ async function start(): Promise<void> {
     )
     const previousRun = desktopRun.previousRun
     if (previousRun !== undefined) {
-      electronLogger.error('unreadable' in previousRun
+      desktopLogger.error('unreadable' in previousRun
         ? `${BIN_NAME}: previous desktop run did not shut down cleanly (active run marker unreadable)`
         : `${BIN_NAME}: previous desktop run did not shut down cleanly (startedAt: ${previousRun.startedAt}, pid: ${String(previousRun.pid)}, version: ${previousRun.version})`)
     }
   } catch (cause) {
-    electronLogger.error(`${BIN_NAME}: active run tracking unavailable: ${cause instanceof Error ? cause.message : String(cause)}`)
+    desktopLogger.error(`${BIN_NAME}: active run tracking unavailable: ${cause instanceof Error ? cause.message : String(cause)}`)
   }
-  removeChildProcessLogging = installDesktopChildProcessLogging(app, electronLogger)
+  removeChildProcessLogging = installDesktopChildProcessLogging(app, desktopLogger)
   const nativeExit = createDesktopExitCoordinator(
     {
       prepareToQuit: () => { runtime.prepareToQuit() },
@@ -492,13 +492,13 @@ async function start(): Promise<void> {
         try {
           cleanupDesktopSafeModeEnvironment(desktopUserDataDir)
         } catch (cause) {
-          electronLogger.error(`${BIN_NAME}: failed to remove the Safe Mode environment: ${cause instanceof Error ? cause.message : String(cause)}`)
+          desktopLogger.error(`${BIN_NAME}: failed to remove the Safe Mode environment: ${cause instanceof Error ? cause.message : String(cause)}`)
         }
       }
       try {
         desktopRun?.markClean()
       } catch (cause) {
-        electronLogger.error(`${BIN_NAME}: failed to clear active run marker: ${cause instanceof Error ? cause.message : String(cause)}`)
+        desktopLogger.error(`${BIN_NAME}: failed to clear active run marker: ${cause instanceof Error ? cause.message : String(cause)}`)
       }
     },
   )
@@ -526,7 +526,7 @@ async function start(): Promise<void> {
     // Main owns every pre-health failure branch. Returning true prevents the
     // legacy Renderer recovery dialog from racing the native startup window.
     return report.status === 'failed'
-  }, electronLogger, undefined, undefined, installationId)
+  }, desktopLogger, undefined, undefined, installationId)
   const finalExit = (code: number): void => { nativeExit.finish(code) }
   shutdown = createDesktopShutdown(
     async () => { await generation.release() },
@@ -535,7 +535,7 @@ async function start(): Promise<void> {
   const requestQuit = (code: number): void => { void shutdown.request(code) }
   removeUncaughtExceptionLogging = installDesktopUncaughtExceptionLogging(
     process,
-    electronLogger,
+    desktopLogger,
     requestQuit,
   )
   removeShutdownRequests = installShutdownRequests(process, app, requestQuit)
@@ -568,7 +568,7 @@ async function start(): Promise<void> {
       })
       return await startupRecoveryWindow.run()
     } catch (cause) {
-      electronLogger.error(
+      desktopLogger.error(
         `${BIN_NAME}: failed to open startup recovery window: ${cause instanceof Error ? cause.message : String(cause)}`,
       )
       return 'unavailable'
@@ -640,7 +640,7 @@ async function start(): Promise<void> {
     const projectionCacheRecovery = recoverOversizedSessionProjectionCache(homeDir)
     if (projectionCacheRecovery.status === 'quarantined') {
       sessionProjectionCacheRecovery = projectionCacheRecovery
-      electronLogger.error(
+      desktopLogger.error(
         `${BIN_NAME}: quarantined oversized session projection cache (${String(projectionCacheRecovery.sizeBytes)} bytes) at `
           + `${projectionCacheRecovery.cachePath}; backup saved to ${projectionCacheRecovery.backupPath}`,
       )
@@ -650,12 +650,12 @@ async function start(): Promise<void> {
       { label: 'desktop user data', path: app.getPath('userData') },
       { label: 'DSH home', path: homeDir },
     ])
-    warnWindowsVolumeConcerns(electronLogger, windowsVolumeConcerns)
+    warnWindowsVolumeConcerns(desktopLogger, windowsVolumeConcerns)
 
     const failLoudProcess: FailLoudProcess = {
       on: (event, handler) => process.on(event, handler),
       off: (event, handler) => process.off(event, handler),
-      stderr: electronLogger,
+      stderr: desktopLogger,
       exit: finalExit,
     }
     installFailLoud(BIN_NAME, failLoudProcess, async () => { await generation.release() })
@@ -792,7 +792,7 @@ async function start(): Promise<void> {
         profileSelectionWindow = new DesktopProfileSelectionWindow({ locale, profileActions })
         return await profileSelectionWindow.run()
       } catch (cause) {
-        electronLogger.error(
+        desktopLogger.error(
           `${BIN_NAME}: failed to open Profile selector: ${cause instanceof Error ? cause.message : String(cause)}`,
         )
         return 'unavailable'
@@ -856,7 +856,7 @@ async function start(): Promise<void> {
         dshVersion: currentDshVersion,
       })
     } catch (cause) {
-      electronLogger.error(
+      desktopLogger.error(
         `${BIN_NAME}: healthy profile checkpoints are unavailable: ${cause instanceof Error ? cause.message : String(cause)}`,
       )
     }
@@ -894,7 +894,7 @@ async function start(): Promise<void> {
             })
           } catch (cause) {
             const detail = maskSecrets(formatRecoveryPluginRemoveFailure(cause))
-            electronLogger.error(`${BIN_NAME}: recovery plugin uninstall failed:\n${detail}`)
+            desktopLogger.error(`${BIN_NAME}: recovery plugin uninstall failed:\n${detail}`)
             throw new DesktopStartupRecoveryControllerError(
               'operation-failed',
               'The plugin could not be removed from the current Profile.',
@@ -922,7 +922,7 @@ async function start(): Promise<void> {
             })
           } catch (cause) {
             const detail = maskSecrets(formatProfileMaterializationFailure(cause))
-            electronLogger.error(`${BIN_NAME}: checkpoint dependency materialization failed:\n${detail}`)
+            desktopLogger.error(`${BIN_NAME}: checkpoint dependency materialization failed:\n${detail}`)
             throw new DesktopStartupRecoveryControllerError(
               'operation-failed',
               'The checkpoint files were restored, but Profile dependencies could not be rebuilt.',
@@ -1010,7 +1010,7 @@ async function start(): Promise<void> {
         // Legacy Acrylic is already normalized to off by the read boundary. A
         // read-only settings file must not turn removal of the effect into a
         // startup failure merely because the durable cleanup could not be saved.
-        electronLogger.error(
+        desktopLogger.error(
           `${BIN_NAME}: failed to persist removed Acrylic material migration: ${cause instanceof Error ? cause.message : String(cause)}`,
         )
       }
@@ -1044,7 +1044,7 @@ async function start(): Promise<void> {
       } catch (cause) {
         // Keep retrying the device-owned Acrylic cleanup on later launches,
         // even after this Profile has completed its one-time preference import.
-        electronLogger.error(
+        desktopLogger.error(
           `${BIN_NAME}: failed to persist removed Acrylic material migration: ${cause instanceof Error ? cause.message : String(cause)}`,
         )
       }
@@ -1149,7 +1149,7 @@ async function start(): Promise<void> {
           dshVersion: currentDshVersion,
         })
       } catch (cause) {
-        electronLogger.error(
+        desktopLogger.error(
           `${BIN_NAME}: healthy profile checkpoints remain unavailable: ${cause instanceof Error ? cause.message : String(cause)}`,
         )
       }
@@ -1169,7 +1169,7 @@ async function start(): Promise<void> {
       : undefined
     const releaseDshRuntime = generation.own(() => { dshRuntime?.dispose() })
     if (prepared.requiresDependencyMigration) {
-      electronLogger.error(`${BIN_NAME}: migrating legacy Profile dependency layout with packaged pnpm`)
+      desktopLogger.error(`${BIN_NAME}: migrating legacy Profile dependency layout with packaged pnpm`)
       try {
         await materializeProfile({
           appExecutable: process.execPath,
@@ -1202,7 +1202,7 @@ async function start(): Promise<void> {
       }
     }
     if (prepared.marketFailure !== undefined) {
-      electronLogger.error(
+      desktopLogger.error(
         `${BIN_NAME}: requested Market provider ${prepared.market.requested} was disabled for this generation: ${prepared.marketFailure}`,
       )
     }
@@ -1221,7 +1221,7 @@ async function start(): Promise<void> {
         lanHttpsFailureCode = cause instanceof DesktopLanHttpsCertificateError
           ? cause.code
           : 'certificate-state'
-        electronLogger.error(
+        desktopLogger.error(
           `${BIN_NAME}: LAN HTTPS certificate setup is unavailable: ${cause instanceof Error ? cause.message : String(cause)}`,
         )
       }
@@ -1481,7 +1481,7 @@ async function start(): Promise<void> {
         try {
           profileCheckpoint?.captureHealthy()
         } catch (cause) {
-          electronLogger.error(
+          desktopLogger.error(
             `${BIN_NAME}: failed to checkpoint the healthy profile configuration: ${cause instanceof Error ? cause.message : String(cause)}`,
           )
         }
@@ -1499,19 +1499,19 @@ async function start(): Promise<void> {
       )
     }
     lifecycleRecorder.completeStartup(startupStage, rendererReport)
-    notifySkippedOptionalEntries(runtime, electronLogger, prepared.skippedOptionalEntries)
-    notifyWindowsVolumeConcerns(runtime, electronLogger, windowsVolumeConcerns)
+    notifySkippedOptionalEntries(runtime, desktopLogger, prepared.skippedOptionalEntries)
+    notifyWindowsVolumeConcerns(runtime, desktopLogger, windowsVolumeConcerns)
     if (safeModePaths !== undefined && DESKTOP_SAFE_MODE_DEFAULTS.settings.notifications.enabled) {
-      notifyDesktopSafeModeActive(runtime, electronLogger)
+      notifyDesktopSafeModeActive(runtime, desktopLogger)
     }
     if (sessionProjectionCacheRecovery !== undefined) {
-      notifySessionProjectionCacheRecovery(runtime, electronLogger, sessionProjectionCacheRecovery)
+      notifySessionProjectionCacheRecovery(runtime, desktopLogger, sessionProjectionCacheRecovery)
     }
   } catch (cause) {
     runtime.stopRendererBootMonitoring()
     lifecycleRecorder.failRendererBootIfPending(lifecycleRendererFailureReason(runtime.rendererBootFailureReason))
     lifecycleRecorder.failStartup(startupStage, lifecycleStartupFailureReason(cause, runtime))
-    electronLogger.errorCause(cause)
+    desktopLogger.errorCause(cause)
     let exitCode = 1
     const failureRoute = routeDesktopStartupFailure({
       appReady: app.isReady(),

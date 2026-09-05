@@ -1,6 +1,6 @@
 /** Headless decision table for failures raised while Electron main is starting. */
 
-import type { DesktopStartupFailureStage } from './startup-recovery-window.ts'
+import type { DesktopStartupFailureStage } from './recovery-copy.ts'
 
 export type DesktopStartupFailureRoute = 'stderr-only' | 'startup-recovery'
 

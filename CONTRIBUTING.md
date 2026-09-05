@@ -32,13 +32,13 @@ corepack yarn check        # 完整 headless gate：构建、类型检查、测�
 corepack yarn start:wails   # 主路径：Wails 原生壳（推荐）
 corepack yarn start:host    # Node-first Cordis Host sidecar
 corepack yarn dev:wails     # Wails 开发循环
-corepack yarn dev           # 最后手段：Electron BrowserWindow/Tray
+corepack yarn dev           # 最后手段：LEGACY NativeWindow/Tray
 ```
 
 ### 仓库边界（开始前务必了解）
 
 - `deepseek-harness/` 是固定版本的上游子模块，**桌面开发不修改其中的任何文件**；上游内容更新走独立的 pin 提交。
-- 桌面代码位于 `dsh-plugin-desktop/`（主路径为 `wails/` 下的 Go + Wails v3 原生壳 + Node Host sidecar；Electron BrowserWindow/Tray 为最后手段 fallback，见 `docs/wails-migration.md`）；`dsh-community-fabric/` 保存社区标准 Draft，`dsh-community-market/` 保存市场壳设计。两个社区 package 当前都只有文档、尚不可加载，三个自有 package 共用外层 Yarn workspace。
+- 桌面代码位于 `dsh-plugin-desktop/`（主路径为 `wails/` 下的 Go + Wails v3 原生壳 + Node Host sidecar；LEGACY NativeWindow/Tray 为最后手段 fallback，见 `docs/wails-migration.md`）；`dsh-community-fabric/` 保存社区标准 Draft，`dsh-community-market/` 保存市场壳设计。两个社区 package 当前都只有文档、尚不可加载，三个自有 package 共用外层 Yarn workspace。
 - 构建、类型检查、单元测试和冒烟检查必须保持 headless-safe。
 
 ### 提交与 PR

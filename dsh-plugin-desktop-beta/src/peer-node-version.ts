@@ -1,6 +1,6 @@
 /** Resolve Node version used for native module installs. */
 
-export function resolveDesktopElectronVersion(
+export function resolveDesktopNodeVersion(
   _moduleUrl: string = import.meta.url,
   versions: NodeJS.ProcessVersions = process.versions,
 ): string {
@@ -9,4 +9,5 @@ export function resolveDesktopElectronVersion(
   throw new Error('dsh-plugin-desktop: process.versions.node unavailable')
 }
 
-export const resolveDesktopNodeVersion = resolveDesktopElectronVersion
+/** @deprecated use resolveDesktopNodeVersion */
+export const resolveDesktopElectronVersion = resolveDesktopNodeVersion
