@@ -47,3 +47,7 @@ On recovery for Wails sidecar:
 Until then: keep debt InfoDialogs; do not claim Recovery tab parity in release notes.
 
 See also: `docs/wails-migration.md` § Recovery controller debt; `src/wails-shell-bridge.md`.
+
+## Follow-up
+
+Transport landed: see `docs/evidence/wails-p2-recovery-rpc-20260905.md`.

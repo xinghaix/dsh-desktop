@@ -186,6 +186,12 @@ import {
   desktopWailsSkipElectronGui,
 } from './wails-host-sidecar.ts'
 import {
+  announceWailsHostRecoveryRpc,
+  startWailsRecoveryRpcServer,
+  type WailsRecoveryCompleteAction,
+  type WailsRecoveryRpcServer,
+} from './wails-recovery-rpc.ts'
+import {
   cleanupDesktopSafeModeEnvironment,
   DESKTOP_SAFE_MODE_DEFAULTS,
   DESKTOP_SAFE_MODE_PROFILE_NAME,
@@ -967,15 +973,35 @@ async function start(): Promise<void> {
     }
     if (recoveryModeRequested) {
       if (wailsElectronLight) {
-        announceWailsHostRecoveryRequired(
-          'Recovery mode was requested; open Wails Recovery Assistant (Electron BrowserWindow skipped).',
-        )
+        const detail = 'Recovery mode was requested; open Wails Recovery Assistant (Electron BrowserWindow skipped).'
+        announceWailsHostRecoveryRequired(detail)
         electronLogger.error(
-          `${BIN_NAME}: Wails Host sidecar recovery requested — Electron recovery window skipped; announced to Wails shell`,
+          `${BIN_NAME}: Wails Host sidecar recovery requested — Electron recovery window skipped; Recovery RPC keep-alive`,
         )
+        let rpc: WailsRecoveryRpcServer | undefined
+        let recoveryResult: RecoveryWindowResult | 'unavailable' = 'unavailable'
+        try {
+          rpc = await startWailsRecoveryRpcServer({
+            ...(startupRecoveryController === undefined ? {} : { controller: startupRecoveryController }),
+            detail,
+          })
+          announceWailsHostRecoveryRpc(rpc.url, rpc.token)
+          const action: WailsRecoveryCompleteAction | 'unavailable' = await rpc.waitForComplete()
+          recoveryResult = action === 'unavailable' ? 'unavailable' : action
+        } catch (cause) {
+          electronLogger.error(
+            `${BIN_NAME}: Wails Recovery RPC failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          )
+        } finally {
+          await rpc?.close().catch(() => {})
+        }
         startupRecoveryController?.dispose()
         startupRecoveryController = undefined
-        await shutdown.request(1)
+        if (recoveryResult === 'restart') nativeExit.requestRelaunch()
+        else if (recoveryResult === 'safe-mode') {
+          nativeExit.requestRelaunch(desktopSafeModeRelaunchArguments())
+        }
+        await shutdown.request(recoveryResult === 'restart' || recoveryResult === 'safe-mode' ? 0 : 1)
         return
       }
       const recoveryResult = await openStartupRecoveryWindow(

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -221,6 +222,10 @@ func (s *ShellService) StartHostSidecar(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if ready == recoveryURLSentinel || strings.HasPrefix(ready, "recovery://") {
+		// Host is in Recovery RPC keep-alive; AuxWindowService already opened Recovery.
+		return ready, nil
+	}
 	navigate := ready
 	s.mu.Lock()
 	bridge := s.bridge
@@ -248,7 +253,6 @@ func (s *ShellService) StopHostSidecar() error {
 	}
 	return sidecar.Stop()
 }
-
 
 // Preferred profile / safe-mode hints for Host sidecar relaunches (hybrid).
 func (s *ShellService) setPreferredProfile(name string) {

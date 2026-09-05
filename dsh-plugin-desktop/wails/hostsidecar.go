@@ -34,6 +34,7 @@ type HostSidecar struct {
 	aux              *AuxWindowService
 	caps             *CapabilitiesService
 	recoveryDetail   string
+	recoveryRPC      *RecoveryRpcClient
 }
 
 func NewHostSidecar() *HostSidecar {
@@ -60,7 +61,11 @@ func (h *HostSidecar) Status() string {
 	if recovery == "" {
 		recovery = "(none)"
 	}
-	return fmt.Sprintf("sidecar=%s url=%s err=%s recovery=%s", state, url, err, recovery)
+	rpc := "(none)"
+	if h.recoveryRPC != nil && h.recoveryRPC.BaseURL != "" {
+		rpc = h.recoveryRPC.BaseURL
+	}
+	return fmt.Sprintf("sidecar=%s url=%s err=%s recovery=%s rpc=%s", state, url, err, recovery, rpc)
 }
 
 // CurrentURL returns the discovered Host UI URL, if any.
@@ -68,6 +73,13 @@ func (h *HostSidecar) CurrentURL() string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return h.url
+}
+
+// RecoveryRPC returns the Host Recovery RPC client when announced.
+func (h *HostSidecar) RecoveryRPC() *RecoveryRpcClient {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.recoveryRPC
 }
 
 // SetPreferredProfile asks the next Host spawn to prefer this profile name.
@@ -256,6 +268,16 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 					_ = aux.OpenRecovery(detail)
 				}
 			}
+			if baseURL, token, ok := ParseRecoveryRpcAnnounceLine(line); ok {
+				client := &RecoveryRpcClient{BaseURL: baseURL, Token: token}
+				h.mu.Lock()
+				h.recoveryRPC = client
+				aux := h.aux
+				h.mu.Unlock()
+				if aux != nil {
+					aux.AttachRecoveryRPC(client)
+				}
+			}
 			if bridge != nil {
 				_ = bridge.IngestHostAuthHeaderLine(line)
 			}
@@ -287,6 +309,13 @@ func (h *HostSidecar) waitForURL(ctx context.Context, urlFile string, deadline t
 	for {
 		if u := h.CurrentURL(); u != "" {
 			return u, nil
+		}
+		h.mu.Lock()
+		hasRPC := h.recoveryRPC != nil && h.recoveryRPC.BaseURL != ""
+		h.mu.Unlock()
+		if hasRPC {
+			// Recovery keep-alive: Host may never announce DSH_HOST_READY.
+			return recoveryURLSentinel, nil
 		}
 		if urlFile != "" {
 			if raw, err := os.ReadFile(urlFile); err == nil {

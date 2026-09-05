@@ -35,7 +35,7 @@ func nativeUIDocument(name string) string {
 	return ""
 }
 
-func recoveryNativeState(detail string, profiles []string) string {
+func recoveryNativeState(detail string, profiles []string, snapshot *RecoverySnapshot) string {
 	profileItems := make([]map[string]any, 0, len(profiles))
 	for i, name := range profiles {
 		profileItems = append(profileItems, map[string]any{
@@ -64,9 +64,10 @@ func recoveryNativeState(detail string, profiles []string) string {
 		"profiles":                profileItems,
 		// Omit notice: JSON null crashes RecoveryNoticeSurface (useEffect deps
 		// read notice.body while only undefined is treated as "no toast").
-		"wailsHybrid":             true,
-		// snapshot omitted on purpose: checkpoint/uninstall tabs show Unavailable
-		// until a Host-facing recovery API owns DesktopStartupRecoveryController state.
+		"wailsHybrid": true,
+	}
+	if snapshot != nil {
+		payload["snapshot"] = snapshot
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
@@ -162,7 +163,8 @@ const schemeBridgeJS = `
         'switch-profile':'switch-profile'
       };
       const mapped = map[action]; if (!mapped) return false;
-      await call('main.AuxWindowService.CompleteRecovery', mapped); return true;
+      const id = url.searchParams.get('id') || '';
+      await call('main.AuxWindowService.CompleteRecovery', mapped, id); return true;
     }
     if (protocol === 'dsh-setup-wizard:') {
       if (action === 'complete' || action === 'continue') { await call('main.AuxWindowService.CompleteSetup', 'continue'); return true; }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"sync"
@@ -15,11 +16,12 @@ import (
 // These Wails windows are hybrid stand-ins: they talk to Go via bindings and
 // cover shell startup flows while Cordis Host still owns full profile CRUD.
 type AuxWindowService struct {
-	mu      sync.Mutex
-	app     *application.App
-	shell   *ShellService
-	windows map[string]*application.WebviewWindow
-	last    AuxWindowResult
+	mu          sync.Mutex
+	app         *application.App
+	shell       *ShellService
+	windows     map[string]*application.WebviewWindow
+	last        AuxWindowResult
+	recoveryRPC *RecoveryRpcClient
 }
 
 // AuxWindowResult is the last settled action from an auxiliary window.
@@ -41,6 +43,25 @@ func (a *AuxWindowService) attach(app *application.App) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.app = app
+}
+
+// AttachRecoveryRPC stores the Host Recovery RPC client for checkpoint/uninstall.
+func (a *AuxWindowService) AttachRecoveryRPC(client *RecoveryRpcClient) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.recoveryRPC = client
+}
+
+func (a *AuxWindowService) recoveryClient() *RecoveryRpcClient {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.recoveryRPC != nil {
+		return a.recoveryRPC
+	}
+	if a.shell != nil && a.shell.sidecar != nil {
+		return a.shell.sidecar.RecoveryRPC()
+	}
+	return nil
 }
 
 // LastResult returns the most recent auxiliary-window outcome.
@@ -97,8 +118,16 @@ func (a *AuxWindowService) OpenRecovery(detail string) error {
 	a.last.Detail = detail
 	a.mu.Unlock()
 	profiles := a.ListKnownProfiles()
+	var snapshot *RecoverySnapshot
+	if client := a.recoveryClient(); client != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancel()
+		if snap, err := client.Snapshot(ctx); err == nil {
+			snapshot = snap
+		}
+	}
 	q := url.Values{}
-	if state := recoveryNativeState(detail, profiles); state != "" {
+	if state := recoveryNativeState(detail, profiles, snapshot); state != "" {
 		q.Set("state", state)
 	}
 	q.Set("locale", "en")
@@ -219,13 +248,18 @@ func (a *AuxWindowService) CompleteProfileCreate(action, profile string) error {
 }
 
 // CompleteRecovery records a recovery outcome.
-// Supported hybrid actions: restart | safe-mode | quit | profiles | control.
-// Checkpoint / plugin-uninstall / diagnostics / config actions return a clear
-// Host-controller debt dialog (see docs/wails-migration.md Recovery section).
-func (a *AuxWindowService) CompleteRecovery(action string) error {
+// action may include checkpoint/uninstall when Host Recovery RPC is attached.
+// targetId carries scheme ?id= (slotId, bundleId, or previewId).
+func (a *AuxWindowService) CompleteRecovery(action string, targetId string) error {
+	id := targetId
 	action = normalizeRecoveryAction(action)
 	switch action {
 	case "restart", "safe-mode", "quit", "profiles", "control":
+		if client := a.recoveryClient(); client != nil && (action == "restart" || action == "safe-mode" || action == "quit") {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			_ = client.Complete(ctx, action)
+			cancel()
+		}
 		a.settle("recovery", action, "", "")
 		switch action {
 		case "quit":
@@ -252,6 +286,22 @@ func (a *AuxWindowService) CompleteRecovery(action string) error {
 			}
 		}
 		return nil
+	case "preview-checkpoint", "rollback-checkpoint":
+		return a.handleCheckpointPreview(id)
+	case "confirm-checkpoint":
+		return a.handleCheckpointExecute(id)
+	case "open-checkpoint":
+		return a.handleOpenCheckpoint(id)
+	case "preview-uninstall", "uninstall-plugin":
+		return a.handleUninstallPreview(id)
+	case "confirm-uninstall":
+		return a.handleUninstallExecute(id)
+	case "export-diagnostics", "show-diagnostics", "save-diagnostics":
+		return a.ReportRecoveryDebt("debt-diagnostics")
+	case "open-settings-document", "open-profile-patch", "open-profile-manifest", "open-profile-directory":
+		return a.ReportRecoveryDebt("debt-config")
+	case "open-terminal", "open-profile-creator", "switch-profile":
+		return a.ReportRecoveryDebt("debt-other")
 	case "debt-checkpoint", "debt-uninstall", "debt-diagnostics", "debt-config", "debt-other":
 		return a.ReportRecoveryDebt(action)
 	default:
@@ -263,21 +313,103 @@ func normalizeRecoveryAction(action string) string {
 	switch action {
 	case "enter-safe-mode", "safemode":
 		return "safe-mode"
-	case "preview-checkpoint", "open-checkpoint", "confirm-checkpoint", "rollback-checkpoint":
-		return "debt-checkpoint"
-	case "preview-uninstall", "confirm-uninstall", "uninstall-plugin":
-		return "debt-uninstall"
-	case "export-diagnostics", "show-diagnostics", "save-diagnostics":
-		return "debt-diagnostics"
-	case "open-settings-document", "open-profile-patch", "open-profile-manifest", "open-profile-directory":
-		return "debt-config"
-	case "open-terminal", "open-profile-creator", "switch-profile":
-		// Profiles creator/switch partially covered elsewhere; mark as debt when
-		// invoked from Recovery scheme without profile token authority.
-		return "debt-other"
 	default:
 		return action
 	}
+}
+
+func (a *AuxWindowService) handleCheckpointPreview(slotID string) error {
+	client := a.recoveryClient()
+	if client == nil {
+		return a.ReportRecoveryDebt("debt-checkpoint")
+	}
+	if slotID == "" {
+		return a.OpenInfoDialog("Checkpoint preview", "Missing checkpoint slot id.")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	preview, err := client.PreviewCheckpointRestore(ctx, slotID)
+	if err != nil {
+		return a.OpenInfoDialog("Checkpoint preview failed", err.Error())
+	}
+	result, err := client.ExecuteCheckpointRestore(ctx, preview.PreviewID)
+	if err != nil {
+		return a.OpenInfoDialog("Checkpoint restore failed",
+			fmt.Sprintf("previewId=%s\n%s", preview.PreviewID, err.Error()))
+	}
+	a.settle("recovery", "preview-checkpoint", "", fmt.Sprintf("%v", result))
+	return a.OpenInfoDialog("Checkpoint restored",
+		fmt.Sprintf("slot=%s previewId=%s\nRestart Desktop to finish applying the restore.", preview.SlotID, preview.PreviewID))
+}
+
+func (a *AuxWindowService) handleCheckpointExecute(previewID string) error {
+	client := a.recoveryClient()
+	if client == nil {
+		return a.ReportRecoveryDebt("debt-checkpoint")
+	}
+	if previewID == "" {
+		return a.OpenInfoDialog("Checkpoint confirm", "Missing restore preview id.")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	result, err := client.ExecuteCheckpointRestore(ctx, previewID)
+	if err != nil {
+		return a.OpenInfoDialog("Checkpoint restore failed", err.Error())
+	}
+	a.settle("recovery", "confirm-checkpoint", "", fmt.Sprintf("%v", result))
+	return a.OpenInfoDialog("Checkpoint restored", fmt.Sprintf("%v", result))
+}
+
+func (a *AuxWindowService) handleOpenCheckpoint(slotID string) error {
+	client := a.recoveryClient()
+	if client == nil {
+		return a.ReportRecoveryDebt("debt-checkpoint")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := client.OpenCheckpoint(ctx, slotID); err != nil {
+		return a.OpenInfoDialog("Open checkpoint", err.Error())
+	}
+	return a.OpenInfoDialog("Open checkpoint", "Host acknowledged openCheckpoint for "+slotID)
+}
+
+func (a *AuxWindowService) handleUninstallPreview(bundleID string) error {
+	client := a.recoveryClient()
+	if client == nil {
+		return a.ReportRecoveryDebt("debt-uninstall")
+	}
+	if bundleID == "" {
+		return a.OpenInfoDialog("Plugin uninstall", "Missing bundle id.")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	preview, err := client.PreviewUninstall(ctx, bundleID)
+	if err != nil {
+		return a.OpenInfoDialog("Plugin uninstall preview failed", err.Error())
+	}
+	result, err := client.ExecuteUninstall(ctx, preview.PreviewID)
+	if err != nil {
+		return a.OpenInfoDialog("Plugin uninstall failed",
+			fmt.Sprintf("package=%s\n%s", preview.PackageName, err.Error()))
+	}
+	a.settle("recovery", "preview-uninstall", "", fmt.Sprintf("%v", result))
+	return a.OpenInfoDialog("Plugin uninstalled",
+		fmt.Sprintf("package=%s\nRestart Desktop if the Host UI still lists the plugin.", preview.PackageName))
+}
+
+func (a *AuxWindowService) handleUninstallExecute(previewID string) error {
+	client := a.recoveryClient()
+	if client == nil {
+		return a.ReportRecoveryDebt("debt-uninstall")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	result, err := client.ExecuteUninstall(ctx, previewID)
+	if err != nil {
+		return a.OpenInfoDialog("Plugin uninstall failed", err.Error())
+	}
+	a.settle("recovery", "confirm-uninstall", "", fmt.Sprintf("%v", result))
+	return a.OpenInfoDialog("Plugin uninstalled", fmt.Sprintf("%v", result))
 }
 
 // ReportRecoveryDebt surfaces precise Host API gaps for Recovery checkpoint/uninstall.
@@ -293,22 +425,15 @@ func (a *AuxWindowService) ReportRecoveryDebt(kind string) error {
 func recoveryDebtMessage(kind string) string {
 	switch kind {
 	case "debt-checkpoint":
-		return "Checkpoint list / preview / restore is not wired in the Wails hybrid shell.\n\n" +
-			"In-process DesktopStartupRecoveryController exists (src/startup-recovery-controller.ts)\n" +
-			"but Host↔Wails transport is missing. On Wails recovery, host-main announces\n" +
-			"DSH_HOST_RECOVERY_REQUIRED, disposes the controller, and exits.\n\n" +
-			"Need Host keep-alive + RPC for:\n" +
-			"- snapshot() → checkpoints[] (not Cordis HTTP today)\n" +
-			"- previewCheckpointRestore(slotId) / executeCheckpointRestore(previewId)\n" +
-			"- generation assert / quiesce around restore\n\n" +
-			"Wails hybrid today: restart / safe-mode / quit / profiles / control only.\n" +
-			"See docs/wails-migration.md § Recovery controller debt."
+		return "Checkpoint Host Recovery RPC is not attached for this session.\n\n" +
+			"Transport exists (DSH_HOST_RECOVERY_RPC + /v1/snapshot|checkpoint/*).\n" +
+			"Host must keep DesktopStartupRecoveryController alive and announce the RPC URL.\n" +
+			"APIs: snapshot(), previewCheckpointRestore, executeCheckpointRestore.\n" +
+			"See docs/wails-migration.md § Recovery."
 	case "debt-uninstall":
-		return "Plugin uninstall preview / confirm is not wired in the Wails hybrid shell.\n\n" +
-			"Controller methods exist in-process only (no Host↔Wails endpoint):\n" +
-			"- previewUninstall(bundleId) + immutable-target rules\n" +
-			"- executeUninstall(previewId) under one generationId\n\n" +
-			"Do not claim Recovery plugin-tab parity in release notes."
+		return "Plugin uninstall Host Recovery RPC is not attached for this session.\n\n" +
+			"APIs: previewUninstall(bundleId), executeUninstall(previewId).\n" +
+			"Immutable-target / generation assert still enforced inside the Host controller."
 	case "debt-diagnostics":
 		return "Diagnostic archive export still needs Electron DesktopDialogWindow / Host controller paths.\n" +
 			"Crash-evidence folder is available via Help → Reveal Crash Evidence Folder."
@@ -316,8 +441,8 @@ func recoveryDebtMessage(kind string) string {
 		return "Opening settings.yaml / Profile patch / manifest from Recovery requires Host generation authority.\n" +
 			"Use Control UI or a normal Host session after restart when possible."
 	default:
-		return "This Recovery action needs DesktopStartupRecoveryController state that the Go shell does not own yet.\n" +
-			"Supported hybrid actions: restart, safe-mode, quit, profiles, control."
+		return "This Recovery action is not wired through Host Recovery RPC yet.\n" +
+			"Supported hybrid actions: restart, safe-mode, quit, profiles, control, checkpoint/uninstall via RPC."
 	}
 }
 

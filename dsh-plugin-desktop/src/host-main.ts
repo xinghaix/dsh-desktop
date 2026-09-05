@@ -179,6 +179,12 @@ import {
   DSH_WAILS_HOST_SIDECAR_ENV,
 } from './wails-host-sidecar.ts'
 import {
+  announceWailsHostRecoveryRpc,
+  startWailsRecoveryRpcServer,
+  type WailsRecoveryCompleteAction,
+  type WailsRecoveryRpcServer,
+} from './wails-recovery-rpc.ts'
+import {
   cleanupDesktopSafeModeEnvironment,
   DESKTOP_SAFE_MODE_DEFAULTS,
   DESKTOP_SAFE_MODE_PROFILE_NAME,
@@ -539,21 +545,50 @@ async function start(): Promise<void> {
 
   const openStartupRecoveryWindow = async (
     failureDetail: string,
-    _controller: DesktopStartupRecoveryController | undefined,
+    controller: DesktopStartupRecoveryController | undefined,
     _requested = false,
   ): Promise<RecoveryWindowResult | 'unavailable'> => {
-    // Keep Node Host recovery affordances live for parity with Electron main; Wails owns UI.
+    // Wails owns Recovery UI; keep the controller alive behind loopback Recovery RPC.
     const deferredRecoveryCapabilities = {
       terminalAvailable: recoveryTerminalAvailable,
       profileActions: startupRecoveryProfileActions,
       enterSafeMode: prepareSafeMode,
     }
     void deferredRecoveryCapabilities
-    announceWailsHostRecoveryRequired(maskSecrets(failureDetail))
+    const detail = maskSecrets(failureDetail)
+    announceWailsHostRecoveryRequired(detail)
     electronLogger.error(
-      `${BIN_NAME}: Node Host recovery UI deferred to Wails (${maskSecrets(failureDetail)})`,
+      `${BIN_NAME}: Node Host recovery UI deferred to Wails (${detail})`,
     )
-    return 'unavailable'
+    if (!wailsElectronLight) return 'unavailable'
+    return await runWailsRecoveryRpcSession(controller, detail)
+  }
+
+  const runWailsRecoveryRpcSession = async (
+    controller: DesktopStartupRecoveryController | undefined,
+    detail: string,
+  ): Promise<RecoveryWindowResult | 'unavailable'> => {
+    let rpc: WailsRecoveryRpcServer | undefined
+    try {
+      rpc = await startWailsRecoveryRpcServer({
+        ...(controller === undefined ? {} : { controller }),
+        detail,
+      })
+      announceWailsHostRecoveryRpc(rpc.url, rpc.token)
+      electronLogger.error(
+        `${BIN_NAME}: Wails Recovery RPC listening at ${rpc.url} (controller=${String(controller !== undefined)})`,
+      )
+      const action: WailsRecoveryCompleteAction | 'unavailable' = await rpc.waitForComplete()
+      if (action === 'unavailable') return 'unavailable'
+      return action
+    } catch (cause) {
+      electronLogger.error(
+        `${BIN_NAME}: Wails Recovery RPC failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+      )
+      return 'unavailable'
+    } finally {
+      await rpc?.close().catch(() => {})
+    }
   }
 
   const showPreHostSurface = (): boolean => {
@@ -848,15 +883,19 @@ async function start(): Promise<void> {
     }
     if (recoveryModeRequested) {
       if (wailsElectronLight) {
-        announceWailsHostRecoveryRequired(
-          'Recovery mode was requested; open Wails Recovery Assistant (Electron BrowserWindow skipped).',
-        )
+        const detail = 'Recovery mode was requested; open Wails Recovery Assistant (Electron BrowserWindow skipped).'
+        announceWailsHostRecoveryRequired(detail)
         electronLogger.error(
-          `${BIN_NAME}: Wails Host sidecar recovery requested — Electron recovery window skipped; announced to Wails shell`,
+          `${BIN_NAME}: Wails Host sidecar recovery requested — Electron recovery window skipped; Recovery RPC keep-alive`,
         )
+        const recoveryResult = await runWailsRecoveryRpcSession(startupRecoveryController, detail)
         startupRecoveryController?.dispose()
         startupRecoveryController = undefined
-        await shutdown.request(1)
+        if (recoveryResult === 'restart') nativeExit.requestRelaunch()
+        else if (recoveryResult === 'safe-mode') {
+          nativeExit.requestRelaunch(desktopSafeModeRelaunchArguments())
+        }
+        await shutdown.request(recoveryResult === 'restart' || recoveryResult === 'safe-mode' ? 0 : 1)
         return
       }
       const recoveryResult = await openStartupRecoveryWindow(

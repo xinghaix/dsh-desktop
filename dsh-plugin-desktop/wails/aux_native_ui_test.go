@@ -8,7 +8,7 @@ import (
 )
 
 func TestRecoveryNativeStateOmitsNoticeNull(t *testing.T) {
-	enc := recoveryNativeState("host failed", []string{"default"})
+	enc := recoveryNativeState("host failed", []string{"default"}, nil)
 	if enc == "" {
 		t.Fatal("empty state")
 	}
