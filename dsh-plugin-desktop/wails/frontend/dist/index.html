@@ -26,6 +26,10 @@
         <button id="btn-setup" type="button" class="secondary">Setup Wizard…</button>
         <button id="btn-profiles" type="button" class="secondary">Profiles…</button>
         <button id="btn-recovery" type="button" class="secondary">Recovery…</button>
+        <button id="btn-notify" type="button" class="secondary">Notify</button>
+        <button id="btn-terminal" type="button" class="secondary">Terminal</button>
+        <button id="btn-export" type="button" class="secondary">Export…</button>
+        <button id="btn-updates" type="button" class="secondary">Updates</button>
         <button id="btn-dir" type="button" class="secondary">Open Directory…</button>
         <button id="btn-about" type="button" class="secondary">About</button>
         <button id="btn-hide" type="button" class="secondary">Hide to tray</button>
@@ -44,6 +48,10 @@
   document.getElementById("btn-setup")?.addEventListener("click", () => call("main.ShellService.OpenSetupWizard").then(() => log("Opened setup wizard")).catch((e) => log(String(e))));
   document.getElementById("btn-profiles")?.addEventListener("click", () => call("main.ShellService.OpenProfileSelector").then(() => log("Opened profiles")).catch((e) => log(String(e))));
   document.getElementById("btn-recovery")?.addEventListener("click", () => call("main.ShellService.OpenRecovery", "").then(() => log("Opened recovery")).catch((e) => log(String(e))));
+  document.getElementById("btn-notify")?.addEventListener("click", () => call("main.CapabilitiesService.NotifyAttention", "DSH Desktop", "Test notification").then(() => log("Notified")).catch((e) => log(String(e))));
+  document.getElementById("btn-terminal")?.addEventListener("click", () => call("main.CapabilitiesService.OpenTerminal", "").then(() => log("Terminal")).catch((e) => log(String(e))));
+  document.getElementById("btn-export")?.addEventListener("click", () => call("main.CapabilitiesService.ExportTextFile", "dsh-shell-note.txt", "DSH Wails export\n").then((p) => log(p ? "Exported "+p : "cancelled")).catch((e) => log(String(e))));
+  document.getElementById("btn-updates")?.addEventListener("click", () => call("main.CapabilitiesService.CheckForUpdates").then((r) => log(JSON.stringify(r))).catch((e) => log(String(e))));
 </script>
 </body>
 </html>

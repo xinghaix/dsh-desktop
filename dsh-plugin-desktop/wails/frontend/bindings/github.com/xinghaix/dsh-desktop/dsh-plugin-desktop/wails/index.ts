@@ -3,13 +3,16 @@
 
 import * as AuxWindowService from "./auxwindowservice.js";
 import * as BridgeService from "./bridgeservice.js";
+import * as CapabilitiesService from "./capabilitiesservice.js";
 import * as ShellService from "./shellservice.js";
 export {
     AuxWindowService,
     BridgeService,
+    CapabilitiesService,
     ShellService
 };
 
 export type {
-    AuxWindowResult
+    AuxWindowResult,
+    UpdateCheckResult
 } from "./models.js";

@@ -11,6 +11,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/icons"
+	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
 
 //go:embed all:frontend/dist
@@ -26,6 +27,8 @@ func main() {
 	shell := NewShellService(sidecar)
 	aux := NewAuxWindowService(shell)
 	bridge := NewBridgeService(shell)
+	notifier := notifications.New()
+	caps := NewCapabilitiesService(shell, notifier)
 	shell.attachAux(aux)
 	sidecar.AttachBridge(bridge)
 
@@ -36,6 +39,8 @@ func main() {
 			application.NewService(shell),
 			application.NewService(aux),
 			application.NewService(bridge),
+			application.NewService(notifier),
+			application.NewService(caps),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -68,6 +73,7 @@ func main() {
 	shell.attach(app, window)
 	aux.attach(app)
 	bridge.attach(app)
+	caps.attach(app)
 	if initialURL != "/" {
 		shell.setInitialHostURL(initialURL)
 	} else if !*noHost {
@@ -93,15 +99,15 @@ func main() {
 		e.Cancel()
 	})
 
-	setupApplicationMenu(app, shell, aux, window)
-	setupSystemTray(app, shell, window)
+	setupApplicationMenu(app, shell, aux, caps, window)
+	setupSystemTray(app, shell, caps, window)
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWindowService, window *application.WebviewWindow) {
+func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWindowService, caps *CapabilitiesService, window *application.WebviewWindow) {
 	menu := app.NewMenu()
 	if runtime.GOOS == "darwin" {
 		menu.AddRole(application.AppMenu)
@@ -163,6 +169,36 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 		_ = shell.LoadHostURL(url)
 	})
 
+	toolsMenu := menu.AddSubmenu("Tools")
+	toolsMenu.Add("Open Terminal…").OnClick(func(ctx *application.Context) {
+		if err := caps.OpenTerminal(""); err != nil {
+			app.Dialog.Error().SetTitle("Terminal").SetMessage(err.Error()).Show()
+		}
+	})
+	toolsMenu.Add("Export Text…").OnClick(func(ctx *application.Context) {
+		path, err := caps.ExportTextFile("dsh-shell-note.txt", "DSH Wails shell export\n")
+		if err != nil {
+			app.Dialog.Error().SetTitle("Export").SetMessage(err.Error()).Show()
+			return
+		}
+		if path != "" {
+			app.Dialog.Info().SetTitle("Exported").SetMessage(path).Show()
+		}
+	})
+	toolsMenu.Add("Send Test Notification").OnClick(func(ctx *application.Context) {
+		if err := caps.NotifyAttention("DSH Desktop", "Native notification from the Wails shell."); err != nil {
+			app.Dialog.Error().SetTitle("Notification").SetMessage(err.Error()).Show()
+		}
+	})
+	toolsMenu.Add("Check for Updates…").OnClick(func(ctx *application.Context) {
+		res := caps.CheckForUpdates()
+		app.Dialog.Info().SetTitle("Updates").SetMessage(res.Status + "\n" + res.Detail + "\ncurrent=" + res.CurrentHint).Show()
+	})
+	toolsMenu.AddSeparator()
+	toolsMenu.Add("LAN HTTPS Status").OnClick(func(ctx *application.Context) {
+		app.Dialog.Info().SetTitle("LAN HTTPS").SetMessage(caps.LanHttpsStatus()).Show()
+	})
+
 	helpMenu := menu.AddSubmenu("Help")
 	helpMenu.Add("About DSH Desktop (Wails)").OnClick(func(ctx *application.Context) {
 		app.Dialog.Info().
@@ -175,7 +211,7 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 	_ = window
 }
 
-func setupSystemTray(app *application.App, shell *ShellService, window *application.WebviewWindow) {
+func setupSystemTray(app *application.App, shell *ShellService, caps *CapabilitiesService, window *application.WebviewWindow) {
 	tray := app.SystemTray.New()
 	if runtime.GOOS == "darwin" {
 		tray.SetTemplateIcon(icons.SystrayMacTemplate)
@@ -194,6 +230,13 @@ func setupSystemTray(app *application.App, shell *ShellService, window *applicat
 	trayMenu.AddSeparator()
 	trayMenu.Add("Control UI").OnClick(func(ctx *application.Context) {
 		_ = shell.ShowControlUI()
+	})
+	trayMenu.Add("Open Terminal…").OnClick(func(ctx *application.Context) {
+		_ = caps.OpenTerminal("")
+	})
+	trayMenu.Add("Check for Updates…").OnClick(func(ctx *application.Context) {
+		_ = caps.CheckForUpdates()
+		shell.ShowInfoDialog("Updates", caps.LastUpdateCheck().Detail)
 	})
 	trayMenu.Add("About").OnClick(func(ctx *application.Context) {
 		shell.ShowInfoDialog(

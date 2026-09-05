@@ -10,3 +10,13 @@ export interface AuxWindowResult {
     "profile"?: string;
     "detail"?: string;
 }
+
+/**
+ * UpdateCheckResult is a lightweight update probe result (not a full installer).
+ */
+export interface UpdateCheckResult {
+    "checkedAt": string;
+    "currentHint": string;
+    "status": string;
+    "detail": string;
+}
