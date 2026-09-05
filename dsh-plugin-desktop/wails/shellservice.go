@@ -254,6 +254,17 @@ func (s *ShellService) StopHostSidecar() error {
 	return sidecar.Stop()
 }
 
+// RecoveryRPC returns the Host Recovery RPC client when the sidecar announced one.
+func (s *ShellService) RecoveryRPC() *RecoveryRpcClient {
+	s.mu.Lock()
+	sidecar := s.sidecar
+	s.mu.Unlock()
+	if sidecar == nil {
+		return nil
+	}
+	return sidecar.RecoveryRPC()
+}
+
 // Preferred profile / safe-mode hints for Host sidecar relaunches (hybrid).
 func (s *ShellService) setPreferredProfile(name string) {
 	s.mu.Lock()

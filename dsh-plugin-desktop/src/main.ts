@@ -984,6 +984,19 @@ async function start(): Promise<void> {
           rpc = await startWailsRecoveryRpcServer({
             ...(startupRecoveryController === undefined ? {} : { controller: startupRecoveryController }),
             detail,
+            exportDiagnostics: async () => await exportDesktopDiagnostics(desktopUserDataDir, {
+              appVersion,
+              crashDumpsDir: app.getPath('crashDumps'),
+            }),
+            quiesce: async () => {
+              const ok = await generation.quiesceForRecovery()
+              return {
+                ok,
+                detail: ok
+                  ? 'quiesce=ok (Host fiber disposed or never bound; resources retained until release)'
+                  : 'quiesce=timeout-or-failed (mutating recovery actions may be unsafe; StopHostSidecar remains coarse fallback)',
+              }
+            },
           })
           announceWailsHostRecoveryRpc(rpc.url, rpc.token)
           const action: WailsRecoveryCompleteAction | 'unavailable' = await rpc.waitForComplete()

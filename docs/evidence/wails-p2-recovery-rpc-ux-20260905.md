@@ -61,9 +61,9 @@ Also copied under `docs/evidence/` where applicable.
 
 ## Remaining backlog
 
-1. Full Electron diagnostic **archive** export (zip) — still Host/Electron debt; hybrid only reveals crash-evidence.
-2. Generation quiesce contract beyond `StopHostSidecar` + `/v1/complete`.
-3. Darwin verification of confirm + Recovery RPC.
+1. ~~Full Electron diagnostic archive export (zip)~~ → Done in `wails-p2-diagnostics-quiesce-20260905.md` (RPC/CLI + UI path).
+2. ~~Generation quiesce beyond StopHostSidecar~~ → Best-effort `/v1/quiesce` + complete/execute wiring; no finer Host drain/idle API.
+3. Darwin verification of confirm + Recovery RPC + SaveFileDialog export.
 4. Live `.github/workflows/wails-smoke.yml` (workflow credential scope — out of this pass).
 5. Electron LAST-RESORT BrowserWindow Recovery parity when not Wails-light (out of scope).
 6. Interactive GUI pressure-test of Confirm/Cancel click path on every bed (unit-tested; xdotool click hit-or-miss on WebKit here).

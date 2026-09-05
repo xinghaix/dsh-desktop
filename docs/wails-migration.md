@@ -105,13 +105,13 @@ RPC + hybrid confirm flow now exist.
   `DSH_HOST_RECOVERY_RPC http://127.0.0.1:PORT/ token=…`
 - Endpoints (Bearer token): `GET /v1/health`, `GET /v1/snapshot`,
   `POST /v1/checkpoint/preview|execute|open`, `POST /v1/uninstall/preview|execute`,
-  `POST /v1/complete`.
+  `POST /v1/complete`, `POST /v1/quiesce`, `POST /v1/diagnostics/export`.
 - Go `RecoveryRpcClient` + HostSidecar ingest; AuxWindowService prefers RPC for
   checkpoint/uninstall schemes; OpenRecovery injects snapshot when RPC is up
   (and refreshes when RPC announce races after REQUIRED).
 - Confirm UX: preview → `/shell-ui/confirm.html` → execute (Cancel clears pending).
-- Hybrid quick wins: crash-evidence reveal, local config reveal, terminal,
-  profile creator / switch-profile preferred hint.
+- Hybrid quick wins: diagnostic archive zip (RPC/CLI + Help menu), local config reveal, terminal,
+  profile creator / switch-profile preferred hint; generation quiesce via `/v1/quiesce` before mutations.
 - HostSidecar treats Recovery RPC announce as readiness (`recovery://rpc`) so
   waitForURL does not time out when Host never announces `DSH_HOST_READY`.
 
@@ -123,8 +123,8 @@ RPC + hybrid confirm flow now exist.
 | Checkpoint list | snapshot injected when RPC attached | Empty/unavailable when Host never started RPC |
 | Checkpoint preview/restore | preview → Confirm dialog → execute | Native DesktopDialogWindow chrome parity |
 | Plugin uninstall preview/confirm | preview → Confirm dialog → execute | Same; immutable-target errors via InfoDialog |
-| Restart / safe-mode / quit | CompleteRecovery (+ optional `/v1/complete`) | Generation quiesce still coarse (StopHostSidecar) |
-| Diagnostics / config / terminal | Crash-evidence + local path reveal / terminal | Full Electron diagnostic archive zip |
+| Restart / safe-mode / quit | CompleteRecovery + `/v1/complete` (quiesce then settle) + StopHostSidecar | No drain/idle/cancel-in-flight Host API beyond `quiesceForRecovery` |
+| Diagnostics / config / terminal | Diagnostic archive zip (RPC/CLI) + Save/reveal; config reveal; terminal | Darwin SaveFileDialog verify; Crashpad dumps N/A in hybrid |
 | Darwin / CI workflow | — | Out of Linux bed; workflow scope blocker |
 
 **Operator expectation:** With Host in recovery keep-alive, Recovery tabs list
@@ -133,4 +133,5 @@ debt InfoDialogs remain for checkpoint/uninstall.
 
 Canonical surface map: dsh-plugin-desktop/src/wails-shell-bridge.md
 Evidence: docs/evidence/wails-p2-recovery-rpc-20260905.md,
-docs/evidence/wails-p2-recovery-rpc-ux-20260905.md
+docs/evidence/wails-p2-recovery-rpc-ux-20260905.md,
+docs/evidence/wails-p2-diagnostics-quiesce-20260905.md

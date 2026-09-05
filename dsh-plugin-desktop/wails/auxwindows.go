@@ -281,7 +281,8 @@ func (a *AuxWindowService) CompleteRecovery(action string, targetId string) erro
 	switch action {
 	case "restart", "safe-mode", "quit", "profiles", "control":
 		if client := a.recoveryClient(); client != nil && (action == "restart" || action == "safe-mode" || action == "quit") {
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			// Ordered shutdown: Host quiesce (fiber dispose) via /v1/complete, then StopHostSidecar.
+			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 			_ = client.Complete(ctx, action)
 			cancel()
 		}
@@ -303,6 +304,7 @@ func (a *AuxWindowService) CompleteRecovery(action string, targetId string) erro
 					a.shell.setSafeMode(true)
 				}
 				go func() {
+					// Coarse process stop remains; /v1/complete already attempted generation quiesce.
 					_ = a.shell.StopHostSidecar()
 					if _, err := a.shell.StartHostSidecar(""); err != nil {
 						_ = a.OpenRecovery(err.Error())
@@ -395,6 +397,7 @@ func (a *AuxWindowService) handleCheckpointExecute(previewID string) error {
 	if previewID == "" {
 		return a.OpenInfoDialog("Checkpoint confirm", "Missing restore preview id.")
 	}
+	quiesceNote := a.quiesceHostBestEffort(8 * time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	result, err := client.ExecuteCheckpointRestore(ctx, previewID)
@@ -403,7 +406,7 @@ func (a *AuxWindowService) handleCheckpointExecute(previewID string) error {
 	}
 	a.settle("recovery", "confirm-checkpoint", "", fmt.Sprintf("%v", result))
 	return a.OpenInfoDialog("Checkpoint restored",
-		fmt.Sprintf("%v\n\nRestart Desktop to finish applying the restore.", result))
+		fmt.Sprintf("%v\n\n%s\n\nRestart Desktop to finish applying the restore.", result, quiesceNote))
 }
 
 func (a *AuxWindowService) handleOpenCheckpoint(slotID string) error {
@@ -464,6 +467,7 @@ func (a *AuxWindowService) handleUninstallExecute(previewID string) error {
 	if previewID == "" {
 		return a.OpenInfoDialog("Plugin uninstall", "Missing uninstall preview id.")
 	}
+	quiesceNote := a.quiesceHostBestEffort(8 * time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	result, err := client.ExecuteUninstall(ctx, previewID)
@@ -472,7 +476,7 @@ func (a *AuxWindowService) handleUninstallExecute(previewID string) error {
 	}
 	a.settle("recovery", "confirm-uninstall", "", fmt.Sprintf("%v", result))
 	return a.OpenInfoDialog("Plugin uninstalled",
-		fmt.Sprintf("%v\n\nRestart Desktop if the Host UI still lists the plugin.", result))
+		fmt.Sprintf("%v\n\n%s\n\nRestart Desktop if the Host UI still lists the plugin.", result, quiesceNote))
 }
 
 func (a *AuxWindowService) storePendingConfirm(pending *pendingRecoveryConfirm) {
@@ -544,25 +548,63 @@ func (a *AuxWindowService) CompleteConfirmDialog(response string) error {
 	}
 }
 
+
+// quiesceHostBestEffort asks Host Recovery RPC to dispose the Cordis Host fiber.
+// Real API: DesktopStartupGeneration.quiesceForRecovery via POST /v1/quiesce.
+// There is no drain-generations / wait-for-idle / cancel-in-flight Host surface.
+func (a *AuxWindowService) quiesceHostBestEffort(timeout time.Duration) string {
+	client := a.recoveryClient()
+	if client == nil {
+		return "quiesce=skipped (no Recovery RPC)"
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	res, err := client.Quiesce(ctx)
+	if err != nil {
+		return "quiesce=rpc-error: " + err.Error()
+	}
+	if res == nil {
+		return "quiesce=empty-response"
+	}
+	if res.Detail != "" {
+		return res.Detail
+	}
+	if res.OK {
+		return "quiesce=ok"
+	}
+	return "quiesce=not-ok"
+}
+
 func (a *AuxWindowService) handleRecoveryDiagnostics(action string) error {
 	caps := a.capabilities()
 	if caps == nil {
 		return a.ReportRecoveryDebt("debt-diagnostics")
 	}
-	if err := caps.RevealCrashEvidenceFolder(); err != nil {
-		return a.OpenInfoDialog("Diagnostics",
-			"Could not open crash-evidence folder:\n"+err.Error()+"\n\n"+
-				"Full Electron diagnostic archive export is still Host-owned debt.\n"+
-				caps.CrashEvidenceStatus())
+	offerSave := action == "export-diagnostics" || action == "save-diagnostics"
+	res, err := caps.ExportDiagnosticArchive(offerSave)
+	if err != nil {
+		revealErr := caps.RevealCrashEvidenceFolder()
+		msg := "Diagnostic archive export failed:\n" + err.Error()
+		if revealErr == nil {
+			msg += "\n\nOpened crash-evidence folder as a fallback.\n\n" + caps.CrashEvidenceStatus()
+		} else {
+			msg += "\n\nCrash-evidence reveal also failed: " + revealErr.Error() + "\n\n" + caps.CrashEvidenceStatus()
+		}
+		return a.OpenInfoDialog("Diagnostics", msg)
 	}
-	detail := "Opened the local crash-evidence folder.\n\n" +
-		"Note: full Host diagnostic archive export (save/show zip) remains Electron/Host debt; " +
-		"this hybrid path reveals crash-evidence as a best-effort substitute.\n\n" +
-		caps.CrashEvidenceStatus()
+	title := "Diagnostics archive"
+	detail := "Created Host/Electron-format diagnostic archive.\n\n" + res.Detail
+	if res.SavedPath != "" {
+		detail += "\n\nSaved copy: " + res.SavedPath
+	} else if res.Cancelled {
+		detail += "\n\nSave dialog cancelled; archive kept at:\n" + res.Path
+	} else {
+		detail += "\n\nArchive path:\n" + res.Path
+	}
 	a.mu.Lock()
-	a.last = AuxWindowResult{Kind: "recovery", Action: action, Detail: detail}
+	a.last = AuxWindowResult{Kind: "recovery", Action: action, Detail: res.Path}
 	a.mu.Unlock()
-	return a.OpenInfoDialog("Diagnostics (crash evidence)", detail)
+	return a.OpenInfoDialog(title, detail)
 }
 
 func (a *AuxWindowService) handleRecoveryConfig(action string) error {
@@ -648,15 +690,17 @@ func recoveryDebtMessage(kind string) string {
 			"APIs: previewUninstall(bundleId), executeUninstall(previewId).\n" +
 			"Immutable-target / generation assert still enforced inside the Host controller."
 	case "debt-diagnostics":
-		return "Diagnostic archive export still needs Host controller + Electron DesktopDialogWindow paths.\n" +
-			"Hybrid fallback: Reveal Crash Evidence Folder (CapabilitiesService) when caps are attached."
+		return "CapabilitiesService is not attached, so diagnostic archive export cannot run.\n" +
+			"When caps are attached: Recovery RPC POST /v1/diagnostics/export (exportDesktopDiagnostics) " +
+			"or CLI node lib/host-main.js --export-diagnostics, then optional SaveFileDialog + reveal.\n" +
+			"Help → Export Diagnostic Archive… uses the same path."
 	case "debt-config":
 		return "Could not resolve local settings.yaml / cordis.patch.yml / profile manifest under Desktop userData.\n" +
 			"Host generation still owns authoritative paths; try after a normal boot creates them."
 	default:
 		return "This Recovery action is not wired for the hybrid shell yet.\n" +
 			"Supported: restart, safe-mode, quit, profiles, control, checkpoint/uninstall (RPC+confirm),\n" +
-			"diagnostics crash-evidence reveal, local config reveal, terminal, profile creator/switch."
+			"diagnostic archive zip (RPC/CLI), local config reveal, terminal, profile creator/switch."
 	}
 }
 

@@ -35,12 +35,28 @@ export interface WailsRecoveryRpcServer {
   close(): Promise<void>
 }
 
+export interface WailsRecoveryQuiesceResult {
+  readonly ok: boolean
+  readonly detail: string
+}
+
 export interface StartWailsRecoveryRpcServerOptions {
   readonly controller?: WailsRecoveryRpcController
   readonly detail?: string
   /** Injected listen port (tests); default ephemeral. */
   readonly port?: number
   readonly token?: string
+  /**
+   * Export the Electron/Host diagnostic archive zip (same format as --export-diagnostics).
+   * Optional so structural servers and tests can omit it.
+   */
+  readonly exportDiagnostics?: () => Promise<string>
+  /**
+   * Best-effort generation quiesce before mutations / complete.
+   * Real API is DesktopStartupGeneration.quiesceForRecovery() (Host fiber dispose + timeout).
+   * There is no separate drain-generations / wait-for-idle / cancel-in-flight Host surface.
+   */
+  readonly quiesce?: () => Promise<WailsRecoveryQuiesceResult>
 }
 
 interface JsonErrorBody {
@@ -104,11 +120,16 @@ export async function startWailsRecoveryRpcServer(
     completeResolve?.(action)
   }
 
+  const exportDiagnostics = options.exportDiagnostics
+  const quiesce = options.quiesce
+
   const server: Server = createServer((req, res) => {
     void handleRequest(req, res, {
       token,
       detail,
       controller,
+      exportDiagnostics,
+      quiesce,
       onComplete: action => {
         settle(action)
       },
@@ -148,6 +169,8 @@ interface RequestContext {
   readonly token: string
   readonly detail: string
   readonly controller: WailsRecoveryRpcController | undefined
+  readonly exportDiagnostics: (() => Promise<string>) | undefined
+  readonly quiesce: (() => Promise<WailsRecoveryQuiesceResult>) | undefined
   readonly onComplete: (action: WailsRecoveryCompleteAction) => void
 }
 
@@ -196,8 +219,30 @@ async function handleRequest(
         sendJson(res, 400, { error: { code: 'invalid-target', message: 'action must be restart|safe-mode|quit' } })
         return
       }
+      const quiesce = await runQuiesce(ctx)
       ctx.onComplete(action)
-      sendJson(res, 200, { ok: true, action })
+      sendJson(res, 200, { ok: true, action, quiesce })
+      return
+    }
+
+    if (method === 'POST' && path === '/v1/quiesce') {
+      const quiesce = await runQuiesce(ctx)
+      sendJson(res, 200, quiesce)
+      return
+    }
+
+    if (method === 'POST' && path === '/v1/diagnostics/export') {
+      if (ctx.exportDiagnostics === undefined) {
+        sendJson(res, 501, {
+          error: {
+            code: 'state-unavailable',
+            message: 'Diagnostic archive export is not wired for this Recovery RPC session',
+          },
+        })
+        return
+      }
+      const archivePath = await ctx.exportDiagnostics()
+      sendJson(res, 200, { ok: true, path: archivePath })
       return
     }
 
@@ -249,6 +294,21 @@ async function handleRequest(
     sendJson(res, 404, { error: { code: 'not-found', message: `unknown Recovery RPC path ${path}` } })
   } catch (cause) {
     sendControllerError(res, cause)
+  }
+}
+
+async function runQuiesce(ctx: RequestContext): Promise<WailsRecoveryQuiesceResult> {
+  if (ctx.quiesce === undefined) {
+    return {
+      ok: true,
+      detail: 'quiesce=skipped (no Host generation callback; recovery keep-alive has no live Cordis Host fiber to dispose)',
+    }
+  }
+  try {
+    return await ctx.quiesce()
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause)
+    return { ok: false, detail: `quiesce=failed: ${message}` }
   }
 }
 

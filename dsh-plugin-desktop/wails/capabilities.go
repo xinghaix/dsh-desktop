@@ -569,6 +569,171 @@ func (c *CapabilitiesService) RevealCrashEvidenceFolder() error {
 	return c.RevealInFileManager(dir, false)
 }
 
+// DiagnosticArchiveResult describes a published Host/Electron-format diagnostics zip.
+type DiagnosticArchiveResult struct {
+	Path       string `json:"path"`
+	SavedPath  string `json:"savedPath,omitempty"`
+	Source     string `json:"source"`
+	Detail     string `json:"detail"`
+	Revealed   bool   `json:"revealed"`
+	Cancelled  bool   `json:"cancelled,omitempty"`
+}
+
+// ExportDiagnosticArchive builds the Electron/Host diagnostics zip, optionally
+// copies it via SaveFileDialog, and reveals the final path in the file manager.
+// Prefer Recovery RPC when the Host keep-alive session is attached; otherwise
+// spawn `node lib/host-main.js --export-diagnostics` (same exportDesktopDiagnostics).
+func (c *CapabilitiesService) ExportDiagnosticArchive(offerSaveDialog bool) (*DiagnosticArchiveResult, error) {
+	archivePath, source, err := c.produceDiagnosticArchive()
+	if err != nil {
+		return nil, err
+	}
+	finalPath := archivePath
+	savedPath := ""
+	cancelled := false
+	if offerSaveDialog {
+		defaultName := filepath.Base(archivePath)
+		if defaultName == "." || defaultName == "/" || defaultName == "" {
+			defaultName = "diagnostics.zip"
+		}
+		chosen, serr := c.SaveFileDialog(defaultName)
+		if serr != nil {
+			// Dialog failure is non-fatal: keep the Host-published archive.
+			_ = serr
+		} else if strings.TrimSpace(chosen) == "" {
+			cancelled = true
+		} else if filepath.Clean(chosen) != filepath.Clean(archivePath) {
+			if cerr := copyFileBestEffort(archivePath, chosen); cerr != nil {
+				return nil, fmt.Errorf("save diagnostic archive: %w", cerr)
+			}
+			savedPath = chosen
+			finalPath = chosen
+		} else {
+			savedPath = chosen
+		}
+	}
+	revealed := false
+	if !cancelled {
+		if rerr := c.RevealInFileManager(finalPath, true); rerr == nil {
+			revealed = true
+		}
+	}
+	detail := fmt.Sprintf("source=%s\narchive=%s", source, archivePath)
+	if savedPath != "" {
+		detail += "\nsaved=" + savedPath
+	}
+	if cancelled {
+		detail += "\nsave-dialog=cancelled (Host archive retained)"
+	}
+	if revealed {
+		detail += "\nreveal=ok"
+	} else if !cancelled {
+		detail += "\nreveal=skipped-or-failed"
+	}
+	return &DiagnosticArchiveResult{
+		Path:      archivePath,
+		SavedPath: savedPath,
+		Source:    source,
+		Detail:    detail,
+		Revealed:  revealed,
+		Cancelled: cancelled,
+	}, nil
+}
+
+func (c *CapabilitiesService) produceDiagnosticArchive() (path, source string, err error) {
+	c.mu.Lock()
+	shell := c.shell
+	c.mu.Unlock()
+	if shell != nil {
+		if client := shell.RecoveryRPC(); client != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			defer cancel()
+			res, rerr := client.ExportDiagnostics(ctx)
+			if rerr == nil && res != nil && strings.TrimSpace(res.Path) != "" {
+				return res.Path, "recovery-rpc", nil
+			}
+			if rerr != nil {
+				// Fall through to CLI; Host may be mid-shutdown.
+				source = "recovery-rpc-failed:" + rerr.Error()
+			}
+		}
+	}
+	cliPath, cerr := exportDiagnosticsViaHostCLI()
+	if cerr != nil {
+		if source != "" {
+			return "", "", fmt.Errorf("%s; cli fallback failed: %w", source, cerr)
+		}
+		return "", "", cerr
+	}
+	if source != "" {
+		return cliPath, "host-cli-after-rpc-miss", nil
+	}
+	return cliPath, "host-cli", nil
+}
+
+func exportDiagnosticsViaHostCLI() (string, error) {
+	_, pluginDir, _, err := locateWailsLayout()
+	if err != nil {
+		return "", err
+	}
+	hostMain := filepath.Join(pluginDir, "lib", "host-main.js")
+	if !fileExists(hostMain) {
+		return "", fmt.Errorf("missing %s (build Host before exporting diagnostics)", hostMain)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "node", hostMain, "--export-diagnostics")
+	cmd.Dir = pluginDir
+	cmd.Env = append(os.Environ(), "DSH_WAILS_HOST_SIDECAR=1")
+	out, err := cmd.Output()
+	if err != nil {
+		stderr := ""
+		if ee, ok := err.(*exec.ExitError); ok {
+			stderr = strings.TrimSpace(string(ee.Stderr))
+		}
+		if stderr == "" {
+			return "", fmt.Errorf("host --export-diagnostics failed: %w", err)
+		}
+		return "", fmt.Errorf("host --export-diagnostics failed: %w (%s)", err, stderr)
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	path := ""
+	for i := len(lines) - 1; i >= 0; i-- {
+		cand := strings.TrimSpace(lines[i])
+		if cand != "" && !strings.HasPrefix(cand, "DSH_HOST_") {
+			path = cand
+			break
+		}
+	}
+	if path == "" {
+		return "", fmt.Errorf("host --export-diagnostics produced no path on stdout")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return "", fmt.Errorf("exported archive missing at %s: %w", path, err)
+	}
+	return path, nil
+}
+
+func copyFileBestEffort(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+		return err
+	}
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return out.Close()
+}
+
 // RequestUserAttention flashes the dock/taskbar and updates tray badge text.
 // Wails v3 beta has no Electron app.setBadgeCount; Flash() bounces the macOS
 // Dock / flashes the Windows taskbar. Badge count is reflected in the tray tooltip.

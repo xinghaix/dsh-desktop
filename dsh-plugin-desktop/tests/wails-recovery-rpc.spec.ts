@@ -132,4 +132,78 @@ describe('Wails Recovery RPC', () => {
     expect(res.status).toBe(200)
     await expect(waiting).resolves.toBe('restart')
   })
+
+  it('exports diagnostics zip via /v1/diagnostics/export', async () => {
+    const archive = '/tmp/diagnostics-test.zip'
+    const server = await startWailsRecoveryRpcServer({
+      token: 'tok',
+      exportDiagnostics: async () => archive,
+    })
+    servers.push(server)
+    const res = await fetch(`${server.url}v1/diagnostics/export`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer tok',
+        'content-type': 'application/json',
+      },
+      body: '{}',
+    })
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ ok: true, path: archive })
+  })
+
+  it('returns 501 when diagnostics export is not wired', async () => {
+    const server = await startWailsRecoveryRpcServer({ token: 'tok' })
+    servers.push(server)
+    const res = await fetch(`${server.url}v1/diagnostics/export`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer tok',
+        'content-type': 'application/json',
+      },
+      body: '{}',
+    })
+    expect(res.status).toBe(501)
+  })
+
+  it('quiesces before settling /v1/complete and exposes /v1/quiesce', async () => {
+    const calls: string[] = []
+    const server = await startWailsRecoveryRpcServer({
+      token: 'tok',
+      quiesce: async () => {
+        calls.push('quiesce')
+        return { ok: true, detail: 'quiesce=ok (test)' }
+      },
+    })
+    servers.push(server)
+    const quiesceRes = await fetch(`${server.url}v1/quiesce`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer tok',
+        'content-type': 'application/json',
+      },
+      body: '{}',
+    })
+    expect(quiesceRes.status).toBe(200)
+    await expect(quiesceRes.json()).resolves.toEqual({ ok: true, detail: 'quiesce=ok (test)' })
+    expect(calls).toEqual(['quiesce'])
+
+    const waiting = server.waitForComplete()
+    const completeRes = await fetch(`${server.url}v1/complete`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer tok',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ action: 'quit' }),
+    })
+    expect(completeRes.status).toBe(200)
+    await expect(completeRes.json()).resolves.toMatchObject({
+      ok: true,
+      action: 'quit',
+      quiesce: { ok: true, detail: 'quiesce=ok (test)' },
+    })
+    expect(calls).toEqual(['quiesce', 'quiesce'])
+    await expect(waiting).resolves.toBe('quit')
+  })
 })

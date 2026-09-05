@@ -282,6 +282,18 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 		}
 		showMenuStatus(aux, app, "Crash evidence", "Opened folder.\n\n"+caps.CrashEvidenceStatus())
 	})
+	helpMenu.Add("Export Diagnostic Archive…").OnClick(func(ctx *application.Context) {
+		res, err := caps.ExportDiagnosticArchive(true)
+		if err != nil {
+			showMenuStatus(aux, app, "Diagnostics", "Export failed:\n"+err.Error()+"\n\n"+caps.CrashEvidenceStatus())
+			return
+		}
+		msg := "Diagnostic archive ready.\n\n" + res.Detail
+		if res.Path != "" {
+			msg += "\n\nPath:\n" + res.Path
+		}
+		showMenuStatus(aux, app, "Diagnostics archive", msg)
+	})
 	helpMenu.Add("Platform Identity").OnClick(func(ctx *application.Context) {
 		id := caps.PlatformIdentity()
 		showMenuStatus(aux, app, "Platform identity",

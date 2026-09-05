@@ -200,5 +200,40 @@ func (c *RecoveryRpcClient) ExecuteUninstall(ctx context.Context, previewID stri
 }
 
 func (c *RecoveryRpcClient) Complete(ctx context.Context, action string) error {
-	return c.doJSON(ctx, http.MethodPost, "v1/complete", map[string]string{"action": action}, &map[string]any{})
+	var out map[string]any
+	return c.doJSON(ctx, http.MethodPost, "v1/complete", map[string]string{"action": action}, &out)
+}
+
+// RecoveryQuiesceResult is Host generation best-effort quiesce status.
+type RecoveryQuiesceResult struct {
+	OK     bool   `json:"ok"`
+	Detail string `json:"detail"`
+}
+
+// Quiesce asks the Host to stop its Cordis Host fiber before mutations / restart.
+// Real API: DesktopStartupGeneration.quiesceForRecovery(). No drain/idle/cancel-in-flight.
+func (c *RecoveryRpcClient) Quiesce(ctx context.Context) (*RecoveryQuiesceResult, error) {
+	var out RecoveryQuiesceResult
+	if err := c.doJSON(ctx, http.MethodPost, "v1/quiesce", map[string]any{}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// DiagnosticsExportResult is the published Host diagnostic archive path.
+type DiagnosticsExportResult struct {
+	OK   bool   `json:"ok"`
+	Path string `json:"path"`
+}
+
+// ExportDiagnostics asks the Host to write the Electron-format diagnostics zip.
+func (c *RecoveryRpcClient) ExportDiagnostics(ctx context.Context) (*DiagnosticsExportResult, error) {
+	var out DiagnosticsExportResult
+	if err := c.doJSON(ctx, http.MethodPost, "v1/diagnostics/export", map[string]any{}, &out); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(out.Path) == "" {
+		return nil, fmt.Errorf("recovery rpc diagnostics export returned empty path")
+	}
+	return &out, nil
 }

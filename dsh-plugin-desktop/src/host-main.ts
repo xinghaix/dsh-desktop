@@ -573,6 +573,25 @@ async function start(): Promise<void> {
       rpc = await startWailsRecoveryRpcServer({
         ...(controller === undefined ? {} : { controller }),
         detail,
+        exportDiagnostics: async () => {
+          const { exportDesktopDiagnostics } = await import('./diagnostic-export.ts')
+          return await exportDesktopDiagnostics(desktopUserDataDir, {
+            appVersion,
+          })
+        },
+        quiesce: async () => {
+          // Real Host surface: DesktopStartupGeneration.quiesceForRecovery().
+          // Disposes the Cordis Host fiber (if bound) with timeout; does NOT drain
+          // in-flight generations, wait-for-idle, or cancel arbitrary jobs — those
+          // APIs do not exist on DesktopStartupGeneration / Recovery controller.
+          const ok = await generation.quiesceForRecovery()
+          return {
+            ok,
+            detail: ok
+              ? 'quiesce=ok (Host fiber disposed or never bound; resources retained until release)'
+              : 'quiesce=timeout-or-failed (mutating recovery actions may be unsafe; StopHostSidecar remains coarse fallback)',
+          }
+        },
       })
       announceWailsHostRecoveryRpc(rpc.url, rpc.token)
       electronLogger.error(
