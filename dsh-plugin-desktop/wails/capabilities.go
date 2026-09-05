@@ -21,6 +21,7 @@ import (
 const desktopVersionEndpoint = "https://www.dshdesktop.cn/api/desktop/version"
 const desktopDownloadMac = "https://www.dshdesktop.cn/api/downloads/mac"
 const desktopDownloadWin = "https://www.dshdesktop.cn/api/downloads/windows"
+const desktopDownloadLinux = "https://www.dshdesktop.cn/api/downloads/linux"
 const desktopCurrentVersionHeader = "X-DSH-Desktop-Version"
 const desktopReleaseChannelHeader = "X-DSH-Desktop-Channel"
 const desktopTargetVersionHeader = "X-DSH-Desktop-Target-Version"
@@ -34,9 +35,12 @@ type CapabilitiesService struct {
 	app             *application.App
 	shell           *ShellService
 	notifier        *notifications.NotificationService
+	crash           *CrashEvidenceService
 	update          UpdateCheckResult
 	lanHTTPS        string
 	identityApplied string
+	attentionCount  int
+	tray            *application.SystemTray
 }
 
 // UpdateCheckResult is the hybrid update probe / download result.
@@ -75,11 +79,13 @@ func (c *CapabilitiesService) NotifyAttention(title, body string) error {
 		return fmt.Errorf("notification service is not attached")
 	}
 	_, _ = notifier.RequestNotificationAuthorization()
-	return notifier.SendNotification(notifications.NotificationOptions{
+	err := notifier.SendNotification(notifications.NotificationOptions{
 		ID:    fmt.Sprintf("dsh-%d", time.Now().UnixNano()),
 		Title: title,
 		Body:  body,
 	})
+	_ = c.RequestUserAttention(1)
+	return err
 }
 
 // SaveFileDialog opens a native save dialog and returns the chosen path.
@@ -186,6 +192,9 @@ func updateDownloadURL() (string, string, bool) {
 		return desktopDownloadMac, "DSH-Desktop-update.dmg", true
 	case "windows":
 		return desktopDownloadWin, "DSH-Desktop-Setup.exe", true
+	case "linux":
+		// Packaged AppImage / .deb endpoint (same API family as mac/win).
+		return desktopDownloadLinux, "DSH-Desktop.AppImage", true
 	default:
 		return "", "", false
 	}
@@ -248,13 +257,13 @@ func (c *CapabilitiesService) CheckForUpdates() UpdateCheckResult {
 	cmp := compareLooseSemVer(latest, current)
 	if current == "dev" || cmp > 0 {
 		result.Status = "update-available"
-		result.Detail = fmt.Sprintf("latest=%s current=%s; call DownloadAndInstallUpdate to fetch the installer (macOS/Windows).", latest, current)
+		result.Detail = fmt.Sprintf("latest=%s current=%s; call DownloadAndInstallUpdate to fetch the installer (macOS/Windows/Linux).", latest, current)
 	} else {
 		result.Status = "up-to-date"
 		result.Detail = fmt.Sprintf("current=%s is not older than latest=%s", current, latest)
 	}
 	if !canDownload {
-		result.Detail += " Download/install is not offered on this OS (Electron/Wails package Linux installers separately)."
+		result.Detail += " Download/install is not offered on this OS."
 	}
 	c.storeUpdate(result)
 	return result
@@ -270,7 +279,7 @@ func (c *CapabilitiesService) DownloadAndInstallUpdate() UpdateCheckResult {
 	downloadURL, defaultName, canDownload := updateDownloadURL()
 	if !canDownload {
 		check.Status = "unsupported-platform"
-		check.Detail = "Installer download is only wired for macOS and Windows in the hybrid shell."
+		check.Detail = "Installer download is not wired for this OS in the hybrid shell."
 		c.storeUpdate(check)
 		return check
 	}
@@ -413,6 +422,73 @@ func (c *CapabilitiesService) LanHttpsStatus() string {
 		return "lan-https=host-owned (Electron DesktopLanHttpsRuntime); awaiting Host announce"
 	}
 	return "lan-https=" + c.lanHTTPS
+}
+
+
+func (c *CapabilitiesService) attachCrash(crash *CrashEvidenceService) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.crash = crash
+}
+
+func (c *CapabilitiesService) attachTray(tray *application.SystemTray) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.tray = tray
+}
+
+// CrashEvidenceStatus exposes file-based crash evidence (Crashpad alternative).
+func (c *CapabilitiesService) CrashEvidenceStatus() string {
+	c.mu.Lock()
+	crash := c.crash
+	c.mu.Unlock()
+	if crash == nil {
+		return "crash-evidence=not-attached (file-based; Electron Crashpad unavailable)"
+	}
+	return crash.Status()
+}
+
+// RequestUserAttention flashes the dock/taskbar and updates tray badge text.
+// Wails v3 beta has no Electron app.setBadgeCount; Flash() bounces the macOS
+// Dock / flashes the Windows taskbar. Badge count is reflected in the tray tooltip.
+func (c *CapabilitiesService) RequestUserAttention(count int) error {
+	if count < 0 {
+		count = 0
+	}
+	c.mu.Lock()
+	c.attentionCount = count
+	shell := c.shell
+	tray := c.tray
+	c.mu.Unlock()
+	if shell != nil {
+		shell.FlashMainWindow(count > 0)
+	}
+	if tray != nil {
+		if count > 0 {
+			tray.SetTooltip(fmt.Sprintf("DSH Desktop (%d)", count))
+		} else {
+			tray.SetTooltip("DSH Desktop")
+		}
+	}
+	return nil
+}
+
+// ClearUserAttention clears dock/taskbar flash and tray badge count.
+func (c *CapabilitiesService) ClearUserAttention() error {
+	return c.RequestUserAttention(0)
+}
+
+// DockAttentionStatus documents maximized Wails dock/attention APIs in use.
+func (c *CapabilitiesService) DockAttentionStatus() string {
+	c.mu.Lock()
+	count := c.attentionCount
+	c.mu.Unlock()
+	return fmt.Sprintf(
+		"dock-attention=count=%d; api=WebviewWindow.Flash + SystemTray.SetTooltip; "+
+			"macOS Dock badge number API unavailable in Wails v3 beta (no setBadgeCount); "+
+			"MacOptions.ApplicationShouldTerminateAfterLastWindowClosed=false; tray lifecycle owns quit",
+		count,
+	)
 }
 
 func (c *CapabilitiesService) storeUpdate(result UpdateCheckResult) {

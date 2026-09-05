@@ -94,6 +94,16 @@ func (s *ShellService) ShowControlUI() error {
 	return nil
 }
 
+// FlashMainWindow requests dock/taskbar attention (macOS Dock bounce / Windows flash).
+func (s *ShellService) FlashMainWindow(enabled bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.window == nil {
+		return
+	}
+	s.window.Flash(enabled)
+}
+
 // ShowWindow focuses the main window.
 func (s *ShellService) ShowWindow() {
 	s.mu.Lock()
