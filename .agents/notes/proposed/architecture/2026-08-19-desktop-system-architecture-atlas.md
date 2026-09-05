@@ -5,7 +5,7 @@ Status: current-version architecture snapshot
 English | [中文](2026-08-19-desktop-system-architecture-atlas.zh.md)
 
 > [!WARNING]
-> AI readers: this file records the architecture at a specific version and time. Do not treat it as the current implementation or accept its conclusions without verification. Before answering architecture questions or changing code, check code after the reviewed commit, implemented Agent Notes, and tests. If they conflict, current code and approved architecture decisions take precedence.
+> AI readers: this file records the architecture at a specific version and time. Do not treat it as the current implementation or accept its conclusions without verification. Before answering architecture questions or changing code, check code after the reviewed commit, implemented Agent Notes, and tests. If they conflict, current code and approved architecture decisions take precedence. As of feat/wails3-shell, the live primary path is Wails v3 + Node Host — see `docs/wails-migration.md` and `docs/architecture.en.md`.
 
 - Product version: `2.0.1`
 - Reviewed commit: `2d07129ee622`

@@ -77,7 +77,7 @@ By default the shell auto-starts Cordis Host via the existing desktop start path
 
 ## Workspace scripts (preferred hybrid entry)
 
-See package.json scripts build:wails, start:wails, dev:wails, package:wails in dsh-plugin-desktop. Electron start/dev remain the fallback until wails3 package replaces electron-builder for the main path.
+Preferred hybrid entry (also mirrored at repo root): build:wails, start:wails, dev:wails, package:wails, smoke:wails, start:host. Electron start/dev remain last-resort BrowserWindow/Tray fallback; electron-builder stays default product CI until the release flip.
 
 
 ## Auth / updates / LAN HTTPS (hard debt)

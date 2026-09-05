@@ -2,9 +2,19 @@
 
 English | [中文](README.zh.md)
 
-`dsh-plugin-desktop` runs DSH in Electron while remaining part of the ordinary Cordis composition. The installed application is named **DSH Desktop**. The package provides the `dsh-plugin-desktop` executable and the `dsh-desktop` alias; the registered npm package name is the reliable `npx` entry.
+Primary desktop shell is Go 1.27 + Wails v3 under `wails/` with a Node-first Cordis Host sidecar (`start:wails` / `start:host`). Electron BrowserWindow/Tray remains as last-resort fallback (see `docs/electron-shell-fallback.md`). `dsh-plugin-desktop` still composes as an ordinary Cordis plugin. The installed application is named **DSH Desktop**. The package provides the `dsh-plugin-desktop` executable and the `dsh-desktop` alias; the registered npm package name is the reliable `npx` entry.
 
 ## Architecture
+
+### Current primary path (Wails + Node Host)
+
+- Native shell: `wails/` (Go 1.27 + Wails v3)
+- Host: Node-first `host-main.ts` / `NodeDesktopRuntime` (no app.whenReady); launcher auto Node -> ELECTRON_RUN_AS_NODE -> LAST-RESORT Electron `main.ts` with explicit allow
+- Auth: AuthProxy production path + BridgeService; Aux via AuxWindowService preferring native-ui
+- Docs: `../docs/wails-migration.md`, `src/wails-shell-bridge.md`, `../docs/wails-node-host-boot.md`, `docs/electron-shell-fallback.md`, `wails/README.md` / `wails/LOCATION.md`
+- Packaging: `package:wails` / `smoke:wails` exist; electron-builder remains default product CI until release flip
+
+### Electron last-resort path (still present)
 
 The Electron executable is minimal bootstrap code. It acquires the single-instance lock, resolves the selected DSH profile, provides the native runtime capability, and boots the Host Cordis root in the Electron main process. The `desktop-shell` Host plugin owns the `BrowserWindow`, navigation policy, settings namespace, and close-versus-quit lifecycle through Cordis effects. The native runtime owns the physical tray, while `desktop-shell`, `desktop-profiles`, `desktop-terminal`, and `desktop-updates` contribute effect-scoped commands through its ordered item registry.
 
@@ -100,13 +110,22 @@ yarn check
 
 The check verifies that every required first-party peer in the production graph is declared by the desktop deploy root. Headless Loader smokes activate the launcher-owned desktop row and a profile-local third-party row, then boot the published Web profile and inspect its loopback root and client manifest. Unit and type tests cover both profile compositions, restart fencing, client environment validation, desktop layout state, and platform-native window options.
 
-Start the desktop application explicitly when a graphical session is available:
+Primary graphical entry when a session is available:
+
+```sh
+yarn start:wails
+yarn start:host
+yarn dev:wails
+yarn smoke:wails
+```
+
+Electron last-resort entry (not the primary product path):
 
 ```sh
 yarn dev
 ```
 
-`dev` builds before launching. It does not require a separate manual build.
+`dev` / `dev:wails` build before launching. They do not require a separate manual build.
 
 The headless-safe launcher surfaces can be exercised without importing or starting Electron:
 
