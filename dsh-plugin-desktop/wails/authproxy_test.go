@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -44,6 +45,9 @@ func TestAuthProxyInjectsRendererHeader(t *testing.T) {
 	if !strings.Contains(proxy.Status(), "production-required") {
 		t.Fatalf("status=%s", proxy.Status())
 	}
+	if !strings.Contains(local, "/ui?x=1") {
+		t.Fatalf("non-auth query should preserve path/query: %s", local)
+	}
 }
 
 func TestAuthProxyRejectsNonLoopback(t *testing.T) {
@@ -51,5 +55,103 @@ func TestAuthProxyRejectsNonLoopback(t *testing.T) {
 	_, err := proxy.StartListening("https://example.com/", "x-dsh-desktop-renderer", "tok")
 	if err == nil || !strings.Contains(err.Error(), "loopback") {
 		t.Fatalf("expected loopback error, got %v", err)
+	}
+}
+
+func TestAuthProxyBootstrapTokenAndInjectsCookie(t *testing.T) {
+	var proxiedHadCookie atomic.Bool
+	var bootstrapHits atomic.Int32
+	var rootHits atomic.Int32
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("x-dsh-desktop-renderer") != "rend-tok" {
+			http.Error(w, "missing renderer", http.StatusUnauthorized)
+			return
+		}
+		switch {
+		case r.URL.Path == "/" && r.URL.Query().Get("token") == "exchange-secret":
+			bootstrapHits.Add(1)
+			http.SetCookie(w, &http.Cookie{
+				Name:     "dsh_session",
+				Value:    "session-abc",
+				Path:     "/",
+				HttpOnly: true,
+			})
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		case r.URL.Path == "/":
+			rootHits.Add(1)
+			c, err := r.Cookie("dsh_session")
+			if err != nil || c.Value != "session-abc" {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			if r.Header.Get("X-DSH-Auth-Proxy") == "1" {
+				proxiedHadCookie.Store(true)
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = io.WriteString(w, "<html><body>host-ui-ok</body></html>")
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+
+	proxy := NewAuthProxy()
+	authURL := upstream.URL + "/?token=exchange-secret"
+	local, err := proxy.StartListening(authURL, "x-dsh-desktop-renderer", "rend-tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer proxy.Stop()
+
+	if strings.Contains(local, "token=") {
+		t.Fatalf("proxy URL must not expose token query: %s", local)
+	}
+	if !strings.HasSuffix(local, "/") || strings.Contains(local, "?") {
+		t.Fatalf("expected bare root proxy URL, got %s", local)
+	}
+	if bootstrapHits.Load() < 1 {
+		t.Fatal("expected bootstrap GET of token URL")
+	}
+	if !strings.Contains(proxy.Status(), "cookies=") {
+		t.Fatalf("status should report cookie count: %s", proxy.Status())
+	}
+
+	resp, err := http.Get(local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		t.Fatalf("proxied status=%d body=%q", resp.StatusCode, body)
+	}
+	if !strings.Contains(string(body), "host-ui-ok") {
+		t.Fatalf("expected host HTML, got %q", body)
+	}
+	if !proxiedHadCookie.Load() {
+		t.Fatal("expected AuthProxy to inject jar cookie on proxied request")
+	}
+	if rootHits.Load() < 1 {
+		t.Fatal("expected at least one authenticated root hit via proxy")
+	}
+	// Set-Cookie from upstream should be stripped for the browser; jar is primary.
+	if len(resp.Cookies()) != 0 {
+		t.Fatalf("expected Set-Cookie stripped from proxy response, got %#v", resp.Cookies())
+	}
+}
+
+func TestAuthProxyBootstrapFailsWithoutValidToken(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "nope", http.StatusUnauthorized)
+	}))
+	defer upstream.Close()
+
+	proxy := NewAuthProxy()
+	_, err := proxy.StartListening(upstream.URL+"/?token=bad", "x-dsh-desktop-renderer", "rend-tok")
+	if err == nil || !strings.Contains(err.Error(), "bootstrap") {
+		t.Fatalf("expected bootstrap error, got %v", err)
 	}
 }
