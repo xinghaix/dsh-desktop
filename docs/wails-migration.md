@@ -55,3 +55,29 @@ Canonical table: `dsh-plugin-desktop/src/wails-shell-bridge.md`.
 ### Host auto-start note
 
 Launching the Wails shell without -no-host auto-starts Cordis Host via the existing desktop start path. Overrides include DSH_HOST_URL and DSH_HOST_AUTOSTART=0.
+
+## Progress update (Stages A-E)
+
+### Done in Wails (beyond earlier hybrid shell)
+
+- Auxiliary windows: setup wizard, profile selector/create, recovery (hybrid shell-owned UIs under frontend/dist/aux/)
+- Auth/IPC BridgeService + bridge.js preload stand-in; Host sidecar announces renderer auth header and enables ordinary loopback browser access
+- CapabilitiesService: notifications, save/export, reveal-in-folder, system terminal fallback, deferred update probe
+- Packaging scripts on dsh-plugin-desktop: build:wails, start:wails, dev:wails, package:wails (see docs/wails-workspace-scripts.md)
+
+### Still Electron / Host-owned
+
+- Full Cordis bootstrap (main.ts / ElectronDesktopRuntime)
+- Per-request x-dsh-desktop-renderer injection (blocked on Linux WebKitGTK in Wails v3 beta)
+- Full React native-ui Recovery/Setup/Profile documents and checkpoint uninstall
+- Packaged DSH terminal shims; update download/install; LAN HTTPS edge
+- macOS dock identity, Windows AppUserModelId, crashReporter, safeStorage
+- Production electron-builder installers (wails3 package wired but not CI default)
+- Headless CI remains Electron/Yarn based
+
+### Blocked on this headless Linux box
+
+- No interactive GUI verification of tray/notifications/aux windows
+- wails3 package / platform installers not exercised end-to-end
+- WebView request-header injection unavailable on webkitgtk
+

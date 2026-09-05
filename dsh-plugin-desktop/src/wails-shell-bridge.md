@@ -9,10 +9,10 @@ Hybrid migration map (do not edit `deepseek-harness/`).
 | Application / context menus | `app.NewMenu` / `app.Menu.Set` | Implemented (subset) |
 | `dialog.showOpenDialog` / message boxes | `app.Dialog.OpenFile` / `Info` / `Question` | Implemented (subset) |
 | Cordis `boot()` in `main.ts` | Auto-started Host sidecar (`HostSidecar` default → desktop start + `--dsh-wails-host-sidecar`) | Hybrid — Host still Electron/Node; Wails loads announced URL |
-| Preload / `session.fetch` auth cookie | Sidecar announces authenticated loopback URL; renderer header injection still missing | Partial |
-| Profile / setup / recovery auxiliary windows | Still Electron `BrowserWindow` HTML UIs | Debt |
-| Updates, notifications, terminal, workspace admission | Still Electron adapters | Debt |
-| Packaging (`electron-builder`) | Future `wails3 package` | Debt |
+| Preload / `session.fetch` auth cookie | BridgeService + announceWailsHostAuthHeader; sidecar enables ordinary loopback browser access; WebKitGTK cannot inject per-request renderer header | Partial (hybrid) |
+| Profile / setup / recovery auxiliary windows | Wails AuxWindowService + frontend/dist/aux HTML; full React native-ui still Electron | Partial (hybrid) |
+| Updates, notifications, terminal, workspace admission | CapabilitiesService covers notify/export/terminal/update-probe; full update install + packaged terminal + LAN HTTPS still Electron | Partial (hybrid) |
+| Packaging (`electron-builder`) | build:wails/start:wails/package:wails wired; electron-builder remains CI/fallback default | Partial |
 
 Preferred hybrid loop today:
 
