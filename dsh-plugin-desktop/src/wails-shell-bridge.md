@@ -10,9 +10,9 @@ Hybrid migration map (do not edit `deepseek-harness/`)
 | Application menus | app.NewMenu | Implemented (subset) |
 | Native dialogs | app.Dialog | Implemented (subset) |
 | Cordis boot | host-launcher auto (Node / Electron-as-Node / LAST-RESORT main) | Node Host no whenReady; Electron-as-Node for ABI natives; main still whenReady |
-| Preload / session.fetch auth | BridgeService + AuthProxy (H2) | Partial; native hooks unavailable |
-| Setup/profile/recovery windows | AuxWindowService; Electron skipped in sidecar | Partial |
-| Updates / notifications / terminal | CapabilitiesService check+download (H3) | Partial; Linux install deferred |
+| Preload / session.fetch auth | BridgeService + AuthProxy (H2) | AuthProxy default production; native hooks blocked |
+| Setup/profile/recovery windows | AuxWindowService + native-ui prefer + scheme bridge | Hybrid |
+| Updates / notifications / terminal | CapabilitiesService check+download (H3) | Implemented (mac/win/linux AppImage path) |
 | LAN HTTPS edge | Host TLS + DSH_HOST_LAN_HTTPS announce (H4) | Partial |
 | Packaging | package/smoke:wails + wails-smoke.yml (H5) | Partial; electron-builder still CI default |
 

@@ -69,7 +69,7 @@ writes `DSH_HOST_URL_FILE`.
 
 ## Remaining Electron debt
 
-See `../../../docs/wails-migration.md` for the live checklist.
+See docs/wails-migration.md for done vs permanently blocked items.
 
 ### Host auto-start
 
@@ -86,3 +86,10 @@ See package.json scripts build:wails, start:wails, dev:wails, package:wails in d
 - Updates: CheckForUpdates + DownloadAndInstallUpdate (macOS/Windows).
 - LAN HTTPS: Host-owned TLS; DSH_HOST_LAN_HTTPS announce (LAN-HTTPS.md).
 - Packaging: portable Go via run-wails.mjs; smoke:wails + wails-smoke.yml.
+
+## Crash evidence / dock / updates
+
+- File-based crash-evidence (Crashpad unavailable)
+- Dock attention: Flash + tray tooltip
+- Updates: macOS, Windows, Linux AppImage download path
+- Auth: AuthProxy default production path

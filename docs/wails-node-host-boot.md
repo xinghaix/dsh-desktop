@@ -1,29 +1,26 @@
 # Node-first Cordis Host boot
 
-Branch: feat/wails3-shell
-
 ## Preferred launch order
 
 1. Stock Node host-main
-2. Electron-as-Node when needed
-3. LAST RESORT Electron main
+2. Electron-as-Node when Electron ABI natives are present
+3. LAST RESORT Electron main (DSH_HOST_LAUNCHER=electron-main; may need DSH_ALLOW_ELECTRON_MAIN=1)
 
 ## Env
+
 - DSH_HOST_LAUNCHER
 - DSH_HOST_ELECTRON_AS_NODE
+- DSH_ALLOW_ELECTRON_MAIN
 - ELECTRON_PATH
+
 See host-launcher.ts / bin.ts / hostbootstrap.go.
-Scripts: start:host, start:host:node, start:host:electron-as-node.
 
-## macOS
-- start:host:node (fresh)
-- start:host:electron-as-node (after materialization)
-- start:wails (hybrid)
+## Crash evidence
 
-## LAN HTTPS / identity
-- Node AES-GCM protector (wails/LAN-HTTPS.md)
+Node Host: active-run.json + uncaughtException dumps under crash-evidence/ (no Crashpad).
+Wails shell: same directory family via crash_evidence.go.
+
+## Identity / dock
+
 - Windows AppUserModelID via CapabilitiesService
-- crashReporter blocked
-## Fallback triggers
-1. Missing host-main.js
-2. Forced main launcher mode
+- macOS: Flash + tray tooltip; numeric Dock badge blocked in Wails v3 beta

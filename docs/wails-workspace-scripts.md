@@ -1,26 +1,14 @@
 # Wails workspace scripts
 
-Primary hybrid entry scripts are defined on the dsh-plugin-desktop package.json:
+Recommended hybrid entry (repo root or dsh-plugin-desktop):
 
-- build:wails
-- start:wails
-- dev:wails
-- package:wails
-- smoke:wails
+- start:wails / dev:wails / build:wails / package:wails / smoke:wails
+- start:host / start:host:node / start:host:electron-as-node
+- sync:native-ui:wails (copies lib/native-ui into wails embed tree)
+- node scripts/wails-smoke.mjs (non-workflow smoke)
 
-Helper module: dsh-plugin-desktop/wails/scripts/run-wails.mjs
+Helper: dsh-plugin-desktop/wails/scripts/run-wails.mjs
 
-Go toolchain resolution order:
+Go resolution: DSH_GO_BIN -> PATH go -> ~/sdk/go1.27.0/bin -> ~/go/bin -> /home/box/sdk/go1.27.0/bin
 
-1. `DSH_GO_BIN` (directory containing the `go` binary)
-2. `which go` / current PATH
-3. Common local SDK layouts (`~/sdk/go1.27.0/bin`, `~/go/bin`, `/usr/local/go/bin`)
-4. Cloud-box fallback `/home/box/sdk/go1.27.0/bin` only if present
-
-`package:wails` runs `wails3 package` when available; otherwise it writes
-`bin/dsh-wails-shell` via `go build` and exits successfully so CI/local verify
-can still produce an artifact. Full platform installers still need a host with
-`wails3` + packaging deps.
-
-Electron start/dev remain the fallback Host+BrowserWindow path. Existing
-Electron CI (`ci.yml`) is unchanged; `wails-smoke.yml` adds a Go build/test gate.
+Electron start/dev remain fallback Host+BrowserWindow path. ci.yml stays Electron/Yarn based; wails-smoke.yml is additive when workflow scope allows.

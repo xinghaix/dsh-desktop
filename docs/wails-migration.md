@@ -1,67 +1,35 @@
 # Electron to Wails v3 migration
 
-Branch: `feat/wails3-shell`
-Shell path: `dsh-plugin-desktop/wails/`
-Go: 1.27 · Wails: v3.0.0-beta.16
+Branch: feat/wails3-shell
+Shell: dsh-plugin-desktop/wails/
 
-## Strategy
+## Primary run path
 
-Prefer a working hybrid over a fake full rewrite:
+- start:wails / dev:wails / smoke:wails (repo root scripts)
+- start:host (Node Host sidecar)
+- node scripts/wails-smoke.mjs
+- Electron main.ts is LAST-RESORT (docs/electron-shell-fallback.md)
 
-1. Wails owns the native window, tray, menus, and dialogs.
-2. Node/Electron Cordis Host (today's `dsh-plugin-desktop/src/main.ts` boot path) continues to materialize profiles, serve the web UI on loopback, and mint the authenticated browser URL (`desktopLoopbackBrowserUrl` + `connection.authenticatedUrl`).
-3. Wails Host-sidecar mode (`--dsh-wails-host-sidecar` / `DSH_WAILS_HOST_SIDECAR=1`) skips Electron BrowserWindow/Tray and announces the UI URL.
-4. Wails navigates to that URL (`ShellService.LoadHostURL` / `HostSidecar` auto-start), preferring a loopback **AuthProxy** that injects `x-dsh-desktop-renderer`.
+## Done
 
-`deepseek-harness/` remains an unmodified submodule.
+- Main webview, tray, menus, dialogs
+- Host sidecar auto-start (Node / Electron-as-Node / LAST-RESORT Electron main)
+- AuthProxy production path (loopback hardened)
+- Aux Recovery/Setup/Profile; prefers lib/native-ui + scheme bridge
+- Notifications, export, reveal, terminal, updates (mac/win/linux AppImage)
+- File-based crash evidence (active-run + panic/exception dumps)
+- Dock/taskbar attention via Flash + tray tooltip count
+- Windows AppUserModelID; Node AES-GCM LAN HTTPS protector
+- Root/workspace wails scripts; scripts/wails-smoke.mjs; optional wails-smoke.yml
 
-## Build / run
+## Permanently platform-blocked
 
-See `dsh-plugin-desktop/wails/README.md` and `docs/wails-workspace-scripts.md`.
+- Native webview per-request header hooks (AuthProxy workaround)
+- Electron Crashpad/minidumps (file-based substitute only)
+- macOS numeric Dock badge / setBadgeCount (Flash + tooltip only)
+- Full Electron Recovery checkpoint uninstall UX without Host controller state
+- Interactive GUI verification on headless Linux
+- wails3 package AppImage host deps may be missing (go binary fallback OK)
+- electron-builder remains default product CI until release flip
 
-## Surface map
-
-Canonical table: `dsh-plugin-desktop/src/wails-shell-bridge.md`.
-
-## Progress (Stages A–E + hard debt H1–H6)
-
-### Done in Wails / hybrid
-
-- Main webview window with remote URL load (`-host-url` / `DSH_HOST_URL`)
-- Hide-to-tray + system tray menu; application menu subset
-- Native directory picker + info dialogs; generated bindings + control UI
-- Host sidecar discovery + default auto-start of existing desktop start path
-- Electron Host-sidecar announce (`DSH_HOST_READY`, auth header, LAN HTTPS, recovery required)
-- Auxiliary windows: setup / profile / recovery (hybrid shell-owned HTML under `frontend/dist/aux/`)
-- Auth/IPC `BridgeService` + `bridge.js`; **AuthProxy** loopback header injection (H2) — see `wails/AUTH.md`
-- **H1 Electron-light Host**: sidecar skips Setup/Recovery/profile-compat BrowserWindows; preserves sidecar argv on relaunch; forwards markers via `bin.ts`
-- CapabilitiesService: notifications, save/export, reveal-in-folder, system terminal fallback
-- **H3** update check against public version endpoint + macOS/Windows download/open installers
-- **H4** LAN HTTPS status bridge from Host announce (TLS still Host-terminated) — see `wails/LAN-HTTPS.md`
-- **H5** `run-wails.mjs` portable Go (`DSH_GO_BIN` → PATH → SDK layouts); `package:wails` fallback; `smoke:wails`; `docs/wails-ci-smoke.yml.example` (install when credential has workflow scope)
-- Packaging scripts: `build:wails`, `start:wails`, `dev:wails`, `package:wails`, `smoke:wails`
-- **Node-first Cordis Host** (`host-main.ts` / `start:host`): boots without `app.whenReady`; Wails `defaultHostBootstrap` prefers it
-
-### Still Electron / Host-owned (blocked or deferred)
-
-- Node Host launcher auto-select (stock Node / Electron-as-Node / LAST-RESORT Electron main). See `docs/wails-node-host-boot.md`.
-- Native webview per-request header hooks remain unavailable in Wails v3 beta on Mac/Linux/Windows public APIs (AuthProxy is the workaround).
-- Full React native-ui Recovery/Setup/Profile documents and checkpoint uninstall UX
-- Packaged DSH terminal shims; Linux update installers
-- LAN HTTPS: Node AES-GCM protector available; Electron safeStorage still stronger
-- macOS dock beyond MacOptions; crashReporter blocked; Windows AppUserModelID applied in Wails
-- Production electron-builder installers remain CI default; `wails3 package` AppImage needs `file`/`appimagetool` deps on the host (fallback go binary works)
-- Headless product CI (`ci.yml`) remains Electron/Yarn based; Wails smoke is additive only
-
-### Blocked on this headless Linux box
-
-- No interactive GUI verification of tray/notifications/aux windows
-- End-to-end AppImage/`wails3 package` may fail without `file` package / full linuxdeploy deps
-- Electron Host boot still needs a display/`whenReady`; prefer Node Host or `ELECTRON_RUN_AS_NODE` for headless sidecar smokes
-
-## Next slices (suggested)
-
-1. Harden Node Host against remaining Electron-ABI native addons (or document `ELECTRON_RUN_AS_NODE` as required for those profiles).
-2. Upstream Wails public request-header hooks; then retire ordinary-browser fallback where AuthProxy is enough.
-3. Wire Wails-native toggles for LAN HTTPS enable + CA install UX (replace Electron `safeStorage` key seal).
-4. Make `wails3 package` the release default per platform; keep electron-builder as rollback.
+Canonical surface map: dsh-plugin-desktop/src/wails-shell-bridge.md

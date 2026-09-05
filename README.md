@@ -239,6 +239,6 @@ Discord：[加入 DSH Desktop 社区](https://discord.gg/TJeGqKRNM)
  </picture>
 </a>
 
-## Wails v3 native shell (experimental)
+## Wails v3 native shell (primary hybrid path)
 
-An experimental Go 1.27 + Wails v3 shell lives in [`dsh-plugin-desktop/wails/`](dsh-plugin-desktop/wails/). It can host the same loopback Cordis Host UI URL Electron loads today. Migration notes: [`docs/wails-migration.md`](docs/wails-migration.md).
+Go 1.27 + Wails v3 shell lives in [`dsh-plugin-desktop/wails/`](dsh-plugin-desktop/wails/). Recommended entry: start:wails / dev:wails. Electron main.ts is last-resort. Migration notes: [`docs/wails-migration.md`](docs/wails-migration.md).
