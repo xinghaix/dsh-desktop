@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
 
 // AuthProxy is a loopback reverse proxy that injects the Desktop renderer
@@ -16,7 +17,7 @@ import (
 //   - Windows WebView2: processRequest only sets UA / window-id internally
 //   - macOS WKWebView: no public custom-header API in Wails v3 beta
 //   - Linux WebKitGTK: cannot inject per-request headers
-// The proxy is therefore the best available cross-platform auth path.
+// The proxy is therefore the default production auth path on all platforms.
 type AuthProxy struct {
 	mu         sync.Mutex
 	listener   net.Listener
@@ -25,20 +26,26 @@ type AuthProxy struct {
 	headerName string
 	headerVal  string
 	proxyURL   string
+	required   bool
 }
 
 func NewAuthProxy() *AuthProxy {
-	return &AuthProxy{}
+	// Production default: AuthProxy is required whenever a renderer token exists.
+	return &AuthProxy{required: true}
 }
 
 // Status reports whether the auth proxy is listening.
 func (p *AuthProxy) Status() string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.proxyURL == "" {
-		return "auth-proxy=stopped"
+	mode := "production-required"
+	if !p.required {
+		mode = "optional"
 	}
-	return fmt.Sprintf("auth-proxy=listening url=%s upstream=%s header=%s", p.proxyURL, p.upstream, p.headerName)
+	if p.proxyURL == "" {
+		return fmt.Sprintf("auth-proxy=stopped mode=%s", mode)
+	}
+	return fmt.Sprintf("auth-proxy=listening mode=%s url=%s upstream=%s header=%s", mode, p.proxyURL, p.upstream, p.headerName)
 }
 
 // ProxyURL returns the loopback URL the webview should load, if running.
@@ -68,6 +75,10 @@ func (p *AuthProxy) StartListening(upstreamURL, headerName, headerValue string) 
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return "", fmt.Errorf("unsupported upstream scheme %q", parsed.Scheme)
 	}
+	host := strings.ToLower(parsed.Hostname())
+	if host != "127.0.0.1" && host != "localhost" && host != "::1" {
+		return "", fmt.Errorf("auth-proxy upstream must be loopback (got %q)", parsed.Hostname())
+	}
 	origin := &url.URL{Scheme: parsed.Scheme, Host: parsed.Host}
 
 	p.mu.Lock()
@@ -88,7 +99,15 @@ func (p *AuthProxy) StartListening(upstreamURL, headerName, headerValue string) 
 	headerV := headerValue
 	proxy.Director = func(req *http.Request) {
 		director(req)
+		// Strip hop-by-hop headers that should not be forwarded.
+		for _, h := range []string{"Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization", "TE", "Trailers", "Transfer-Encoding", "Upgrade"} {
+			if strings.EqualFold(h, "Upgrade") || strings.EqualFold(h, "Connection") {
+				continue // allow websocket upgrades
+			}
+			req.Header.Del(h)
+		}
 		req.Header.Set(headerN, headerV)
+		req.Header.Set("X-DSH-Auth-Proxy", "1")
 		// Avoid leaking the proxy Host to upstream when Host expects loopback.
 		req.Host = origin.Host
 	}
@@ -96,7 +115,14 @@ func (p *AuthProxy) StartListening(upstreamURL, headerName, headerValue string) 
 		http.Error(w, "dsh auth-proxy: "+e.Error(), http.StatusBadGateway)
 	}
 
-	srv := &http.Server{Handler: proxy}
+	srv := &http.Server{
+		Handler:           proxy,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
 	p.listener = ln
 	p.server = srv
 	p.upstream = origin.String()
@@ -137,7 +163,8 @@ func (p *AuthProxy) Stop() error {
 
 // PlatformAuthCapability documents native webview header injection support.
 func PlatformAuthCapability() string {
-	return "native-header-injection=unavailable (Wails v3 beta); use AuthProxy on all platforms; " +
+	return "native-header-injection=unavailable (Wails v3 beta); AuthProxy is the default production path on all platforms; " +
 		"Windows WebView2 has internal WebResourceRequested but no public hook; " +
-		"macOS WKWebView / Linux WebKitGTK cannot inject x-dsh-desktop-renderer per request"
+		"macOS WKWebView / Linux WebKitGTK cannot inject x-dsh-desktop-renderer per request; " +
+		"AuthProxy binds 127.0.0.1 only and rejects non-loopback upstreams"
 }

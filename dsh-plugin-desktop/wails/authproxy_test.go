@@ -4,14 +4,17 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
 func TestAuthProxyInjectsRendererHeader(t *testing.T) {
-	var sawName, sawValue string
+	var sawValue string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sawName = "x-dsh-desktop-renderer"
 		sawValue = r.Header.Get("x-dsh-desktop-renderer")
+		if r.Header.Get("X-DSH-Auth-Proxy") != "1" {
+			t.Errorf("missing X-DSH-Auth-Proxy marker")
+		}
 		_, _ = io.WriteString(w, "ok")
 	}))
 	defer upstream.Close()
@@ -32,10 +35,21 @@ func TestAuthProxyInjectsRendererHeader(t *testing.T) {
 	if resp.StatusCode != 200 || string(body) != "ok" {
 		t.Fatalf("status=%d body=%q", resp.StatusCode, body)
 	}
-	if sawName == "" || sawValue != "tok123" {
+	if sawValue != "tok123" {
 		t.Fatalf("header not injected: value=%q", sawValue)
 	}
-	if PlatformAuthCapability() == "" {
+	if !strings.Contains(PlatformAuthCapability(), "AuthProxy") {
 		t.Fatal("expected platform notes")
+	}
+	if !strings.Contains(proxy.Status(), "production-required") {
+		t.Fatalf("status=%s", proxy.Status())
+	}
+}
+
+func TestAuthProxyRejectsNonLoopback(t *testing.T) {
+	proxy := NewAuthProxy()
+	_, err := proxy.StartListening("https://example.com/", "x-dsh-desktop-renderer", "tok")
+	if err == nil || !strings.Contains(err.Error(), "loopback") {
+		t.Fatalf("expected loopback error, got %v", err)
 	}
 }
