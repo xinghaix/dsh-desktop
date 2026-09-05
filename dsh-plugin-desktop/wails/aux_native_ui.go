@@ -6,19 +6,26 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
-// nativeUIDocument resolves Vite React native-ui under frontend/dist/aux/native-ui only.
-// Falls back to empty so resolveAuxURL uses simplified /aux HTML (never file://).
+// shellUIDir is the go:embed-friendly name for auxiliary HTML.
+// NOTE: cannot be named "aux" — Go rejects embedding Windows reserved device
+// names (AUX/CON/PRN/NUL/COM*/LPT*), which silently dropped the whole tree
+// from //go:embed and left Setup/Profile/Recovery windows blank.
+const shellUIDir = "shell-ui"
+
+// nativeUIDocument resolves Vite React native-ui under frontend/dist/shell-ui/native-ui only.
+// Falls back to empty so resolveAuxURL uses simplified /shell-ui HTML (never file://).
 func nativeUIDocument(name string) string {
 	_, pluginDir, _, err := locateWailsLayout()
 	if err != nil {
 		return ""
 	}
-	// Prefer frontend/dist/aux/native-ui (asset-server / go:embed). Never use lib/ via file://.
+	// Prefer frontend/dist/shell-ui/native-ui (asset-server / go:embed). Never use lib/ via file://.
 	candidates := []string{
-		filepath.Join(pluginDir, "wails", "frontend", "dist", "aux", "native-ui", name+".html"),
+		filepath.Join(pluginDir, "wails", "frontend", "dist", shellUIDir, "native-ui", name+".html"),
 	}
 	for _, c := range candidates {
 		if st, err := os.Stat(c); err == nil && !st.IsDir() {
@@ -29,19 +36,34 @@ func nativeUIDocument(name string) string {
 }
 
 func recoveryNativeState(detail string, profiles []string) string {
+	profileItems := make([]map[string]any, 0, len(profiles))
+	for i, name := range profiles {
+		profileItems = append(profileItems, map[string]any{
+			"name":       name,
+			"current":    i == 0,
+			"selectable": true,
+		})
+	}
+	if detail == "" {
+		detail = "Cordis Host failed to start or announce a UI URL."
+	}
 	payload := map[string]any{
-		"failureStage":      "host-sidecar",
-		"failureDetail":     detail,
-		"requested":         false,
-		"restartReady":      true,
-		"terminalAvailable": false,
-		"safeModeActive":    false,
-		"busy":              false,
-		"activeTab":         "quick",
-		"locale":            "en",
-		"profiles":          profiles,
-		"notice":            nil,
-		"wailsHybrid":       true,
+		"locale":                  "en",
+		"failureStage":            "host-boot",
+		"failureDetail":           detail,
+		"requested":               false,
+		"diagnostics":             map[string]any{"status": "failed"},
+		"busy":                    false,
+		"restartReady":            true,
+		"activeTab":               "quick",
+		"configurationAvailable":  false,
+		"terminalAvailable":       false,
+		"safeModeAvailable":       true,
+		"safeModeActive":          false,
+		"profileCreatorAvailable": true,
+		"profiles":                profileItems,
+		"notice":                  nil,
+		"wailsHybrid":             true,
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
@@ -60,15 +82,52 @@ func profileSelectorNativeState(profiles []string) string {
 		})
 	}
 	payload := map[string]any{
-		"locale":   "en",
-		"profiles": items,
-		"token":    fmt.Sprintf("wails-%d", time.Now().UnixNano()),
+		"locale":       "en",
+		"profiles":     items,
+		"busy":         false,
+		"restartReady": true,
+		"token":        fmt.Sprintf("wails-%d", time.Now().UnixNano()),
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return ""
 	}
 	return base64.RawURLEncoding.EncodeToString(raw)
+}
+
+// setupWizardNativeState builds the exact base64url state Desktop Setup Wizard decodes.
+// Query must be exactly locale/state/platform/frame (no extra keys such as wails=1).
+func setupWizardNativeState() (state string, platform string) {
+	platform = "linux"
+	switch runtime.GOOS {
+	case "darwin":
+		platform = "darwin"
+	case "windows":
+		platform = "win32"
+	}
+	payload := map[string]any{
+		"mode":            "compatibility",
+		"macosMaterial":   "off",
+		"windowsMaterial": "off",
+		"openBrowser":     false,
+		"networkExposure": "loopback",
+		"market":          "disabled",
+		"notifications": map[string]any{
+			"enabled":                true,
+			"notifyOnTurnCompletion": true,
+			"notifyOnTurnFailure":    true,
+			"notifyOnJobCompletion":  true,
+			"notifyOnJobFailure":     true,
+		},
+		"profileName":   "default",
+		"platform":      platform,
+		"micaSupported": false,
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return "", platform
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), platform
 }
 
 const schemeBridgeJS = `

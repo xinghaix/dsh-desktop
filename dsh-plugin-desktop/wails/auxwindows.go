@@ -51,9 +51,25 @@ func (a *AuxWindowService) LastResult() AuxWindowResult {
 }
 
 // OpenSetupWizard opens (or focuses) the setup wizard window.
-// Prefers Vite-built React native-ui when lib/native-ui is present.
+// Prefers Vite-built React native-ui when present under frontend/dist/shell-ui.
 func (a *AuxWindowService) OpenSetupWizard() error {
-	return a.open("setup-wizard", "Set up DSH Desktop", a.resolveAuxURL("setup-wizard", nil), 720, 640, 560, 480)
+	q := url.Values{}
+	if state, platform := setupWizardNativeState(); state != "" {
+		// Native-ui decodeDesktopSetupWizardInput requires EXACT keys:
+		// locale, state, platform, frame — no extras (not even wails=1).
+		q.Set("locale", "en")
+		q.Set("state", state)
+		q.Set("platform", platform)
+		q.Set("frame", "false")
+		if doc := nativeUIDocument("setup-wizard"); doc != "" {
+			return a.open("setup-wizard", "Set up DSH Desktop",
+				"/shell-ui/native-ui/setup-wizard.html?"+q.Encode(), 720, 640, 560, 480)
+		}
+	}
+	q = url.Values{}
+	q.Set("wails", "1")
+	q.Set("locale", "en")
+	return a.open("setup-wizard", "Set up DSH Desktop", "/shell-ui/setup-wizard.html?"+q.Encode(), 720, 640, 560, 480)
 }
 
 // OpenProfileSelector opens the profile selection window.
@@ -89,17 +105,23 @@ func (a *AuxWindowService) OpenRecovery(detail string) error {
 	return a.open("recovery", "DSH Desktop Recovery", a.resolveAuxURL("recovery", q), 800, 720, 680, 560)
 }
 
-// resolveAuxURL prefers Vite-built React native-ui; falls back to simplified /aux HTML.
+// resolveAuxURL prefers Vite-built React native-ui; falls back to simplified /shell-ui HTML.
+// Assets live under frontend/dist/shell-ui (not "aux") because go:embed rejects the Windows
+// reserved device name AUX and would otherwise 404 every auxiliary window.
 func (a *AuxWindowService) resolveAuxURL(name string, query url.Values) string {
 	if query == nil {
 		query = url.Values{}
 	}
-	query.Set("wails", "1")
 	if doc := nativeUIDocument(name); doc != "" {
 		// Asset-server path only (go:embed frontend/dist). Never file://.
-		return "/aux/native-ui/" + name + ".html?" + query.Encode()
+		// Keep caller-supplied query as-is (recovery/profile may include state=).
+		if _, ok := query["wails"]; !ok {
+			query.Set("wails", "1")
+		}
+		return "/shell-ui/native-ui/" + name + ".html?" + query.Encode()
 	}
-	fallback := "/aux/" + name + ".html"
+	query.Set("wails", "1")
+	fallback := "/shell-ui/" + name + ".html"
 	if len(query) > 0 {
 		return fallback + "?" + query.Encode()
 	}
@@ -315,7 +337,7 @@ func (a *AuxWindowService) OpenInfoDialog(title, message string) error {
 	q.Set("title", title)
 	q.Set("message", message)
 	q.Set("wails", "1")
-	return a.open("info-dialog", title, "/aux/status.html?"+q.Encode(), 520, 320, 420, 240)
+	return a.open("info-dialog", title, "/shell-ui/status.html?"+q.Encode(), 520, 320, 420, 240)
 }
 
 // CloseInfoDialog closes the Info status window.
