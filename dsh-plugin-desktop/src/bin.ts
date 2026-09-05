@@ -1,11 +1,12 @@
 /** Headless-safe npm launcher for the DSH Desktop Electron executable. */
 
 import { spawn } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { posix, resolve, win32 } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { exportDesktopDiagnostics } from './diagnostic-export.ts'
+import { planHostSidecarSpawn } from './host-launcher.ts'
 import { desktopWailsHostSidecarRequested } from './wails-host-sidecar.ts'
 
 /** Parsed launcher action. */
@@ -143,27 +144,28 @@ export async function runDesktopCli(
   return launchElectron(forwarded)
 }
 
-/** Prefer Node Host entry (no app.whenReady); fall back to Electron main sidecar. */
+/** Prefer Node / ELECTRON_RUN_AS_NODE Host; Electron main only as last resort. */
 async function launchNodeHost(extraArgs: readonly string[]): Promise<number> {
   const hostMain = fileURLToPath(new URL('./host-main.js', import.meta.url))
-  if (!existsSync(hostMain)) {
+  const electronMain = fileURLToPath(new URL('./main.js', import.meta.url))
+  const plan = await planHostSidecarSpawn({
+    hostMainPath: hostMain,
+    electronMainPath: electronMain,
+    extraArgs,
+    environment: process.env,
+  })
+  process.stderr.write(
+    `dsh-plugin-desktop: Host launcher mode=${plan.mode} (${plan.reason})\n`,
+  )
+  if (plan.mode === 'electron-main') {
     process.stderr.write(
-      'dsh-plugin-desktop: lib/host-main.js missing; falling back to Electron Host sidecar.\n',
+      'dsh-plugin-desktop: LAST-RESORT Electron main Host sidecar (prefer host-main + optional ELECTRON_RUN_AS_NODE).\n',
     )
-    return launchElectron(extraArgs.includes('--dsh-wails-host-sidecar')
-      ? extraArgs
-      : [...extraArgs, '--dsh-wails-host-sidecar'])
   }
-  const args = extraArgs.includes('--dsh-wails-host-sidecar')
-    ? [...extraArgs]
-    : [...extraArgs, '--dsh-wails-host-sidecar']
   return new Promise<number>((resolveExit, reject) => {
-    const child = spawn(process.execPath, [hostMain, ...args], {
+    const child = spawn(plan.execPath, [...plan.argv], {
       stdio: 'inherit',
-      env: {
-        ...process.env,
-        DSH_WAILS_HOST_SIDECAR: '1',
-      },
+      env: plan.env,
       windowsHide: true,
     })
     child.once('error', reject)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -69,6 +70,138 @@ func locateWailsLayout() (wailsDir, pluginDir, repoDir string, err error) {
 }
 
 
+
+func dirExists(path string) bool {
+	st, err := os.Stat(path)
+	return err == nil && st.IsDir()
+}
+
+func envTruthy(name string) bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv(name)))
+	switch v {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func envFalsy(name string) bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv(name)))
+	switch v {
+	case "0", "false", "no", "off":
+		return true
+	default:
+		return false
+	}
+}
+
+
+func locateElectronExecutable(repoDir, pluginDir string) string {
+	if p := strings.TrimSpace(os.Getenv("ELECTRON_PATH")); p != "" && fileExists(p) {
+		return p
+	}
+	var candidates []string
+	for _, root := range []string{repoDir, pluginDir} {
+		base := filepath.Join(root, "node_modules", "electron", "dist")
+		switch runtime.GOOS {
+		case "darwin":
+			candidates = append(candidates, filepath.Join(base, "Electron.app", "Contents", "MacOS", "Electron"))
+		case "windows":
+			candidates = append(candidates, filepath.Join(base, "electron.exe"))
+		default:
+			candidates = append(candidates, filepath.Join(base, "electron"))
+		}
+		pathTxt := filepath.Join(root, "node_modules", "electron", "path.txt")
+		if fileExists(pathTxt) {
+			if raw, err := os.ReadFile(pathTxt); err == nil {
+				p := strings.TrimSpace(string(raw))
+				if p != "" {
+					if !filepath.IsAbs(p) {
+						p = filepath.Join(root, "node_modules", "electron", p)
+					}
+					candidates = append(candidates, p)
+				}
+			}
+		}
+	}
+	for _, c := range candidates {
+		if fileExists(c) {
+			return c
+		}
+	}
+	return ""
+}
+
+func profileNodeModulesPresent() bool {
+	home, _ := os.UserHomeDir()
+	roots := []string{}
+	if home != "" {
+		switch runtime.GOOS {
+		case "darwin":
+			roots = append(roots, filepath.Join(home, "Library", "Application Support", "DSH Desktop", "profiles"))
+		case "windows":
+			if appdata := os.Getenv("APPDATA"); appdata != "" {
+				roots = append(roots, filepath.Join(appdata, "DSH Desktop", "profiles"))
+			}
+		default:
+			config := os.Getenv("XDG_CONFIG_HOME")
+			if config == "" {
+				config = filepath.Join(home, ".config")
+			}
+			roots = append(roots, filepath.Join(config, "DSH Desktop", "profiles"))
+		}
+	}
+	for _, root := range roots {
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() && dirExists(filepath.Join(root, e.Name(), "node_modules")) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+type hostLauncherMode string
+
+const (
+	hostLauncherNode           hostLauncherMode = "node"
+	hostLauncherElectronAsNode hostLauncherMode = "electron-as-node"
+	hostLauncherElectronMain   hostLauncherMode = "electron-main"
+)
+
+func resolveHostLauncherModeGo(hostMainExists bool, electronPath string) (hostLauncherMode, string) {
+	launcher := strings.TrimSpace(strings.ToLower(strings.ReplaceAll(os.Getenv("DSH_HOST_LAUNCHER"), "_", "-")))
+	switch launcher {
+	case "node":
+		return hostLauncherNode, "DSH_HOST_LAUNCHER=node"
+	case "electron-as-node", "electronasnode", "run-as-node":
+		return hostLauncherElectronAsNode, "DSH_HOST_LAUNCHER=electron-as-node"
+	case "electron-main", "electron", "main":
+		return hostLauncherElectronMain, "DSH_HOST_LAUNCHER=electron-main"
+	}
+	if envTruthy("DSH_HOST_ELECTRON_AS_NODE") {
+		return hostLauncherElectronAsNode, "DSH_HOST_ELECTRON_AS_NODE=1"
+	}
+	if envFalsy("DSH_HOST_ELECTRON_AS_NODE") && hostMainExists {
+		return hostLauncherNode, "DSH_HOST_ELECTRON_AS_NODE=0"
+	}
+	if !hostMainExists {
+		return hostLauncherElectronMain, "lib/host-main.js missing"
+	}
+	if profileNodeModulesPresent() {
+		if electronPath != "" {
+			return hostLauncherElectronAsNode, "profile node_modules present; prefer ELECTRON_RUN_AS_NODE"
+		}
+		return hostLauncherNode, "profile node_modules present but Electron binary missing; stock Node"
+	}
+	return hostLauncherNode, "no profile node_modules detected; stock Node Host"
+}
+
 func defaultHostBootstrap() (command string, urlFile string, err error) {
 	_, pluginDir, repoDir, err := locateWailsLayout()
 	if err != nil {
@@ -76,7 +209,13 @@ func defaultHostBootstrap() (command string, urlFile string, err error) {
 	}
 	urlFile = defaultHostURLFile()
 	hostMainJS := filepath.Join(pluginDir, "lib", "host-main.js")
-	if fileExists(hostMainJS) {
+	electronPath := locateElectronExecutable(repoDir, pluginDir)
+	mode, _ := resolveHostLauncherModeGo(fileExists(hostMainJS), electronPath)
+	if mode == hostLauncherElectronAsNode && fileExists(hostMainJS) && electronPath != "" {
+		command = fmt.Sprintf("cd %s && export ELECTRON_RUN_AS_NODE=1; export DSH_WAILS_HOST_SIDECAR=1; %s %s --dsh-wails-host-sidecar", shellQuote(pluginDir), shellQuote(electronPath), shellQuote(hostMainJS))
+		return command, urlFile, nil
+	}
+	if fileExists(hostMainJS) && mode != hostLauncherElectronMain {
 		parts := []string{"node", shellQuote(hostMainJS), "--dsh-wails-host-sidecar"}
 		command = fmt.Sprintf("cd %s && export DSH_WAILS_HOST_SIDECAR=1; %s", shellQuote(pluginDir), strings.Join(parts, " "))
 		return command, urlFile, nil
