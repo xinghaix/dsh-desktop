@@ -203,15 +203,17 @@ func resolveHostLauncherModeGo(hostMainExists bool, electronPath string) (hostLa
 // hostSidecarArgument is the Cordis Host flag that enables Wails sidecar announce lines.
 const hostSidecarArgument = "--dsh-wails-host-sidecar"
 
-// commandFromHostBin builds a shell command that launches a user-provided Host binary
+// commandFromHostBin builds a shell command that launches a Host binary
 // or Node entry in Wails sidecar mode.
+//
+// Conceptually Host is the Cordis Web UI stack (same family as `dsh --profile web`).
+// For Wails sidecar spawn we still need a desktop-capable entry that speaks
+// announce / desktop plugins — typically host-main.js or dsh-desktop — not a
+// bare `dsh` argv without the desktop sidecar contract.
 //
 // DSH_BIN may point at:
 //   - a JS Host entry (*.js / *.mjs / *.cjs), run with node
 //   - an executable shim such as dsh-desktop / dsh-plugin-desktop
-//
-// Bare dsh (@deepseek-ai/dsh CLI) is intentionally not accepted here: Desktop Host
-// requires the Cordis desktop plugin stack (AuthProxy announce, Recovery RPC, etc.).
 func commandFromHostBin(bin string) (string, error) {
 	bin = strings.TrimSpace(bin)
 	if bin == "" {
@@ -248,7 +250,7 @@ type hostDiscoverHit struct {
 	Path    string
 }
 
-// hostDiscoverReport summarizes home-first Host discovery for UX / logs.
+// hostDiscoverReport summarizes user-home Host probe (escape hatch; bootstrap prefers packaged) for UX / logs.
 type hostDiscoverReport struct {
 	Checked []string
 	Hit     *hostDiscoverHit
@@ -414,19 +416,19 @@ func friendlyHostMissingMessage(checked []string) string {
 		}
 	}
 	b.WriteString("\n下一步 / Next steps:\n")
-	b.WriteString("  1. 安装 Desktop（含 Host）到家目录，例如 ~/.dsh 或 ~/dsh，确保存在 bin/dsh-desktop 或 lib/host-main.js\n")
-	b.WriteString("     Install Desktop Host under your home (e.g. ~/.dsh or ~/dsh) with bin/dsh-desktop or lib/host-main.js\n")
+	b.WriteString("  1. 产品内包装 Host 优先；AppImage/无布局时可安装 Host 到家目录，例如 ~/.dsh 或 ~/dsh，确保存在 bin/dsh-desktop 或 lib/host-main.js\n")
+	b.WriteString("     Prefer packaged/internal Host; for AppImage without layout, install Host under home (e.g. ~/.dsh or ~/dsh) with bin/dsh-desktop or lib/host-main.js\n")
 	b.WriteString("  2. 或设置环境变量 / Or set:\n")
 	b.WriteString("       export DSH_HOME=$HOME/.dsh\n")
 	b.WriteString("       export DSH_BIN=/path/to/host-main.js   # or dsh-desktop executable\n")
 	b.WriteString("  3. 或把 dsh-desktop 放到 PATH / Or put dsh-desktop on PATH (~/.local/bin)\n")
 	b.WriteString("  4. 已有运行中的 Host 时可设置 DSH_HOST_URL / Or attach with DSH_HOST_URL\n")
-	b.WriteString("\n说明: 公共 CLI `dsh`（@deepseek-ai/dsh）不是 Desktop Host；需要 dsh-desktop / host-main。\n")
-	b.WriteString("Note: bare `dsh` CLI is not a Desktop Host substitute.\n")
+	b.WriteString("\n说明: Host 即 Cordis Web UI（同 `dsh --profile web`）；Wails 加载其 UI。产品启动可用 host-main/dsh-desktop（桌面插件+sidecar）。\n")
+	b.WriteString("Note: Host is the Cordis Web UI stack (same as `dsh --profile web`); Wails loads it. Packaged launch may use host-main/dsh-desktop. CLI entry is home-first.\n")
 	return b.String()
 }
 
-// ProbeHostDiscovery runs home-first Desktop Host discovery without spawning.
+// ProbeHostDiscovery probes explicit DSH_BIN and user-home/PATH Host installs (not monorepo).
 // Order: DSH_BIN → DSH_HOME → user home installs → ~/.local/bin → PATH.
 // Monorepo layout is intentionally excluded here (handled as optional fallback in bootstrap).
 func ProbeHostDiscovery() hostDiscoverReport {
@@ -498,7 +500,7 @@ func ProbeHostDiscovery() hostDiscoverReport {
 }
 
 // discoverUserInstalledHostCommand finds a user-installed Desktop Host
-// (home-first: DSH_BIN / DSH_HOME / ~/.dsh|~/dsh|XDG / ~/.local/bin / PATH).
+// (user install: DSH_BIN / DSH_HOME / ~/.dsh|~/dsh|XDG / ~/.local/bin / PATH).
 func discoverUserInstalledHostCommand() (command string, reason string, ok bool) {
 	rep := ProbeHostDiscovery()
 	if rep.Hit == nil {
@@ -510,18 +512,27 @@ func discoverUserInstalledHostCommand() (command string, reason string, ok bool)
 func defaultHostBootstrap() (command string, urlFile string, err error) {
 	urlFile = defaultHostURLFile()
 
-	// Home-first: prefer user-installed Desktop Host over monorepo layout.
-	if cmd, reason, ok := discoverUserInstalledHostCommand(); ok {
-		_ = reason
-		return cmd, urlFile, nil
+	// Explicit Host override first.
+	if bin := strings.TrimSpace(os.Getenv("DSH_BIN")); bin != "" {
+		if cmd, err := commandFromHostBin(bin); err == nil {
+			return cmd, urlFile, nil
+		}
 	}
+
+	// Packaged / monorepo Host (product path for Wails hybrid).
+
 	missing := ProbeHostDiscovery()
 
 	_, pluginDir, repoDir, layoutErr := locateWailsLayout()
 	if layoutErr != nil {
+		// No packaged layout: fall through to user-home Host escape hatch.
+		if cmd, reason, ok := discoverUserInstalledHostCommand(); ok {
+			_ = reason
+			return cmd, urlFile, nil
+		}
 		return "", "", fmt.Errorf("%s\n(also no monorepo layout: %v)", missing.Message, layoutErr)
 	}
-hostMainJS := filepath.Join(pluginDir, "lib", "host-main.js")
+	hostMainJS := filepath.Join(pluginDir, "lib", "host-main.js")
 	electronPath := locateElectronExecutable(repoDir, pluginDir)
 	mode, _ := resolveHostLauncherModeGo(fileExists(hostMainJS), electronPath)
 	if mode == hostLauncherElectronAsNode && fileExists(hostMainJS) && electronPath != "" {
@@ -546,5 +557,10 @@ hostMainJS := filepath.Join(pluginDir, "lib", "host-main.js")
 		command = fmt.Sprintf("cd %s && export DSH_WAILS_HOST_SIDECAR=1; %s", shellQuote(pluginDir), strings.Join(parts, " "))
 		return command, urlFile, nil
 	}
-	return "", "", fmt.Errorf("%s\n(monorepo fallback also failed: need %s or %s)", missing.Message, yarnLock, binJS)
+	// Packaged pieces incomplete: user-home Host escape hatch.
+	if cmd, reason, ok := discoverUserInstalledHostCommand(); ok {
+		_ = reason
+		return cmd, urlFile, nil
+	}
+	return "", "", fmt.Errorf("%s\n(packaged Host incomplete: need %s or %s)", missing.Message, yarnLock, binJS)
 }

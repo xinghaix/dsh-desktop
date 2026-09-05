@@ -209,7 +209,7 @@ func (s *ShellService) HostSidecarStatus() string {
 	return sidecar.Status()
 }
 
-// HostDiscoverStatus reports home-first Desktop Host discovery for the control UI.
+// HostDiscoverStatus reports user-home Desktop Host probe for the control UI.
 // Includes hit reason/path or a friendly missing message with checked paths.
 func (s *ShellService) HostDiscoverStatus() string {
 	rep := ProbeHostDiscovery()

@@ -14,7 +14,7 @@ Not a single binary. Desktop ships a closed Cordis Host stack:
 4. Electron Builder still ships the full Host+runtime in asar by default.
 5. Wails AppImage today is shell-only; hybrid needs repo layout or an external Host.
 
-Bare public dsh CLI is not a Desktop Host substitute (missing desktop plugin contract).
+`dsh --profile web` is the Host/Web UI Cordis stack. Desktop packaging may launch the same stack via host-main/dsh-desktop (desktop plugins + sidecar). Do not treat Host as an unrelated runtime.
 
 ## How Host is located today (Wails)
 

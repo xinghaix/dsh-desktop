@@ -97,4 +97,4 @@ Preferred hybrid entry (also mirrored at repo root): build:wails, start:wails, d
 
 ### User-installed Host (AppImage / system)
 
-Home-first discovery: DSH_BIN -> DSH_HOME -> ~/.dsh|~/dsh|XDG|~/.local/bin -> PATH -> monorepo fallback. Control UI Host discovery shows checked paths. See docs/evidence/wails-user-dsh-home-20260905.md.
+Host = Cordis Web UI (same family as `dsh --profile web`); Wails loads it. Launch: DSH_BIN, then packaged/monorepo, then user-home escape hatch. CLI entry is home-first (see docs/wails-node-host-boot.md).

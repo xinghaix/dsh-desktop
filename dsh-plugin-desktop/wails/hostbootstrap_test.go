@@ -57,7 +57,6 @@ func TestDefaultHostBootstrapPrefersHostMain(t *testing.T) {
 		t.Fatalf("expected env, got %q", cmd)
 	}
 }
-
 func TestResolveHostLauncherModeGoEnv(t *testing.T) {
 	t.Setenv("DSH_HOST_LAUNCHER", "electron-as-node")
 	mode, reason := resolveHostLauncherModeGo(true, "/bin/electron")
@@ -227,13 +226,15 @@ func TestProbeHostDiscoveryFromDSHHome(t *testing.T) {
 	if !strings.Contains(rep.Hit.Path, "dsh-desktop") {
 		t.Fatalf("path=%q", rep.Hit.Path)
 	}
+	// Without packaged layout, bootstrap uses user-home Host as escape hatch.
+	empty := t.TempDir()
+	oldWD, err := os.Getwd()
+	if err != nil { t.Fatal(err) }
+	defer func() { _ = os.Chdir(oldWD) }()
+	if err := os.Chdir(empty); err != nil { t.Fatal(err) }
 	cmd, _, err := defaultHostBootstrap()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(cmd, "dsh-desktop") {
-		t.Fatalf("cmd=%q", cmd)
-	}
+	if err != nil { t.Fatal(err) }
+	if !strings.Contains(cmd, "dsh-desktop") { t.Fatalf("cmd=%q", cmd) }
 }
 
 func TestProbeHostDiscoveryFromDotDshHome(t *testing.T) {
@@ -290,7 +291,7 @@ func TestProbeHostDiscoveryMissingFriendlyMessage(t *testing.T) {
 	}
 }
 
-func TestHomeFirstBeatsMonorepo(t *testing.T) {
+func TestPackagedBeatsUserHome(t *testing.T) {
 	home := isolateNoUserHost(t)
 	// Fake monorepo layout in cwd
 	dir := t.TempDir()
@@ -330,11 +331,12 @@ func TestHomeFirstBeatsMonorepo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(cmd, userHost) {
-		t.Fatalf("expected user home host, got %q", cmd)
+	monoHost := filepath.Join(plugin, "lib", "host-main.js")
+	if !strings.Contains(cmd, monoHost) {
+		t.Fatalf("expected packaged/monorepo host, got %q", cmd)
 	}
-	if strings.Contains(cmd, filepath.Join(plugin, "lib", "host-main.js")) {
-		t.Fatalf("should not prefer monorepo when home install exists: %q", cmd)
+	if strings.Contains(cmd, userHost) {
+		t.Fatalf("should not prefer user home when packaged Host exists: %q", cmd)
 	}
 }
 

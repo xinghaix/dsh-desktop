@@ -23,28 +23,36 @@ describe('packaged dsh bootstrap', () => {
     expect(environment).toEqual({ Path: 'C:\\Windows' })
   })
 
-  it('clears Node mode before loading the fixed packaged CLI entry', async () => {
-    const environment = {
-      ELECTRON_RUN_AS_NODE: '1',
-      DSH_DESKTOP_DEFAULT_PROFILE: 'desktop',
-      KEEP: 'value',
+  it('clears Node mode before loading the home-first CLI entry', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'dsh-cli-packaged-test-'))
+    const pkg = join(home, '.dsh', 'node_modules', '@deepseek-ai', 'dsh')
+    mkdirSync(join(pkg, 'lib'), { recursive: true })
+    writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh', type: 'module' }))
+    writeFileSync(join(pkg, 'lib', 'bin.js'), '')
+    try {
+      const environment = {
+        ELECTRON_RUN_AS_NODE: '1',
+        DSH_DESKTOP_DEFAULT_PROFILE: 'desktop',
+        KEEP: 'value',
+        HOME: home,
+      }
+      const argv = ['/Applications/DSH Desktop', '/app.asar/lib/desktop-cli.js', '--dump-config']
+      const load = vi.fn(async (url: string) => {
+        expect(environment).toEqual({ KEEP: 'value', HOME: home })
+        expect(argv).toEqual([
+          '/Applications/DSH Desktop',
+          '/app.asar/lib/desktop-cli.js',
+          '--profile',
+          'desktop',
+          '--dump-config',
+        ])
+        expect(decodeURIComponent(url)).toContain(join(pkg, 'lib', 'bin.js'))
+      })
+      await runDesktopDshCli(environment, load, argv)
+      expect(load).toHaveBeenCalledOnce()
+    } finally {
+      rmSync(home, { recursive: true, force: true })
     }
-    const argv = ['/Applications/DSH Desktop', '/app.asar/lib/desktop-cli.js', '--dump-config']
-    const load = vi.fn(async (url: string) => {
-      expect(environment).toEqual({ KEEP: 'value' })
-      expect(argv).toEqual([
-        '/Applications/DSH Desktop',
-        '/app.asar/lib/desktop-cli.js',
-        '--profile',
-        'desktop',
-        '--dump-config',
-      ])
-      expect(url).toMatch(/\/node_modules\/@deepseek-ai\/dsh\/lib\/bin\.js$/u)
-    })
-
-    await runDesktopDshCli(environment, load, argv)
-
-    expect(load).toHaveBeenCalledOnce()
   })
 
   it('leaves the release-age policy to the final pnpm shim exactly once', async () => {
@@ -57,7 +65,7 @@ describe('packaged dsh bootstrap', () => {
       'remove',
       'example-plugin',
     ]
-    await runDesktopDshCli({ DSH_DESKTOP_DEFAULT_PROFILE: 'desktop' }, load, defaulted)
+    await runDesktopDshCli({ DSH_DESKTOP_DEFAULT_PROFILE: 'desktop', DSH_CLI_ALLOW_BUNDLED: '1', HOME: mkdtempSync(join(tmpdir(), 'dsh-cli-empty-')) }, load, defaulted)
     expect(defaulted.slice(2)).toEqual([
       'plugin',
       '--profile',
@@ -74,7 +82,7 @@ describe('packaged dsh bootstrap', () => {
       '--config.minimumReleaseAge=0',
       'update',
     ]
-    await runDesktopDshCli({}, load, explicit)
+    await runDesktopDshCli({ DSH_CLI_ALLOW_BUNDLED: '1', HOME: mkdtempSync(join(tmpdir(), 'dsh-cli-empty2-')) }, load, explicit)
     expect(explicit.slice(2)).toEqual(['plugin', '--profile=work', 'update'])
   })
 

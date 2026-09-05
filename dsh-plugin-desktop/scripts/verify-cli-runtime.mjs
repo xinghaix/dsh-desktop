@@ -25,11 +25,14 @@ const RUNNER_ENVIRONMENT_NAMES = new Set([
 ])
 
 function cleanEnvironment() {
+  // Packaged artifact smoke intentionally exercises bundled CLI via opt-in.
+  // Product desktop-cli remains home-first unless this flag is set.
   const env = {}
   for (const [key, value] of Object.entries(process.env)) {
     const normalized = key.toUpperCase()
     if (!RUNNER_ENVIRONMENT_NAMES.has(normalized)) env[key] = value
   }
+  env.DSH_CLI_ALLOW_BUNDLED = "1"
   return env
 }
 
