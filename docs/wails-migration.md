@@ -92,11 +92,11 @@ Track macOS verification on a Darwin host; do not block Linux hybrid P2 on those
 credential with workflow scope is available. Keep `docs/wails-ci-smoke.yml.example` in sync;
 local smoke remains `node scripts/wails-smoke.mjs`.
 
-## Recovery Host↔Wails RPC (Partial → transport Done)
+## Recovery Host↔Wails RPC (transport Done + confirm UX)
 
 Wails aux Recovery is **not** a full port of Electron
-DesktopStartupRecoveryController (src/startup-recovery-window.ts confirm UX), but the
-**Host↔Wails transport** now exists.
+DesktopStartupRecoveryWindow (native DesktopDialogWindow chrome), but Host↔Wails
+RPC + hybrid confirm flow now exist.
 
 **Landed (2026-09-05):**
 - `host-main` / LAST-RESORT `main` keep `DesktopStartupRecoveryController` alive in
@@ -107,7 +107,11 @@ DesktopStartupRecoveryController (src/startup-recovery-window.ts confirm UX), bu
   `POST /v1/checkpoint/preview|execute|open`, `POST /v1/uninstall/preview|execute`,
   `POST /v1/complete`.
 - Go `RecoveryRpcClient` + HostSidecar ingest; AuxWindowService prefers RPC for
-  checkpoint/uninstall schemes; OpenRecovery injects snapshot when RPC is up.
+  checkpoint/uninstall schemes; OpenRecovery injects snapshot when RPC is up
+  (and refreshes when RPC announce races after REQUIRED).
+- Confirm UX: preview → `/shell-ui/confirm.html` → execute (Cancel clears pending).
+- Hybrid quick wins: crash-evidence reveal, local config reveal, terminal,
+  profile creator / switch-profile preferred hint.
 - HostSidecar treats Recovery RPC announce as readiness (`recovery://rpc`) so
   waitForURL does not time out when Host never announces `DSH_HOST_READY`.
 
@@ -117,15 +121,16 @@ DesktopStartupRecoveryController (src/startup-recovery-window.ts confirm UX), bu
 | Host ask for Recovery | DSH_HOST_RECOVERY_REQUIRED opens aux | — |
 | Recovery RPC keep-alive | DSH_HOST_RECOVERY_RPC + controller | — |
 | Checkpoint list | snapshot injected when RPC attached | Empty/unavailable when Host never started RPC |
-| Checkpoint preview/restore | CompleteRecovery → Host RPC | No Electron-style confirm dialog; preview auto-executes |
-| Plugin uninstall preview/confirm | CompleteRecovery → Host RPC | Same auto-execute; immutable-target errors via InfoDialog |
+| Checkpoint preview/restore | preview → Confirm dialog → execute | Native DesktopDialogWindow chrome parity |
+| Plugin uninstall preview/confirm | preview → Confirm dialog → execute | Same; immutable-target errors via InfoDialog |
 | Restart / safe-mode / quit | CompleteRecovery (+ optional `/v1/complete`) | Generation quiesce still coarse (StopHostSidecar) |
-| Diagnostics / config / terminal from Recovery | Debt InfoDialog | Electron DesktopDialogWindow / Host paths |
+| Diagnostics / config / terminal | Crash-evidence + local path reveal / terminal | Full Electron diagnostic archive zip |
 | Darwin / CI workflow | — | Out of Linux bed; workflow scope blocker |
 
-**Operator expectation:** With Host in recovery keep-alive, Recovery tabs can list
-checkpoints/bundles and invoke preview/restore over RPC. Without RPC attached, debt
-InfoDialogs remain. Do not claim full Electron Recovery confirm-dialog parity yet.
+**Operator expectation:** With Host in recovery keep-alive, Recovery tabs list
+checkpoints/bundles from RPC; restore/uninstall require Confirm. Without RPC,
+debt InfoDialogs remain for checkpoint/uninstall.
 
 Canonical surface map: dsh-plugin-desktop/src/wails-shell-bridge.md
-Evidence: docs/evidence/wails-p2-recovery-rpc-20260905.md
+Evidence: docs/evidence/wails-p2-recovery-rpc-20260905.md,
+docs/evidence/wails-p2-recovery-rpc-ux-20260905.md

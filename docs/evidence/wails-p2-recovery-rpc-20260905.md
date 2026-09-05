@@ -40,12 +40,12 @@ Structural snapshot without controller: `{ profileName:"", bundles:[], checkpoin
 
 ## Remaining
 
-- Electron-style confirm dialogs before execute (Wails currently preview→execute then InfoDialog).
-- Diagnostics / config / terminal Recovery actions still debt.
+See follow-up polish: `docs/evidence/wails-p2-recovery-rpc-ux-20260905.md`.
+
 - Generation quiesce contract beyond StopHostSidecar + `/v1/complete`.
 - Darwin verification; live `.github/workflows/wails-smoke.yml` (workflow scope).
 - Electron LAST-RESORT GUI parity for Recovery window (BrowserWindow path unchanged when not Wails-light).
-- Full end-to-end GUI smoke with real profile checkpoints on a desktop session.
+- Full Electron diagnostic archive export (hybrid reveals crash-evidence only).
 
 ## Non-goals / do not regress
 

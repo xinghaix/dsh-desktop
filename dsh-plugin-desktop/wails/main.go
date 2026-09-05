@@ -37,6 +37,7 @@ func main() {
 	sidecar.AttachAux(aux)
 	sidecar.AttachCaps(caps)
 	caps.attachCrash(crash)
+	aux.attachCaps(caps)
 
 	app := application.New(application.Options{
 		Name:        "DSH Desktop",

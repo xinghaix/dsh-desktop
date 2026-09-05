@@ -273,9 +273,16 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 				h.mu.Lock()
 				h.recoveryRPC = client
 				aux := h.aux
+				detail := h.recoveryDetail
 				h.mu.Unlock()
 				if aux != nil {
 					aux.AttachRecoveryRPC(client)
+					// REQUIRED often races ahead of RPC announce; refresh Recovery so
+					// native-ui state includes the RPC snapshot (not debt-only).
+					if detail == "" {
+						detail = "Host Recovery RPC attached"
+					}
+					_ = aux.OpenRecovery(detail)
 				}
 			}
 			if bridge != nil {

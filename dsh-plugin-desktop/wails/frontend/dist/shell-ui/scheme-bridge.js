@@ -6,6 +6,7 @@
 (function installDshSchemeBridge() {
   if (window.__DSH_SCHEME_BRIDGE__) return;
   const call = async (name, ...args) => {
+    if (window.__dshCall) return window.__dshCall(name, ...args);
     const wails = await import("/wails/runtime.js");
     return wails.Call.ByName(name, ...args);
   };
@@ -16,6 +17,7 @@
     const protocol = url.protocol;
     const action = (url.hostname || url.pathname.replace(/^\//, "") || "").toLowerCase();
     const name = url.searchParams.get("name") || "";
+    const id = url.searchParams.get("id") || "";
 
     if (protocol === "dsh-recovery:") {
       const map = {
@@ -46,7 +48,8 @@
       };
       const mapped = map[action];
       if (!mapped) return false;
-      await call("main.AuxWindowService.CompleteRecovery", mapped);
+      const target = mapped === "switch-profile" && name ? name : id;
+      await call("main.AuxWindowService.CompleteRecovery", mapped, target);
       return true;
     }
     if (protocol === "dsh-setup-wizard:") {

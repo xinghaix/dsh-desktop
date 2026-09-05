@@ -26,3 +26,6 @@
 
 - system bus sleep/wake
 - interactive notify click / hide-to-tray click E2E
+
+## 2026-09-05 Recovery RPC UX polish
+Confirm dialogs + diagnostics/config/terminal quick wins + hybrid smoke: see `wails-p2-recovery-rpc-ux-20260905.md`.

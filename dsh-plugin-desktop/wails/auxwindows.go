@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,13 +17,24 @@ import (
 // Electron previously opened as BrowserWindow HTML UIs under src/native-ui/.
 // These Wails windows are hybrid stand-ins: they talk to Go via bindings and
 // cover shell startup flows while Cordis Host still owns full profile CRUD.
+type pendingRecoveryConfirm struct {
+	Kind      string // checkpoint | uninstall
+	PreviewID string
+	Subject   string
+	Detail    string
+	Danger    bool
+}
+
 type AuxWindowService struct {
-	mu          sync.Mutex
-	app         *application.App
-	shell       *ShellService
-	windows     map[string]*application.WebviewWindow
-	last        AuxWindowResult
-	recoveryRPC *RecoveryRpcClient
+	mu               sync.Mutex
+	app              *application.App
+	shell            *ShellService
+	caps             *CapabilitiesService
+	windows          map[string]*application.WebviewWindow
+	last             AuxWindowResult
+	recoveryRPC      *RecoveryRpcClient
+	pendingConfirm   *pendingRecoveryConfirm
+	preferredProfile string
 }
 
 // AuxWindowResult is the last settled action from an auxiliary window.
@@ -43,6 +56,18 @@ func (a *AuxWindowService) attach(app *application.App) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.app = app
+}
+
+func (a *AuxWindowService) attachCaps(caps *CapabilitiesService) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.caps = caps
+}
+
+func (a *AuxWindowService) capabilities() *CapabilitiesService {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.caps
 }
 
 // AttachRecoveryRPC stores the Host Recovery RPC client for checkpoint/uninstall.
@@ -297,11 +322,15 @@ func (a *AuxWindowService) CompleteRecovery(action string, targetId string) erro
 	case "confirm-uninstall":
 		return a.handleUninstallExecute(id)
 	case "export-diagnostics", "show-diagnostics", "save-diagnostics":
-		return a.ReportRecoveryDebt("debt-diagnostics")
+		return a.handleRecoveryDiagnostics(action)
 	case "open-settings-document", "open-profile-patch", "open-profile-manifest", "open-profile-directory":
-		return a.ReportRecoveryDebt("debt-config")
-	case "open-terminal", "open-profile-creator", "switch-profile":
-		return a.ReportRecoveryDebt("debt-other")
+		return a.handleRecoveryConfig(action)
+	case "open-terminal":
+		return a.handleRecoveryTerminal()
+	case "open-profile-creator":
+		return a.OpenProfileCreate()
+	case "switch-profile":
+		return a.handleRecoverySwitchProfile(id)
 	case "debt-checkpoint", "debt-uninstall", "debt-diagnostics", "debt-config", "debt-other":
 		return a.ReportRecoveryDebt(action)
 	default:
@@ -332,14 +361,30 @@ func (a *AuxWindowService) handleCheckpointPreview(slotID string) error {
 	if err != nil {
 		return a.OpenInfoDialog("Checkpoint preview failed", err.Error())
 	}
-	result, err := client.ExecuteCheckpointRestore(ctx, preview.PreviewID)
-	if err != nil {
-		return a.OpenInfoDialog("Checkpoint restore failed",
-			fmt.Sprintf("previewId=%s\n%s", preview.PreviewID, err.Error()))
+	title, message, confirmLabel := checkpointConfirmCopy(preview)
+	a.storePendingConfirm(&pendingRecoveryConfirm{
+		Kind:      "checkpoint",
+		PreviewID: preview.PreviewID,
+		Subject:   preview.SlotID,
+		Detail:    message,
+	})
+	return a.OpenConfirmDialog(title, message, confirmLabel, "Cancel", false)
+}
+
+func checkpointConfirmCopy(preview *checkpointPreview) (title, message, confirmLabel string) {
+	title = "Confirm rollback"
+	confirmLabel = "Restore checkpoint"
+	captured := preview.CapturedAt
+	if captured == "" {
+		captured = "unknown time"
 	}
-	a.settle("recovery", "preview-checkpoint", "", fmt.Sprintf("%v", result))
-	return a.OpenInfoDialog("Checkpoint restored",
-		fmt.Sprintf("slot=%s previewId=%s\nRestart Desktop to finish applying the restore.", preview.SlotID, preview.PreviewID))
+	slot := preview.SlotID
+	if slot == "" {
+		slot = "(unknown slot)"
+	}
+	message = fmt.Sprintf("Restore checkpoint %s?\n\nCaptured: %s\nPreview expires: %s\n\nThis replaces the current profile state. Restart Desktop after restore to finish applying changes.",
+		slot, captured, preview.ExpiresAt)
+	return title, message, confirmLabel
 }
 
 func (a *AuxWindowService) handleCheckpointExecute(previewID string) error {
@@ -357,7 +402,8 @@ func (a *AuxWindowService) handleCheckpointExecute(previewID string) error {
 		return a.OpenInfoDialog("Checkpoint restore failed", err.Error())
 	}
 	a.settle("recovery", "confirm-checkpoint", "", fmt.Sprintf("%v", result))
-	return a.OpenInfoDialog("Checkpoint restored", fmt.Sprintf("%v", result))
+	return a.OpenInfoDialog("Checkpoint restored",
+		fmt.Sprintf("%v\n\nRestart Desktop to finish applying the restore.", result))
 }
 
 func (a *AuxWindowService) handleOpenCheckpoint(slotID string) error {
@@ -387,20 +433,36 @@ func (a *AuxWindowService) handleUninstallPreview(bundleID string) error {
 	if err != nil {
 		return a.OpenInfoDialog("Plugin uninstall preview failed", err.Error())
 	}
-	result, err := client.ExecuteUninstall(ctx, preview.PreviewID)
-	if err != nil {
-		return a.OpenInfoDialog("Plugin uninstall failed",
-			fmt.Sprintf("package=%s\n%s", preview.PackageName, err.Error()))
+	title, message, confirmLabel := uninstallConfirmCopy(preview)
+	a.storePendingConfirm(&pendingRecoveryConfirm{
+		Kind:      "uninstall",
+		PreviewID: preview.PreviewID,
+		Subject:   preview.PackageName,
+		Detail:    message,
+		Danger:    true,
+	})
+	return a.OpenConfirmDialog(title, message, confirmLabel, "Cancel", true)
+}
+
+func uninstallConfirmCopy(preview *uninstallPreview) (title, message, confirmLabel string) {
+	title = "Confirm uninstall"
+	confirmLabel = "Uninstall"
+	pkg := preview.PackageName
+	if pkg == "" {
+		pkg = "(unknown package)"
 	}
-	a.settle("recovery", "preview-uninstall", "", fmt.Sprintf("%v", result))
-	return a.OpenInfoDialog("Plugin uninstalled",
-		fmt.Sprintf("package=%s\nRestart Desktop if the Host UI still lists the plugin.", preview.PackageName))
+	message = fmt.Sprintf("Uninstall %s?\n\nPreview expires: %s\n\nThis removes the plugin from the active profile. Restart Desktop if the Host UI still lists it.",
+		pkg, preview.ExpiresAt)
+	return title, message, confirmLabel
 }
 
 func (a *AuxWindowService) handleUninstallExecute(previewID string) error {
 	client := a.recoveryClient()
 	if client == nil {
 		return a.ReportRecoveryDebt("debt-uninstall")
+	}
+	if previewID == "" {
+		return a.OpenInfoDialog("Plugin uninstall", "Missing uninstall preview id.")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -409,7 +471,158 @@ func (a *AuxWindowService) handleUninstallExecute(previewID string) error {
 		return a.OpenInfoDialog("Plugin uninstall failed", err.Error())
 	}
 	a.settle("recovery", "confirm-uninstall", "", fmt.Sprintf("%v", result))
-	return a.OpenInfoDialog("Plugin uninstalled", fmt.Sprintf("%v", result))
+	return a.OpenInfoDialog("Plugin uninstalled",
+		fmt.Sprintf("%v\n\nRestart Desktop if the Host UI still lists the plugin.", result))
+}
+
+func (a *AuxWindowService) storePendingConfirm(pending *pendingRecoveryConfirm) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.pendingConfirm = pending
+}
+
+func (a *AuxWindowService) takePendingConfirm() *pendingRecoveryConfirm {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	pending := a.pendingConfirm
+	a.pendingConfirm = nil
+	return pending
+}
+
+// OpenConfirmDialog opens a webview Confirm/Cancel dialog (Linux-safe; GTK Question can be silent).
+func (a *AuxWindowService) OpenConfirmDialog(title, message, confirmLabel, cancelLabel string, danger bool) error {
+	if title == "" {
+		title = "Confirm"
+	}
+	if confirmLabel == "" {
+		confirmLabel = "Confirm"
+	}
+	if cancelLabel == "" {
+		cancelLabel = "Cancel"
+	}
+	q := url.Values{}
+	q.Set("title", title)
+	q.Set("message", message)
+	q.Set("confirm", confirmLabel)
+	q.Set("cancel", cancelLabel)
+	q.Set("wails", "1")
+	if danger {
+		q.Set("danger", "1")
+	}
+	return a.open("confirm-dialog", title, "/shell-ui/confirm.html?"+q.Encode(), 560, 420, 420, 280)
+}
+
+// CloseConfirmDialog closes the confirm dialog window.
+func (a *AuxWindowService) CloseConfirmDialog() {
+	a.close("confirm-dialog")
+}
+
+// CompleteConfirmDialog handles Confirm/Cancel from confirm.html.
+// response: confirm | cancel (also accepts yes/ok/accept).
+func (a *AuxWindowService) CompleteConfirmDialog(response string) error {
+	a.CloseConfirmDialog()
+	accepted := false
+	switch response {
+	case "confirm", "yes", "ok", "accept":
+		accepted = true
+	case "cancel", "no", "dismiss", "":
+		accepted = false
+	default:
+		return fmt.Errorf("unknown confirm response %q", response)
+	}
+	pending := a.takePendingConfirm()
+	if !accepted || pending == nil {
+		return nil
+	}
+	switch pending.Kind {
+	case "checkpoint":
+		return a.handleCheckpointExecute(pending.PreviewID)
+	case "uninstall":
+		return a.handleUninstallExecute(pending.PreviewID)
+	default:
+		return fmt.Errorf("unknown pending confirm kind %q", pending.Kind)
+	}
+}
+
+func (a *AuxWindowService) handleRecoveryDiagnostics(action string) error {
+	caps := a.capabilities()
+	if caps == nil {
+		return a.ReportRecoveryDebt("debt-diagnostics")
+	}
+	if err := caps.RevealCrashEvidenceFolder(); err != nil {
+		return a.OpenInfoDialog("Diagnostics",
+			"Could not open crash-evidence folder:\n"+err.Error()+"\n\n"+
+				"Full Electron diagnostic archive export is still Host-owned debt.\n"+
+				caps.CrashEvidenceStatus())
+	}
+	detail := "Opened the local crash-evidence folder.\n\n" +
+		"Note: full Host diagnostic archive export (save/show zip) remains Electron/Host debt; " +
+		"this hybrid path reveals crash-evidence as a best-effort substitute.\n\n" +
+		caps.CrashEvidenceStatus()
+	a.mu.Lock()
+	a.last = AuxWindowResult{Kind: "recovery", Action: action, Detail: detail}
+	a.mu.Unlock()
+	return a.OpenInfoDialog("Diagnostics (crash evidence)", detail)
+}
+
+func (a *AuxWindowService) handleRecoveryConfig(action string) error {
+	caps := a.capabilities()
+	a.mu.Lock()
+	preferred := a.preferredProfile
+	a.mu.Unlock()
+	path := recoveryConfigPath(action, preferred)
+	if path == "" {
+		return a.ReportRecoveryDebt("debt-config")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return a.OpenInfoDialog("Configuration",
+			fmt.Sprintf("Path not found yet:\n%s\n\nHost generation may create it on a normal boot.", path))
+	}
+	if caps == nil {
+		return a.ReportRecoveryDebt("debt-config")
+	}
+	selectFile := action != "open-profile-directory"
+	if err := caps.RevealInFileManager(path, selectFile); err != nil {
+		return a.OpenInfoDialog("Configuration", "Reveal failed:\n"+err.Error()+"\n\n"+path)
+	}
+	a.mu.Lock()
+	a.last = AuxWindowResult{Kind: "recovery", Action: action, Detail: path}
+	a.mu.Unlock()
+	return nil
+}
+
+func (a *AuxWindowService) handleRecoveryTerminal() error {
+	caps := a.capabilities()
+	if caps == nil {
+		return a.ReportRecoveryDebt("debt-other")
+	}
+	a.mu.Lock()
+	preferred := a.preferredProfile
+	a.mu.Unlock()
+	workdir := recoveryConfigPath("open-profile-directory", preferred)
+	if workdir == "" {
+		workdir = resolveDesktopUserDataDir()
+	}
+	if err := caps.OpenTerminal(workdir); err != nil {
+		return a.OpenInfoDialog("Terminal", err.Error())
+	}
+	return nil
+}
+
+func (a *AuxWindowService) handleRecoverySwitchProfile(profileName string) error {
+	profileName = strings.TrimSpace(profileName)
+	if profileName == "" {
+		return a.OpenProfileSelector()
+	}
+	a.mu.Lock()
+	a.preferredProfile = profileName
+	a.mu.Unlock()
+	if a.shell != nil {
+		a.shell.setPreferredProfile(profileName)
+	}
+	a.settle("recovery", "switch-profile", profileName, "Preferred profile recorded for next Host start.")
+	return a.OpenInfoDialog("Profile selected",
+		fmt.Sprintf("Preferred profile set to %q.\nUse Restart in Recovery (or Start Host sidecar) to boot with it.", profileName))
 }
 
 // ReportRecoveryDebt surfaces precise Host API gaps for Recovery checkpoint/uninstall.
@@ -435,14 +648,15 @@ func recoveryDebtMessage(kind string) string {
 			"APIs: previewUninstall(bundleId), executeUninstall(previewId).\n" +
 			"Immutable-target / generation assert still enforced inside the Host controller."
 	case "debt-diagnostics":
-		return "Diagnostic archive export still needs Electron DesktopDialogWindow / Host controller paths.\n" +
-			"Crash-evidence folder is available via Help → Reveal Crash Evidence Folder."
+		return "Diagnostic archive export still needs Host controller + Electron DesktopDialogWindow paths.\n" +
+			"Hybrid fallback: Reveal Crash Evidence Folder (CapabilitiesService) when caps are attached."
 	case "debt-config":
-		return "Opening settings.yaml / Profile patch / manifest from Recovery requires Host generation authority.\n" +
-			"Use Control UI or a normal Host session after restart when possible."
+		return "Could not resolve local settings.yaml / cordis.patch.yml / profile manifest under Desktop userData.\n" +
+			"Host generation still owns authoritative paths; try after a normal boot creates them."
 	default:
-		return "This Recovery action is not wired through Host Recovery RPC yet.\n" +
-			"Supported hybrid actions: restart, safe-mode, quit, profiles, control, checkpoint/uninstall via RPC."
+		return "This Recovery action is not wired for the hybrid shell yet.\n" +
+			"Supported: restart, safe-mode, quit, profiles, control, checkpoint/uninstall (RPC+confirm),\n" +
+			"diagnostics crash-evidence reveal, local config reveal, terminal, profile creator/switch."
 	}
 }
 

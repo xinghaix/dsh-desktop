@@ -56,11 +56,12 @@ func recoveryNativeState(detail string, profiles []string, snapshot *RecoverySna
 		"busy":                    false,
 		"restartReady":            true,
 		"activeTab":               "quick",
-		"configurationAvailable":  false,
-		"terminalAvailable":       false,
+		"configurationAvailable":  true,
+		"terminalAvailable":       true,
 		"safeModeAvailable":       true,
 		"safeModeActive":          false,
 		"profileCreatorAvailable": true,
+		"profileActionToken":      "wails-hybrid",
 		"profiles":                profileItems,
 		// Omit notice: JSON null crashes RecoveryNoticeSurface (useEffect deps
 		// read notice.body while only undefined is treated as "no toast").
@@ -147,6 +148,7 @@ const schemeBridgeJS = `
     const protocol = url.protocol;
     const action = (url.hostname || url.pathname.replace(/^\//,'') || '').toLowerCase();
     const name = url.searchParams.get('name') || '';
+    const id = url.searchParams.get('id') || '';
     if (protocol === 'dsh-recovery:') {
       const map = {
         restart:'restart','safe-mode':'safe-mode',safemode:'safe-mode','enter-safe-mode':'safe-mode',
@@ -163,8 +165,8 @@ const schemeBridgeJS = `
         'switch-profile':'switch-profile'
       };
       const mapped = map[action]; if (!mapped) return false;
-      const id = url.searchParams.get('id') || '';
-      await call('main.AuxWindowService.CompleteRecovery', mapped, id); return true;
+      const target = (mapped === 'switch-profile' && name) ? name : id;
+      await call('main.AuxWindowService.CompleteRecovery', mapped, target); return true;
     }
     if (protocol === 'dsh-setup-wizard:') {
       if (action === 'complete' || action === 'continue') { await call('main.AuxWindowService.CompleteSetup', 'continue'); return true; }
@@ -191,6 +193,15 @@ const schemeBridgeJS = `
     if (/^dsh-[\\w-]+:/i.test(href)) { handleScheme(href); return; }
     return assign(url);
   };
+  document.addEventListener('click', (ev) => {
+    const a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+    if (!a) return;
+    const href = a.getAttribute('href') || '';
+    if (/^dsh-[\\w-]+:/i.test(href)) {
+      ev.preventDefault();
+      handleScheme(href).catch((err) => console.error('dsh scheme bridge', err));
+    }
+  }, true);
   window.__DSH_SCHEME_BRIDGE__ = { handleScheme };
 })();
 `
