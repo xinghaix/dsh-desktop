@@ -11,20 +11,38 @@ func TestDefaultHostBootstrapPrefersHostMain(t *testing.T) {
 	dir := t.TempDir()
 	plugin := filepath.Join(dir, "dsh-plugin-desktop")
 	wailsDir := filepath.Join(plugin, "wails")
-	if err := os.MkdirAll(wailsDir, 0o755); err != nil { t.Fatal(err) }
-	if err := os.WriteFile(filepath.Join(wailsDir, "hostsidecar.go"), []byte("package main\n"), 0o644); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(wailsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(wailsDir, "hostsidecar.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	lib := filepath.Join(plugin, "lib")
-	if err := os.MkdirAll(lib, 0o755); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(lib, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	hostMain := filepath.Join(lib, "host-main.js")
-	if err := os.WriteFile(hostMain, []byte("ok\n"), 0o644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(hostMain, []byte("ok\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	oldWD, err := os.Getwd()
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(oldWD) }()
-	if err := os.Chdir(wailsDir); err != nil { t.Fatal(err) }
+	if err := os.Chdir(wailsDir); err != nil {
+		t.Fatal(err)
+	}
 	cmd, _, err := defaultHostBootstrap()
-	if err != nil { t.Fatal(err) }
-	if !strings.Contains(cmd, "host-main.js") { t.Fatalf("expected host-main.js, got %q", cmd) }
-	if !strings.Contains(cmd, "DSH_WAILS_HOST_SIDECAR=1") { t.Fatalf("expected env, got %q", cmd) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd, "host-main.js") {
+		t.Fatalf("expected host-main.js, got %q", cmd)
+	}
+	if !strings.Contains(cmd, "DSH_WAILS_HOST_SIDECAR=1") {
+		t.Fatalf("expected env, got %q", cmd)
+	}
 }
 
 func TestResolveHostLauncherModeGoEnv(t *testing.T) {
@@ -50,23 +68,124 @@ func TestDefaultHostBootstrapElectronAsNode(t *testing.T) {
 	dir := t.TempDir()
 	plugin := filepath.Join(dir, "dsh-plugin-desktop")
 	wailsDir := filepath.Join(plugin, "wails")
-	if err := os.MkdirAll(wailsDir, 0o755); err != nil { t.Fatal(err) }
-	if err := os.WriteFile(filepath.Join(wailsDir, "hostsidecar.go"), []byte("package main\n"), 0o644); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(wailsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(wailsDir, "hostsidecar.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	lib := filepath.Join(plugin, "lib")
-	if err := os.MkdirAll(lib, 0o755); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(lib, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	hostMain := filepath.Join(lib, "host-main.js")
-	if err := os.WriteFile(hostMain, []byte("ok\n"), 0o644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(hostMain, []byte("ok\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	electron := filepath.Join(dir, "fake-electron")
-	if err := os.WriteFile(electron, []byte("#!/bin/sh\n"), 0o755); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(electron, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("DSH_HOST_LAUNCHER", "electron-as-node")
 	t.Setenv("ELECTRON_PATH", electron)
 	oldWD, err := os.Getwd()
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(oldWD) }()
-	if err := os.Chdir(wailsDir); err != nil { t.Fatal(err) }
+	if err := os.Chdir(wailsDir); err != nil {
+		t.Fatal(err)
+	}
 	cmd, _, err := defaultHostBootstrap()
-	if err != nil { t.Fatal(err) }
-	if !strings.Contains(cmd, "fake-electron") { t.Fatalf("expected electron path, got %q", cmd) }
-	if !strings.Contains(cmd, "ELECTRON"+"_RUN_AS_NODE=1") { t.Fatalf("expected run-as-node, got %q", cmd) }
-	if !strings.Contains(cmd, "host-main.js") { t.Fatalf("expected host-main, got %q", cmd) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd, "fake-electron") {
+		t.Fatalf("expected electron path, got %q", cmd)
+	}
+	if !strings.Contains(cmd, "ELECTRON"+"_RUN_AS_NODE=1") {
+		t.Fatalf("expected run-as-node, got %q", cmd)
+	}
+	if !strings.Contains(cmd, "host-main.js") {
+		t.Fatalf("expected host-main, got %q", cmd)
+	}
+}
+
+func TestCommandFromHostBinJS(t *testing.T) {
+	dir := t.TempDir()
+	js := filepath.Join(dir, "host-main.js")
+	if err := os.WriteFile(js, []byte("ok\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := commandFromHostBin(js)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd, "node") || !strings.Contains(cmd, "host-main.js") || !strings.Contains(cmd, hostSidecarArgument) {
+		t.Fatalf("unexpected cmd %q", cmd)
+	}
+}
+
+func TestCommandFromHostBinExecutable(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "dsh-desktop")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := commandFromHostBin(bin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd, "dsh-desktop") || !strings.Contains(cmd, hostSidecarArgument) {
+		t.Fatalf("unexpected cmd %q", cmd)
+	}
+}
+
+func TestDefaultHostBootstrapHonorsDSHBin(t *testing.T) {
+	dir := t.TempDir()
+	js := filepath.Join(dir, "custom-host.js")
+	if err := os.WriteFile(js, []byte("ok\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DSH_BIN", js)
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(oldWD) }()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	cmd, _, err := defaultHostBootstrap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd, "custom-host.js") {
+		t.Fatalf("expected DSH_BIN entry, got %q", cmd)
+	}
+}
+
+func TestDefaultHostBootstrapPathFallback(t *testing.T) {
+	dir := t.TempDir()
+	shim := filepath.Join(dir, "dsh-desktop")
+	if err := os.WriteFile(shim, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DSH_BIN", "")
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+"/usr/bin:/bin")
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(oldWD) }()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	cmd, _, err := defaultHostBootstrap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd, "dsh-desktop") {
+		t.Fatalf("expected PATH dsh-desktop, got %q", cmd)
+	}
 }

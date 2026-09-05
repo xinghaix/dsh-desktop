@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -69,8 +70,6 @@ func locateWailsLayout() (wailsDir, pluginDir, repoDir string, err error) {
 	return "", "", "", fmt.Errorf("could not locate dsh-plugin-desktop/wails layout from cwd/executable")
 }
 
-
-
 func dirExists(path string) bool {
 	st, err := os.Stat(path)
 	return err == nil && st.IsDir()
@@ -95,7 +94,6 @@ func envFalsy(name string) bool {
 		return false
 	}
 }
-
 
 func locateElectronExecutable(repoDir, pluginDir string) string {
 	if p := strings.TrimSpace(os.Getenv("ELECTRON_PATH")); p != "" && fileExists(p) {
@@ -202,37 +200,120 @@ func resolveHostLauncherModeGo(hostMainExists bool, electronPath string) (hostLa
 	return hostLauncherNode, "no profile node_modules detected; stock Node Host"
 }
 
-func defaultHostBootstrap() (command string, urlFile string, err error) {
-	_, pluginDir, repoDir, err := locateWailsLayout()
-	if err != nil {
-		return "", "", err
+// hostSidecarArgument is the Cordis Host flag that enables Wails sidecar announce lines.
+const hostSidecarArgument = "--dsh-wails-host-sidecar"
+
+// commandFromHostBin builds a shell command that launches a user-provided Host binary
+// or Node entry in Wails sidecar mode.
+//
+// DSH_BIN may point at:
+//   - a JS Host entry (*.js / *.mjs / *.cjs), run with node
+//   - an executable shim such as dsh-desktop / dsh-plugin-desktop
+//
+// Bare dsh (@deepseek-ai/dsh CLI) is intentionally not accepted here: Desktop Host
+// requires the Cordis desktop plugin stack (AuthProxy announce, Recovery RPC, etc.).
+func commandFromHostBin(bin string) (string, error) {
+	bin = strings.TrimSpace(bin)
+	if bin == "" {
+		return "", fmt.Errorf("empty Host bin")
 	}
+	if strings.ContainsAny(bin, "\x00\n\r") {
+		return "", fmt.Errorf("Host bin must not contain NUL or newlines")
+	}
+	lower := strings.ToLower(bin)
+	switch {
+	case strings.HasSuffix(lower, ".js"), strings.HasSuffix(lower, ".mjs"), strings.HasSuffix(lower, ".cjs"):
+		if !fileExists(bin) {
+			return "", fmt.Errorf("DSH_BIN JS entry not found: %s", bin)
+		}
+		return fmt.Sprintf("export DSH_WAILS_HOST_SIDECAR=1; node %s %s", shellQuote(bin), hostSidecarArgument), nil
+	default:
+		resolved := bin
+		if !filepath.IsAbs(bin) {
+			if p, err := exec.LookPath(bin); err == nil {
+				resolved = p
+			}
+		}
+		if filepath.IsAbs(resolved) && !fileExists(resolved) {
+			return "", fmt.Errorf("DSH_BIN executable not found: %s", resolved)
+		}
+		return fmt.Sprintf("export DSH_WAILS_HOST_SIDECAR=1; %s %s", shellQuote(resolved), hostSidecarArgument), nil
+	}
+}
+
+// discoverUserInstalledHostCommand finds a user-installed Desktop Host when the
+// monorepo/plugin layout is unavailable (e.g. AppImage shell-only package).
+//
+// Order:
+//  1. DSH_BIN (explicit override; always checked by defaultHostBootstrap first)
+//  2. PATH executables: dsh-desktop, then dsh-plugin-desktop
+//
+// Returns ok=false when nothing usable is found.
+func discoverUserInstalledHostCommand() (command string, reason string, ok bool) {
+	if bin := strings.TrimSpace(os.Getenv("DSH_BIN")); bin != "" {
+		cmd, err := commandFromHostBin(bin)
+		if err != nil {
+			return "", "", false
+		}
+		return cmd, "DSH_BIN", true
+	}
+	for _, name := range []string{"dsh-desktop", "dsh-plugin-desktop"} {
+		p, err := exec.LookPath(name)
+		if err != nil || p == "" {
+			continue
+		}
+		cmd, err := commandFromHostBin(p)
+		if err != nil {
+			continue
+		}
+		return cmd, "PATH:" + name, true
+	}
+	return "", "", false
+}
+
+func defaultHostBootstrap() (command string, urlFile string, err error) {
 	urlFile = defaultHostURLFile()
+	if bin := strings.TrimSpace(os.Getenv("DSH_BIN")); bin != "" {
+		cmd, binErr := commandFromHostBin(bin)
+		if binErr != nil {
+			return "", "", fmt.Errorf("DSH_BIN: %w", binErr)
+		}
+		return cmd, urlFile, nil
+	}
+	_, pluginDir, repoDir, layoutErr := locateWailsLayout()
+	if layoutErr != nil {
+		if cmd, _, ok := discoverUserInstalledHostCommand(); ok {
+			return cmd, urlFile, nil
+		}
+		return "", "", fmt.Errorf("no Cordis Host launcher: %v (set DSH_BIN / DSH_HOST_COMMAND / DSH_HOST_URL, or install dsh-desktop on PATH)", layoutErr)
+	}
 	hostMainJS := filepath.Join(pluginDir, "lib", "host-main.js")
 	electronPath := locateElectronExecutable(repoDir, pluginDir)
 	mode, _ := resolveHostLauncherModeGo(fileExists(hostMainJS), electronPath)
 	if mode == hostLauncherElectronAsNode && fileExists(hostMainJS) && electronPath != "" {
-		command = fmt.Sprintf("cd %s && export ELECTRON_RUN_AS_NODE=1; export DSH_WAILS_HOST_SIDECAR=1; %s %s --dsh-wails-host-sidecar", shellQuote(pluginDir), shellQuote(electronPath), shellQuote(hostMainJS))
+		command = fmt.Sprintf("cd %s && export ELECTRON_RUN_AS_NODE=1; export DSH_WAILS_HOST_SIDECAR=1; %s %s %s", shellQuote(pluginDir), shellQuote(electronPath), shellQuote(hostMainJS), hostSidecarArgument)
 		return command, urlFile, nil
 	}
 	if fileExists(hostMainJS) && mode != hostLauncherElectronMain {
-		parts := []string{"node", shellQuote(hostMainJS), "--dsh-wails-host-sidecar"}
+		parts := []string{"node", shellQuote(hostMainJS), hostSidecarArgument}
 		command = fmt.Sprintf("cd %s && export DSH_WAILS_HOST_SIDECAR=1; %s", shellQuote(pluginDir), strings.Join(parts, " "))
 		return command, urlFile, nil
 	}
 	yarnLock := filepath.Join(repoDir, "yarn.lock")
 	workspacePkg := filepath.Join(repoDir, "package.json")
 	binJS := filepath.Join(pluginDir, "lib", "bin.js")
-	sidecarFlag := "--dsh-wails-host-sidecar"
 	if fileExists(yarnLock) && fileExists(workspacePkg) {
-		parts := []string{"yarn", "workspace", "dsh-plugin-desktop", "start", "--", sidecarFlag}
+		parts := []string{"yarn", "workspace", "dsh-plugin-desktop", "start", "--", hostSidecarArgument}
 		command = fmt.Sprintf("cd %s && export DSH_WAILS_HOST_SIDECAR=1; %s", shellQuote(repoDir), strings.Join(parts, " "))
 		return command, urlFile, nil
 	}
 	if fileExists(binJS) {
-		parts := []string{"node", shellQuote(binJS), sidecarFlag}
+		parts := []string{"node", shellQuote(binJS), hostSidecarArgument}
 		command = fmt.Sprintf("cd %s && export DSH_WAILS_HOST_SIDECAR=1; %s", shellQuote(pluginDir), strings.Join(parts, " "))
 		return command, urlFile, nil
 	}
-	return "", "", fmt.Errorf("no default Cordis Host launcher: need %s or %s (or set DSH_HOST_COMMAND / DSH_HOST_URL)", yarnLock, binJS)
+	if cmd, _, ok := discoverUserInstalledHostCommand(); ok {
+		return cmd, urlFile, nil
+	}
+	return "", "", fmt.Errorf("no default Cordis Host launcher: need %s or %s (or set DSH_BIN / DSH_HOST_COMMAND / DSH_HOST_URL)", yarnLock, binJS)
 }

@@ -94,3 +94,7 @@ Preferred hybrid entry (also mirrored at repo root): build:wails, start:wails, d
 - Dock attention: Flash + tray tooltip
 - Updates: macOS, Windows, Linux AppImage download path
 - Auth: AuthProxy default production path
+
+### User-installed Host (AppImage / system)
+
+When the shell cannot find the monorepo plugin layout, set DSH_BIN to a Desktop Host entry or install dsh-desktop on PATH. Prefer DSH_HOST_URL / DSH_HOST_COMMAND for an already-running Host. See docs/evidence/wails-user-installed-dsh-20260905.md.

@@ -24,3 +24,11 @@ Wails shell: same directory family via crash_evidence.go.
 
 - Windows AppUserModelID via CapabilitiesService
 - macOS: Flash + tray tooltip; numeric Dock badge blocked in Wails v3 beta
+
+## User-installed / AppImage Host
+
+- DSH_BIN: Desktop Host JS entry or dsh-desktop executable (Wails sidecar mode).
+- PATH: dsh-desktop or dsh-plugin-desktop when monorepo layout is missing.
+- DSH_HOST_URL / DSH_HOST_COMMAND: attach or spawn an already chosen Host.
+- Bare public dsh CLI is not a Desktop Host.
+- Design note: docs/evidence/wails-user-installed-dsh-20260905.md
