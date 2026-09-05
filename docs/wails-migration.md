@@ -40,10 +40,11 @@ Canonical table: `dsh-plugin-desktop/src/wails-shell-bridge.md`.
 - **H4** LAN HTTPS status bridge from Host announce (TLS still Host-terminated) — see `wails/LAN-HTTPS.md`
 - **H5** `run-wails.mjs` portable Go (`DSH_GO_BIN` → PATH → SDK layouts); `package:wails` fallback; `smoke:wails`; `docs/wails-ci-smoke.yml.example` (install when credential has workflow scope)
 - Packaging scripts: `build:wails`, `start:wails`, `dev:wails`, `package:wails`, `smoke:wails`
+- **Node-first Cordis Host** (`host-main.ts` / `start:host`): boots without `app.whenReady`; Wails `defaultHostBootstrap` prefers it
 
 ### Still Electron / Host-owned (blocked or deferred)
 
-- Full Cordis bootstrap still requires Electron `main.ts` (`app.whenReady`, `ElectronDesktopRuntime`). Plain Node Host entry is not viable yet without rewriting `DesktopRuntime`.
+- Node Host entry: `dsh-plugin-desktop/src/host-main.ts` + `NodeDesktopRuntime` (no `app.whenReady`). Wails prefers `node lib/host-main.js`. Electron `main.ts` sidecar remains fallback. See `docs/wails-node-host-boot.md`.
 - Native webview per-request header hooks remain unavailable in Wails v3 beta on Mac/Linux/Windows public APIs (AuthProxy is the workaround).
 - Full React native-ui Recovery/Setup/Profile documents and checkpoint uninstall UX
 - Packaged DSH terminal shims; Linux update installers
@@ -56,11 +57,11 @@ Canonical table: `dsh-plugin-desktop/src/wails-shell-bridge.md`.
 
 - No interactive GUI verification of tray/notifications/aux windows
 - End-to-end AppImage/`wails3 package` may fail without `file` package / full linuxdeploy deps
-- Cannot fully exercise Electron Host boot without a display (sidecar still needs `app.whenReady`)
+- Electron Host boot still needs a display/`whenReady`; prefer Node Host or `ELECTRON_RUN_AS_NODE` for headless sidecar smokes
 
 ## Next slices (suggested)
 
-1. Extract a true Node-only Cordis Host entry (replace `ElectronDesktopRuntime` adapters).
+1. Harden Node Host against remaining Electron-ABI native addons (or document `ELECTRON_RUN_AS_NODE` as required for those profiles).
 2. Upstream Wails public request-header hooks; then retire ordinary-browser fallback where AuthProxy is enough.
-3. Wire Wails-native toggles for LAN HTTPS enable + CA install UX.
+3. Wire Wails-native toggles for LAN HTTPS enable + CA install UX (replace Electron `safeStorage` key seal).
 4. Make `wails3 package` the release default per platform; keep electron-builder as rollback.
