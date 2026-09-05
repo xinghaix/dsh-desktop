@@ -6,7 +6,6 @@ import { delimiter, isAbsolute } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { PNPM_IGNORE_MINIMUM_RELEASE_AGE } from './pnpm-policy.ts'
 
-const ELECTRON_HEADERS_URL = 'https://electronjs.org/headers'
 const DEFAULT_TIMEOUT_MS = 120_000
 const DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024
 const TERMINATION_GRACE_MS = 3_000
@@ -14,14 +13,14 @@ const DIAGNOSTIC_STREAM_CHARS = 8_000
 
 /** Runtime inputs resolved by the Electron bootstrap. */
 export interface ProfileMaterializerOptions {
-  readonly appExecutable: string
+  readonly nodeExecutable: string
   readonly clearEnvironmentPath: string
   readonly pnpmBinPath: string
   readonly nodeBinDir: string
   readonly nodeShimPath: string
   readonly homeDir: string
   readonly profileDir: string
-  readonly electronVersion: string
+  readonly nodeVersion: string
   readonly signal?: AbortSignal
   readonly timeoutMs?: number
   readonly maxOutputBytes?: number
@@ -144,7 +143,7 @@ export async function materializeProfile(
   options: ProfileMaterializerOptions,
 ): Promise<ProfileMaterializationResult> {
   for (const [label, value] of [
-    ['application executable', options.appExecutable],
+    ['application executable', options.nodeExecutable],
     ['environment preloader', options.clearEnvironmentPath],
     ['pnpm entry', options.pnpmBinPath],
     ['Node command directory', options.nodeBinDir],
@@ -152,7 +151,7 @@ export async function materializeProfile(
     ['Harness home', options.homeDir],
     ['profile directory', options.profileDir],
   ] as const) assertAbsolutePath(label, value)
-  if (options.electronVersion.length === 0 || options.electronVersion.includes('\0')) {
+  if (options.nodeVersion.length === 0 || options.nodeVersion.includes('\0')) {
     throw new ProfileMaterializationError('profile materializer Electron version must not be empty or contain NUL')
   }
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
@@ -162,7 +161,7 @@ export async function materializeProfile(
   options.signal?.throwIfAborted()
 
   const argv = [
-    options.appExecutable,
+    options.nodeExecutable,
     '--import',
     pathToFileURL(options.clearEnvironmentPath).href,
     options.pnpmBinPath,
@@ -175,15 +174,13 @@ export async function materializeProfile(
     ...process.env,
     PATH: path.length === 0 ? options.nodeBinDir : `${options.nodeBinDir}${delimiter}${path}`,
     NODE: options.nodeShimPath,
-    ELECTRON_RUN_AS_NODE: '1',
     DSH_HOME: options.homeDir,
     CI: 'true',
-    npm_config_runtime: 'electron',
-    npm_config_target: options.electronVersion,
-    npm_config_disturl: ELECTRON_HEADERS_URL,
+    npm_config_runtime: 'node',
+    npm_config_target: options.nodeVersion,
   }
   const spawn = options.spawn ?? childSpawn
-  const child = spawn(options.appExecutable, argv.slice(1), {
+  const child = spawn(options.nodeExecutable, argv.slice(1), {
     cwd: options.profileDir,
     env: environment,
     shell: false,

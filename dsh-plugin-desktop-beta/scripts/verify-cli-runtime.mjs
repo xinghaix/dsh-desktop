@@ -16,7 +16,7 @@ const dshPackage = fileURLToPath(new URL('node_modules/@deepseek-ai/dsh/', packa
 const pnpmCli = fileURLToPath(new URL('node_modules/pnpm/bin/pnpm.mjs', packageRoot))
 const dshVersion = JSON.parse(readFileSync(new URL('node_modules/@deepseek-ai/dsh/package.json', packageRoot), 'utf8')).version
 const pnpmVersion = JSON.parse(readFileSync(new URL('node_modules/pnpm/package.json', packageRoot), 'utf8')).version
-const electronVersion = JSON.parse(readFileSync(new URL('node_modules/electron/package.json', packageRoot), 'utf8')).version
+const nodeVersion = process.versions.node
 const RUNNER_ENVIRONMENT_NAMES = new Set([
   'ELECTRON_RUN_AS_NODE',
   'NPM_CONFIG_RUNTIME',
@@ -108,7 +108,6 @@ function verifyLifecycleEnvironment(stateRoot, installation, env) {
     '  npmNodeExecPath: process.env.npm_node_execpath,',
     '  runtime: process.env.npm_config_runtime,',
     '  target: process.env.npm_config_target,',
-    '  disturl: process.env.npm_config_disturl,',
     '}))',
     '',
   ].join('\n'))
@@ -120,9 +119,8 @@ function verifyLifecycleEnvironment(stateRoot, installation, env) {
     runAsNode: [],
     node: installation.nodeShimPath,
     npmNodeExecPath: installation.nodeShimPath,
-    runtime: 'electron',
-    target: electronVersion,
-    disturl: 'https://electronjs.org/headers',
+    runtime: 'node',
+    target: nodeVersion,
   }
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`pnpm lifecycle smoke returned ${JSON.stringify(actual)} instead of ${JSON.stringify(expected)}`)
@@ -136,9 +134,9 @@ function runPackagedPnpmShim() {
   try {
     installation = installDesktopPnpmRuntime({
       platform: process.platform,
-      appExecutable: electronPath,
+      nodeExecutable: electronPath,
       pnpmBinPath: pnpmCli,
-      electronVersion,
+      nodeVersion,
       stateDir: join(stateRoot, 'runtime'),
       environment: env,
     })

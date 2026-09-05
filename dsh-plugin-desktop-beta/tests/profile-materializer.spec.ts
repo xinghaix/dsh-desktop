@@ -31,14 +31,14 @@ function fakeChild(): FakeChild {
 
 function options(spawn: ProfileMaterializerSpawn): ProfileMaterializerOptions {
   return {
-    appExecutable: '/Applications/DSH Desktop.app/Contents/MacOS/DSH Desktop',
+    nodeExecutable: '/Applications/DSH Desktop.app/Contents/MacOS/DSH Desktop',
     clearEnvironmentPath: '/private/clear-env.mjs',
     pnpmBinPath: '/private/pnpm/bin/pnpm.mjs',
     nodeBinDir: '/private/node-bin',
     nodeShimPath: '/private/node-bin/node',
     homeDir: '/Users/test/.dsh',
     profileDir: '/Users/test/.dsh/profiles/desktop',
-    electronVersion: '43.4.0',
+    nodeVersion: '43.4.0',
     spawn,
   }
 }
@@ -79,12 +79,10 @@ describe('profile materializer', () => {
       env: {
         PATH: `/private/node-bin${delimiter}${process.env.PATH ?? ''}`,
         NODE: '/private/node-bin/node',
-        ELECTRON_RUN_AS_NODE: '1',
         DSH_HOME: '/Users/test/.dsh',
         CI: 'true',
-        npm_config_runtime: 'electron',
+        npm_config_runtime: 'node',
         npm_config_target: '43.4.0',
-        npm_config_disturl: 'https://electronjs.org/headers',
       },
     })
     expect(result.stdout).toBe('installed\n')

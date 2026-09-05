@@ -137,9 +137,9 @@ function runPackagedPnpmShim() {
   try {
     installation = installDesktopPnpmRuntime({
       platform: process.platform,
-      appExecutable: process.execPath,
+      nodeExecutable: process.execPath,
       pnpmBinPath: pnpmCli,
-      electronVersion: nodeVersion,
+      nodeVersion: nodeVersion,
       stateDir: join(stateRoot, 'runtime'),
       environment: env,
     })

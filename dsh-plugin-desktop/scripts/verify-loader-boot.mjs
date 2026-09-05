@@ -75,12 +75,12 @@ try {
   const launchPath = launchEnvironment.get('PATH')?.value
   const packageRoot = new URL('../', import.meta.url)
   const pnpmBinPath = fileURLToPath(new URL('node_modules/pnpm/bin/pnpm.mjs', packageRoot))
-  const electronVersion = JSON.parse(readFileSync(new URL('node_modules/electron/package.json', packageRoot), 'utf8')).version
+  const nodeVersion = process.versions.node
   pnpmRuntime = installDesktopPnpmRuntime({
     platform: process.platform,
-    appExecutable: process.execPath,
+    nodeExecutable: process.execPath,
     pnpmBinPath,
-    electronVersion,
+    nodeVersion,
     stateDir: join(home, 'runtime-commands'),
     environment: process.env,
   })

@@ -686,18 +686,18 @@ async function start(): Promise<void> {
     startupStage = 'runtime-bootstrap'
     lifecycleRecorder.transitionStartupStage(startupStage)
     const environment = loadLayeredEnv(BIN_NAME, process.cwd())
-    const electronVersion = resolveDesktopNodeVersion()
+    const nodeVersion = resolveDesktopNodeVersion()
     if (process.versions.electron === undefined) {
       desktopLogger.error(
-        `${BIN_NAME}: Node Host using peer Node version ${electronVersion} for npm_config_target (using process.versions.node)`,
+        `${BIN_NAME}: Node Host using peer Node version ${nodeVersion} for npm_config_target (using process.versions.node)`,
       )
     }
     const pnpmBinPath = packagedDependencyPath(import.meta.url, 'pnpm/bin/pnpm.mjs')
     const pnpmRuntime = installDesktopPnpmRuntime({
       platform: process.platform,
-      appExecutable: process.execPath,
+      nodeExecutable: process.execPath,
       pnpmBinPath,
-      electronVersion,
+      nodeVersion,
       stateDir: join(desktopUserDataDir, 'runtime-commands'),
       environment: process.env,
     })
@@ -847,7 +847,7 @@ async function start(): Promise<void> {
         uninstallPlugin: async packageName => {
           try {
             await removeRecoveryPlugin({
-              appExecutable: process.execPath,
+              nodeExecutable: process.execPath,
               dshBootstrapPath,
               profileName: activeProfileName,
               profileDir: activeProfileDir,
@@ -855,7 +855,7 @@ async function start(): Promise<void> {
               nodeBinDir: pnpmRuntime.nodeBinDir,
               nodeShimPath: pnpmRuntime.nodeShimPath,
               pnpmBinDir: pnpmRuntime.pathDir,
-              electronVersion,
+              nodeVersion,
               packageName,
             })
           } catch (cause) {
@@ -876,14 +876,14 @@ async function start(): Promise<void> {
           if (!result.dependencyMaterializationRequired) return
           try {
             await materializeProfile({
-              appExecutable: process.execPath,
+              nodeExecutable: process.execPath,
               clearEnvironmentPath: pnpmRuntime.clearEnvironmentPath,
               pnpmBinPath,
               nodeBinDir: pnpmRuntime.nodeBinDir,
               nodeShimPath: pnpmRuntime.nodeShimPath,
               homeDir,
               profileDir: activeProfileDir,
-              electronVersion,
+              nodeVersion,
             })
           } catch (cause) {
             const detail = maskSecrets(formatProfileMaterializationFailure(cause))
@@ -1088,7 +1088,7 @@ async function start(): Promise<void> {
     const dshRuntime = process.platform === 'win32'
       ? installDesktopDshRuntime({
           platform: process.platform,
-          appExecutable: process.execPath,
+          nodeExecutable: process.execPath,
           dshBootstrapPath,
           profileName: activeProfileName,
           homeDir,
@@ -1101,14 +1101,14 @@ async function start(): Promise<void> {
       desktopLogger.error(`${BIN_NAME}: migrating legacy Profile dependency layout with packaged pnpm`)
       try {
         await materializeProfile({
-          appExecutable: process.execPath,
+          nodeExecutable: process.execPath,
           clearEnvironmentPath: pnpmRuntime.clearEnvironmentPath,
           pnpmBinPath,
           nodeBinDir: pnpmRuntime.nodeBinDir,
           nodeShimPath: pnpmRuntime.nodeShimPath,
           homeDir,
           profileDir: prepared.profile.dir,
-          electronVersion,
+          nodeVersion,
           updateLockfile: true,
         })
         prepared = prepareDesktopProfile(
@@ -1168,9 +1168,9 @@ async function start(): Promise<void> {
       activeProfileName,
       activeProfileDir: prepared.profile.dir,
       homeDir,
-      appExecutable: process.execPath,
+      nodeExecutable: process.execPath,
       pnpmBinPath,
-      electronVersion,
+      nodeVersion,
       nodeBinDir: pnpmRuntime.nodeBinDir,
       nodeShimPath: pnpmRuntime.nodeShimPath,
       clearEnvironmentPath: pnpmRuntime.clearEnvironmentPath,

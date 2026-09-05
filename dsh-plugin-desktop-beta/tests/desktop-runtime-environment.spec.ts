@@ -34,13 +34,13 @@ function options(
 ): DesktopPnpmRuntimeOptions {
   return {
     platform,
-    appExecutable: platform === 'win32'
+    nodeExecutable: platform === 'win32'
       ? 'C:\\Program Files\\DSH 100% Desktop\\DSH Desktop.exe'
       : "/Applications/DSH O'Brien.app/Contents/MacOS/DSH Desktop",
     pnpmBinPath: platform === 'win32'
       ? 'C:\\Program Files\\DSH Desktop\\resources\\app.asar.unpacked\\node_modules\\pnpm\\bin\\pnpm.mjs'
       : "/Applications/DSH O'Brien.app/Contents/Resources/app.asar.unpacked/node_modules/pnpm/bin/pnpm.mjs",
-    electronVersion: '43.4.0',
+    nodeVersion: '43.4.0',
     stateDir,
     environment,
   }
@@ -81,15 +81,14 @@ describe('desktop Host pnpm runtime', () => {
     const pnpm = readFileSync(installation.pnpmShimPath, 'utf8')
     expect(pnpm).toContain(`PATH='${installation.nodeBinDir}':"\${PATH:-}"`)
     expect(pnpm).toContain(`NODE='${installation.nodeShimPath}'`)
-    expect(pnpm).toContain('ELECTRON_RUN_AS_NODE=1 npm_config_runtime=electron')
+    expect(pnpm).toContain('npm_config_runtime=node')
     expect(pnpm).toContain("npm_config_target='43.4.0'")
-    expect(pnpm).toContain("npm_config_disturl='https://electronjs.org/headers'")
     expect(pnpm.match(/--config\.minimumReleaseAge=0/gu)).toHaveLength(1)
     expect(pnpm).toContain('--config.minimumReleaseAge=0 "$@"')
     expect(pnpm).toContain(`--import '${clearEnvironmentUrl}'`)
     expect(pnpm.indexOf(`--import '${clearEnvironmentUrl}'`)).toBeLessThan(pnpm.indexOf('pnpm/bin/pnpm.mjs'))
     const node = readFileSync(installation.nodeShimPath, 'utf8')
-    expect(node).toContain(`ELECTRON_RUN_AS_NODE=1 exec`)
+    expect(node).toContain(`exec`)
     expect(node).toContain(`--import '${clearEnvironmentUrl}' "$@"`)
     expect(node).not.toContain('npm_config_')
     expect(readFileSync(installation.clearEnvironmentPath, 'utf8')).toContain(
@@ -139,7 +138,6 @@ describe('desktop Host pnpm runtime', () => {
       encoding: 'utf8',
       env: {
         PATH: process.env.PATH,
-        ELECTRON_RUN_AS_NODE: '1',
         electron_run_as_node: 'legacy',
       },
     })
@@ -162,7 +160,6 @@ describe('desktop Host pnpm runtime', () => {
       "  runAsNode: Object.keys(process.env).filter(name => name.toUpperCase() === 'ELECTRON_RUN_AS_NODE'),",
       '  runtime: process.env.npm_config_runtime,',
       '  target: process.env.npm_config_target,',
-      '  disturl: process.env.npm_config_disturl,',
       '  node: process.env.NODE,',
       '  path: process.env.PATH,',
       '}))',
@@ -172,7 +169,7 @@ describe('desktop Host pnpm runtime', () => {
     const environment: NodeJS.ProcessEnv = { PATH: process.env.PATH }
     const installation = installDesktopPnpmRuntime({
       ...options(stateDir, platform, environment),
-      appExecutable: process.execPath,
+      nodeExecutable: process.execPath,
       pnpmBinPath: captureEntry,
     })
 
@@ -194,9 +191,8 @@ describe('desktop Host pnpm runtime', () => {
     expect(JSON.parse(readFileSync(captureOutput, 'utf8'))).toEqual({
       ignoresMinimumReleaseAge: true,
       runAsNode: [],
-      runtime: 'electron',
+      runtime: 'node',
       target: '43.4.0',
-      disturl: 'https://electronjs.org/headers',
       node: installation.nodeShimPath,
       path: `${installation.nodeBinDir}${pathDelimiter}${environment.PATH ?? ''}`,
     })
@@ -222,15 +218,13 @@ describe('desktop Host pnpm runtime', () => {
     const pnpm = readFileSync(installation.pnpmShimPath, 'utf8')
     expect(pnpm).toContain(`set "PATH=${installation.nodeBinDir};%PATH%"`)
     expect(pnpm).toContain(`set "NODE=${installation.nodeShimPath}"`)
-    expect(pnpm).toContain('set "ELECTRON_RUN_AS_NODE=1"')
-    expect(pnpm).toContain('set "npm_config_runtime=electron"')
+    expect(pnpm).toContain('set "npm_config_runtime=node"')
     expect(pnpm).toContain('set "npm_config_target=43.4.0"')
     expect(pnpm).toContain(`--import "${escapedClearEnvironmentUrl}"`)
     expect(pnpm.indexOf(`--import "${escapedClearEnvironmentUrl}"`)).toBeLessThan(pnpm.indexOf('pnpm\\bin\\pnpm.mjs'))
     expect(pnpm.match(/--config\.minimumReleaseAge=0/gu)).toHaveLength(1)
     expect(pnpm).toContain('--config.minimumReleaseAge=0 %*')
     const node = readFileSync(installation.nodeShimPath, 'utf8')
-    expect(node).toContain('set "ELECTRON_RUN_AS_NODE=1"')
     expect(node).toContain(`--import "${escapedClearEnvironmentUrl}" %*`)
     expect(node).not.toContain('npm_config_')
 
@@ -284,7 +278,7 @@ describe('desktop Host pnpm runtime', () => {
 
     const installation = installDesktopPnpmRuntime({
       ...options(stateDir, 'win32', environment),
-      appExecutable: process.execPath,
+      nodeExecutable: process.execPath,
       pnpmBinPath: captureEntry,
     })
     const result = spawnSync(process.env.ComSpec ?? 'cmd.exe', [
@@ -423,7 +417,7 @@ describe('desktop Host pnpm runtime', () => {
       .toThrow('unsupported on aix')
     expect(() => installDesktopPnpmRuntime({
       ...options(join(root, 'newline-runtime'), 'linux', { PATH: '/usr/bin' }),
-      electronVersion: '43.4.0\nmalicious',
+      nodeVersion: '43.4.0\nmalicious',
     })).toThrow('must not contain NUL or newlines')
   })
 })
@@ -449,7 +443,7 @@ describe('desktop Host dsh runtime', () => {
 
     const installation = installDesktopDshRuntime({
       platform: 'win32',
-      appExecutable: process.execPath,
+      nodeExecutable: process.execPath,
       dshBootstrapPath: captureEntry,
       profileName: 'web',
       homeDir,

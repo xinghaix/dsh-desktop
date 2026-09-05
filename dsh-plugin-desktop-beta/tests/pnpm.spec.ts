@@ -51,9 +51,9 @@ function bootstrap(root = '/desktop runtime'): DesktopPnpmBootstrap {
     activeProfileName: 'work',
     activeProfileDir: join(root, 'profiles', 'work'),
     homeDir: join(root, 'harness home'),
-    appExecutable: join(root, 'DSH Desktop'),
+    nodeExecutable: join(root, 'DSH Desktop'),
     pnpmBinPath: join(root, 'node_modules', 'pnpm', 'bin', 'pnpm.mjs'),
-    electronVersion: '43.4.0',
+    nodeVersion: '43.4.0',
     nodeBinDir: join(root, 'private', 'node-bin'),
     nodeShimPath: join(root, 'private', 'node-bin', 'node'),
     clearEnvironmentPath: join(root, 'private', 'clear-env.mjs'),
@@ -163,7 +163,7 @@ describe('desktop pnpm execution service', () => {
     expect(target.service).not.toHaveProperty('rollbackPluginInstall')
     expect(target.spawn).toHaveBeenCalledWith({
       argv: [
-        bootstrap().appExecutable,
+        bootstrap().nodeExecutable,
         '--import',
         pathToFileURL(bootstrap().clearEnvironmentPath).href,
         bootstrap().pnpmBinPath,
@@ -179,12 +179,10 @@ describe('desktop pnpm execution service', () => {
       env: {
         PATH: `${bootstrap().nodeBinDir}${delimiter}${globalThis.process.env.PATH ?? ''}`,
         NODE: bootstrap().nodeShimPath,
-        ELECTRON_RUN_AS_NODE: '1',
         DSH_HOME: bootstrap().homeDir,
         CI: 'true',
-        npm_config_runtime: 'electron',
+        npm_config_runtime: 'node',
         npm_config_target: '43.4.0',
-        npm_config_disturl: 'https://electronjs.org/headers',
       },
     })
     operation.cancel()
@@ -203,7 +201,7 @@ describe('desktop pnpm execution service', () => {
     )
     expect(target.spawn.mock.calls[0]?.[0]).toMatchObject({
       argv: [
-        bootstrap().appExecutable,
+        bootstrap().nodeExecutable,
         '--expose-internals',
         bootstrap().dshBootstrapPath,
         'plugin',
@@ -229,7 +227,7 @@ describe('desktop pnpm execution service', () => {
     )
     expect(target.spawn.mock.calls[0]?.[0]).toMatchObject({
       argv: [
-        bootstrap().appExecutable,
+        bootstrap().nodeExecutable,
         '--expose-internals',
         bootstrap().dshBootstrapPath,
         'plugin',

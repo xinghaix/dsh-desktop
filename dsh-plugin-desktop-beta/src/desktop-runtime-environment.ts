@@ -29,11 +29,11 @@ export interface DesktopPnpmRuntimeOptions {
   /** Host platform selecting POSIX or Windows command shims. */
   platform: NodeJS.Platform
   /** Electron executable reused in RunAsNode mode. */
-  appExecutable: string
+  nodeExecutable: string
   /** Physical packaged pnpm JavaScript entry. */
   pnpmBinPath: string
   /** Electron version used when pnpm installs native dependencies. */
-  electronVersion: string
+  nodeVersion: string
   /** Private application-owned directory receiving generated files. */
   stateDir: string
   /** Parent environment whose PATH is updated; defaults to `process.env`. */
@@ -59,7 +59,7 @@ export interface DesktopPnpmRuntimeInstallation {
 /** Inputs used to publish the packaged DSH command to Windows Host plugins. */
 export interface DesktopDshRuntimeOptions {
   platform: NodeJS.Platform
-  appExecutable: string
+  nodeExecutable: string
   dshBootstrapPath: string
   profileName: string
   homeDir: string
@@ -209,10 +209,10 @@ function clearEnvironmentModule(): string {
 }
 
 /** Build the private POSIX Node command used only by pnpm lifecycle scripts. */
-function posixNodeShim(appExecutable: string, clearEnvironmentUrl: string): string {
+function posixNodeShim(nodeExecutable: string, clearEnvironmentUrl: string): string {
   return [
     '#!/bin/sh',
-    `${RUN_AS_NODE}=1 exec ${quoteSh(appExecutable)} --import ${quoteSh(clearEnvironmentUrl)} "$@"`,
+    `exec ${quoteSh(nodeExecutable)} --import ${quoteSh(clearEnvironmentUrl)} "$@"`,
     '',
   ].join('\n')
 }
@@ -229,22 +229,20 @@ function posixPnpmShim(
     [
       `PATH=${quoteSh(nodeBinDir)}:"\${PATH:-}"`,
       `NODE=${quoteSh(nodeShimPath)}`,
-      `${RUN_AS_NODE}=1`,
-      'npm_config_runtime=node',
-      `npm_config_target=${quoteSh(options.electronVersion)}`,
-      `exec ${quoteSh(options.appExecutable)} --import ${quoteSh(clearEnvironmentUrl)} ${quoteSh(options.pnpmBinPath)} ${PNPM_IGNORE_MINIMUM_RELEASE_AGE} "$@"`,
+        'npm_config_runtime=node',
+      `npm_config_target=${quoteSh(options.nodeVersion)}`,
+      `exec ${quoteSh(options.nodeExecutable)} --import ${quoteSh(clearEnvironmentUrl)} ${quoteSh(options.pnpmBinPath)} ${PNPM_IGNORE_MINIMUM_RELEASE_AGE} "$@"`,
     ].join(' '),
     '',
   ].join('\n')
 }
 
 /** Build the private Windows Node command used only by pnpm lifecycle scripts. */
-function windowsNodeShim(appExecutable: string, clearEnvironmentUrl: string): string {
+function windowsNodeShim(nodeExecutable: string, clearEnvironmentUrl: string): string {
   return [
     '@echo off',
     'setlocal DisableDelayedExpansion',
-    `set "${RUN_AS_NODE}=1"`,
-    `${quoteBatchWord(appExecutable)} --import ${quoteBatchWord(clearEnvironmentUrl)} %*`,
+    `${quoteBatchWord(nodeExecutable)} --import ${quoteBatchWord(clearEnvironmentUrl)} %*`,
     'exit /b %errorlevel%',
     '',
   ].join('\r\n')
@@ -262,10 +260,9 @@ function windowsPnpmShim(
     'setlocal DisableDelayedExpansion',
     `set "PATH=${escapeBatchSetValue(nodeBinDir)};%PATH%"`,
     `set "NODE=${escapeBatchSetValue(nodeShimPath)}"`,
-    `set "${RUN_AS_NODE}=1"`,
     'set "npm_config_runtime=node"',
-    `set "npm_config_target=${escapeBatchSetValue(options.electronVersion)}"`,
-    `${quoteBatchWord(options.appExecutable)} --import ${quoteBatchWord(clearEnvironmentUrl)} ${quoteBatchWord(options.pnpmBinPath)} ${PNPM_IGNORE_MINIMUM_RELEASE_AGE} %*`,
+    `set "npm_config_target=${escapeBatchSetValue(options.nodeVersion)}"`,
+    `${quoteBatchWord(options.nodeExecutable)} --import ${quoteBatchWord(clearEnvironmentUrl)} ${quoteBatchWord(options.pnpmBinPath)} ${PNPM_IGNORE_MINIMUM_RELEASE_AGE} %*`,
     'exit /b %errorlevel%',
     '',
   ].join('\r\n')
@@ -276,10 +273,9 @@ function windowsDshShim(options: DesktopDshRuntimeOptions): string {
   return [
     '@echo off',
     'setlocal DisableDelayedExpansion',
-    `set "${RUN_AS_NODE}=1"`,
     `set "${DEFAULT_PROFILE}=${escapeBatchSetValue(options.profileName)}"`,
     `set "${DSH_HOME}=${escapeBatchSetValue(options.homeDir)}"`,
-    `${quoteBatchWord(options.appExecutable)} --expose-internals ${quoteBatchWord(options.dshBootstrapPath)} %*`,
+    `${quoteBatchWord(options.nodeExecutable)} --expose-internals ${quoteBatchWord(options.dshBootstrapPath)} %*`,
     'exit /b %errorlevel%',
     '',
   ].join('\r\n')
@@ -359,7 +355,7 @@ export function installDesktopDshRuntime(options: DesktopDshRuntimeOptions): Des
   }
   assertDesktopProfileName(options.profileName)
   for (const [label, value] of [
-    ['application executable', options.appExecutable],
+    ['application executable', options.nodeExecutable],
     ['DSH bootstrap', options.dshBootstrapPath],
     ['Harness home', options.homeDir],
     ['state directory', options.stateDir],
@@ -390,9 +386,9 @@ export function installDesktopPnpmRuntime(options: DesktopPnpmRuntimeOptions): D
     throw new Error(`dsh-plugin-desktop: pnpm runtime is unsupported on ${options.platform}`)
   }
   for (const [label, value] of [
-    ['application executable', options.appExecutable],
+    ['application executable', options.nodeExecutable],
     ['pnpm entry', options.pnpmBinPath],
-    ['Electron version', options.electronVersion],
+    ['Node version', options.nodeVersion],
     ['state directory', options.stateDir],
   ] as const) assertScriptValue(label, value)
 
@@ -420,8 +416,8 @@ export function installDesktopPnpmRuntime(options: DesktopPnpmRuntimeOptions): D
   replacePrivateFile(
     nodeShimPath,
     windows
-      ? windowsNodeShim(options.appExecutable, clearEnvironmentUrl)
-      : posixNodeShim(options.appExecutable, clearEnvironmentUrl),
+      ? windowsNodeShim(options.nodeExecutable, clearEnvironmentUrl)
+      : posixNodeShim(options.nodeExecutable, clearEnvironmentUrl),
     windows ? PRIVATE_FILE_MODE : EXECUTABLE_FILE_MODE,
   )
   replacePrivateFile(

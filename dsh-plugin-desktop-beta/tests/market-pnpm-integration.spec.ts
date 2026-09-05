@@ -36,9 +36,9 @@ function bootstrap(root: string, profileDir: string): DesktopPnpmBootstrap {
     activeProfileName: 'web',
     activeProfileDir: profileDir,
     homeDir: join(root, 'home'),
-    appExecutable: join(root, 'DSH Desktop'),
+    nodeExecutable: join(root, 'DSH Desktop'),
     pnpmBinPath: join(root, 'runtime', 'pnpm.mjs'),
-    electronVersion: '43.4.0',
+    nodeVersion: '43.4.0',
     nodeBinDir: join(root, 'runtime', 'node-bin'),
     nodeShimPath: join(root, 'runtime', 'node-bin', 'node'),
     clearEnvironmentPath: join(root, 'runtime', 'clear-env.mjs'),
@@ -211,7 +211,7 @@ describe('desktop pnpm and community market integration', () => {
       expect(spawn).toHaveBeenCalledOnce()
       expect(spawn.mock.calls[0]?.[0]).toMatchObject({
         argv: [
-          selectedBootstrap.appExecutable,
+          selectedBootstrap.nodeExecutable,
           '--import',
           pathToFileURL(selectedBootstrap.clearEnvironmentPath).href,
           selectedBootstrap.pnpmBinPath,
@@ -220,7 +220,7 @@ describe('desktop pnpm and community market integration', () => {
           PACKAGE_NAME,
         ],
         cwd: profileDir,
-        env: { ELECTRON_RUN_AS_NODE: '1', DSH_HOME: selectedBootstrap.homeDir },
+        env: { DSH_HOME: selectedBootstrap.homeDir, npm_config_runtime: 'node' },
       })
 
       const persisted = parseYaml(await readFile(settingsPath, 'utf8')) as {
