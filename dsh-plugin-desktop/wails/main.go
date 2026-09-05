@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -118,11 +119,19 @@ func main() {
 	setupApplicationMenu(app, shell, aux, bridge, caps, window)
 	setupSystemTray(app, shell, caps, window)
 
+	if os.Getenv("DSH_WAILS_AUTO_RECOVERY") != "" {
+		go func() {
+			time.Sleep(800 * time.Millisecond)
+			if err := aux.OpenRecovery(os.Getenv("DSH_WAILS_AUTO_RECOVERY")); err != nil {
+				log.Printf("dsh-wails-shell: auto recovery: %v", err)
+			}
+		}()
+	}
+
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
-
 
 // showMenuStatus prefers AuxWindowService.OpenInfoDialog (status.html) so menu
 // feedback is visible on Linux hybrid beds where GTK MessageDialog can be silent.

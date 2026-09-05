@@ -62,7 +62,8 @@ func recoveryNativeState(detail string, profiles []string) string {
 		"safeModeActive":          false,
 		"profileCreatorAvailable": true,
 		"profiles":                profileItems,
-		"notice":                  nil,
+		// Omit notice: JSON null crashes RecoveryNoticeSurface (useEffect deps
+		// read notice.body while only undefined is treated as "no toast").
 		"wailsHybrid":             true,
 	}
 	raw, err := json.Marshal(payload)
