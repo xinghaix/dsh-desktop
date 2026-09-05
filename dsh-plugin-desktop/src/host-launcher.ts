@@ -177,7 +177,7 @@ export async function planHostSidecarSpawn(input: {
     environment,
     hostMainPath: input.hostMainPath,
     electronPath,
-    scanRoots: input.scanRoots,
+    ...(input.scanRoots === undefined ? {} : { scanRoots: input.scanRoots }),
   })
 
   if (decision.mode === "electron-main") {

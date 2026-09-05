@@ -23,6 +23,8 @@ Shell: dsh-plugin-desktop/wails/
 - Host DSH_HOST_LAN_HTTPS announce -> Capabilities LAN HTTPS / Capabilities Status
 - Root/workspace wails scripts; scripts/wails-smoke.mjs; docs/wails-ci-smoke.yml.example (workflow push needs workflow scope)
 - package:wails Go-binary fallback + AppImage dependency probe (package-deps)
+- host-main/host-launcher/node-desktop-runtime tsc --emitDeclarationOnly clean
+- Linux bed: tray watcher via haskell-gtk-sni + Node 22 login PATH scripts; sleep/wake documented N/A
 
 ## Permanently platform-blocked
 

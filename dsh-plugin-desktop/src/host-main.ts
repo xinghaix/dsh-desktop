@@ -47,6 +47,7 @@ import type {
   DesktopLifecycleRendererFailureReason,
 } from './lifecycle-events.ts'
 import { FileExporter } from './file-exporter.ts'
+import { desktopNativeCopy } from './native-dialog-copy.ts'
 import { DESKTOP_SETTINGS_NAMESPACE, type DesktopSettings } from './index.ts'
 import {
   desktopLanBrowserUrls,
@@ -128,7 +129,6 @@ import {
   updateDesktopSetupWizardSettings,
   type DesktopSetupWizardSettings,
 } from './setup-wizard-settings.ts'
-import type { DesktopSetupWizardResult } from './setup-wizard-contract.ts'
 import {
   clearDesktopProfileUsageHistory,
   desktopReleaseUserDataLocations,
@@ -472,7 +472,7 @@ async function start(): Promise<void> {
   } catch (cause) {
     electronLogger.error(`${BIN_NAME}: active run tracking unavailable: ${cause instanceof Error ? cause.message : String(cause)}`)
   }
-  removeChildProcessLogging = undefined
+  // Node Host: no Electron child_process logging hook (Electron main installs one).
   const nativeExit = createDesktopExitCoordinator(
     {
       prepareToQuit: () => { runtime.prepareToQuit() },
@@ -542,6 +542,13 @@ async function start(): Promise<void> {
     _controller: DesktopStartupRecoveryController | undefined,
     _requested = false,
   ): Promise<RecoveryWindowResult | 'unavailable'> => {
+    // Keep Node Host recovery affordances live for parity with Electron main; Wails owns UI.
+    const deferredRecoveryCapabilities = {
+      terminalAvailable: recoveryTerminalAvailable,
+      profileActions: startupRecoveryProfileActions,
+      enterSafeMode: prepareSafeMode,
+    }
+    void deferredRecoveryCapabilities
     announceWailsHostRecoveryRequired(maskSecrets(failureDetail))
     electronLogger.error(
       `${BIN_NAME}: Node Host recovery UI deferred to Wails (${maskSecrets(failureDetail)})`,
@@ -660,7 +667,9 @@ async function start(): Promise<void> {
       listDesktopProfiles(homeDir).map(profile => profile.dir),
     )
     // Keep Profile recovery usable when the persisted selection no longer exists.
+    // Locale is retained for Electron-parity dialog paths; Wails owns hybrid UX copy.
     const locale = desktopLocaleFromLanguageTag(process.env.LANG ?? 'en')
+    void locale
     const recoveryProfileToken = randomUUID()
     let activeProfileName = readDesktopProfileState(selectionStatePath).active
     let expectedRecoveryProfileName = activeProfileName

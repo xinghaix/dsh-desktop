@@ -28,4 +28,8 @@ if command -v dbus-send >/dev/null 2>&1; then
   fi
 fi
 
-echo "linux-smoke-env: node=$(command -v node) $(node -v 2>/dev/null) display=$DISPLAY"
+_login_node="$(bash -lc 'node -v 2>/dev/null' || true)"
+if ! printf '%s' "$_login_node" | grep -Eq '^v(22\.|2[3-9]\.|[3-9])'; then
+  echo "linux-smoke-env: WARNING bash -lc node is '${_login_node:-missing}' (need 22+); keep ~/bin/node shim + scripts/zz-dsh-node22.sh.example in profile.d" >&2
+fi
+echo "linux-smoke-env: node=$(command -v node) $(node -v 2>/dev/null) bash-lc=${_login_node:-missing} display=$DISPLAY"

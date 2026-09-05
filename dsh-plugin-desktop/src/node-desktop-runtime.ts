@@ -7,6 +7,10 @@ import type { DesktopInstallationId } from './desktop-installation-id.ts'
 import { DESKTOP_RELEASE_CHANNEL } from './product-identity.ts'
 import type { RendererBootReport } from './renderer-boot-contract.ts'
 import type {
+  DesktopRendererHealthGateOptions,
+  RendererHealthVerdict,
+} from './renderer-health.ts'
+import type {
   DesktopLocale,
   DesktopNotification,
   DesktopPlatform,
@@ -62,7 +66,7 @@ export class NodeDesktopRuntime implements DesktopRuntime {
   constructor(
     private readonly restart: (target?: 'recovery') => Promise<void>,
     private readonly logger: DesktopLogger | undefined = undefined,
-    private readonly userDataDir: string,
+    userDataDir: string,
     installationId?: DesktopInstallationId,
     initialLocale: DesktopLocale = desktopLocaleFromLanguageTag(languageTagFromEnv()),
   ) {
@@ -208,8 +212,12 @@ export class NodeDesktopRuntime implements DesktopRuntime {
     return undefined
   }
 
-  beginRendererBootMonitoring(): Promise<{ report: { status: 'healthy' } }> {
-    return Promise.resolve({ report: { status: 'healthy' as const } })
+  async beginRendererBootMonitoring(
+    options?: DesktopRendererHealthGateOptions,
+  ): Promise<RendererHealthVerdict> {
+    // Node Host has no Electron renderer gate; still run the durable healthy commit.
+    if (options !== undefined) await options.commitHealthy()
+    return { report: { status: 'healthy' as const } }
   }
 
   stopRendererBootMonitoring(): void {}
