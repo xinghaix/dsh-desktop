@@ -9,6 +9,8 @@ export type HostLauncherMode = "node" | "electron-as-node" | "electron-main"
 
 export const DSH_HOST_ELECTRON_AS_NODE_ENV = "DSH_HOST_ELECTRON_AS_NODE"
 export const DSH_HOST_LAUNCHER_ENV = "DSH_HOST_LAUNCHER"
+/** Opt-in for LAST-RESORT Electron main Host (hybrid prefers Node / Electron-as-Node). */
+export const DSH_ALLOW_ELECTRON_MAIN_ENV = "DSH_ALLOW_ELECTRON_MAIN"
 
 const TRUTHY = new Set(["1", "true", "yes", "on"])
 const FALSY = new Set(["0", "false", "no", "off"])
@@ -179,6 +181,14 @@ export async function planHostSidecarSpawn(input: {
   })
 
   if (decision.mode === "electron-main") {
+    const allow = envFlag(environment[DSH_ALLOW_ELECTRON_MAIN_ENV])
+    const forced = parseMode(environment[DSH_HOST_LAUNCHER_ENV]) === "electron-main"
+    // Hybrid product path refuses Electron main unless explicitly opted in.
+    if (!forced && allow !== true) {
+      throw new Error(
+        "dsh-plugin-desktop: Electron main Host blocked (set DSH_ALLOW_ELECTRON_MAIN=1 or DSH_HOST_LAUNCHER=electron-main). Prefer host-main Node / Electron-as-Node.",
+      )
+    }
     if (!electronPath) {
       throw new Error("dsh-plugin-desktop: Electron executable required for electron-main Host launcher")
     }
@@ -187,7 +197,7 @@ export async function planHostSidecarSpawn(input: {
       execPath: electronPath,
       argv: [input.electronMainPath, ...extra],
       env: environment,
-      reason: decision.reason,
+      reason: `${decision.reason} (LAST-RESORT Electron main; hybrid prefers Node host-main)`,
     }
   }
 

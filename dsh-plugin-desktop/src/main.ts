@@ -1,4 +1,11 @@
-/** DSH Desktop executable: minimal Electron bootstrap around the Host Cordis root. */
+/** DSH Desktop Electron main entry — LAST RESORT for hybrid Wails product path.
+ *
+ * Primary product path: Wails shell (`wails/`) + Node `host-main.ts` (or
+ * Electron-as-Node when native addons require Electron ABI).
+ * Use this file only when `DSH_HOST_LAUNCHER=electron-main` / ABI forces a full
+ * Electron `app.whenReady()` Host, or when building the legacy electron-builder
+ * fallback. Prefer `start:wails` / `start:host` / `start:host:node`.
+ */
 
 import { app, crashReporter, safeStorage, shell } from 'electron'
 import { randomUUID } from 'node:crypto'

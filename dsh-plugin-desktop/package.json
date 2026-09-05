@@ -139,7 +139,9 @@
     "start:host": "node lib/bin.js --dsh-wails-host-sidecar",
     "start:host:node": "DSH_HOST_LAUNCHER=node node lib/host-main.js --dsh-wails-host-sidecar",
     "start:host:electron-as-node": "DSH_HOST_LAUNCHER=electron-as-node node lib/bin.js --dsh-wails-host-sidecar",
-    "start:electron": "node lib/bin.js"
+    "start:electron": "node lib/bin.js",
+    "start:electron:last-resort": "DSH_HOST_LAUNCHER=electron-main DSH_ALLOW_ELECTRON_MAIN=1 node lib/bin.js --dsh-wails-host-sidecar",
+    "sync:native-ui:wails": "node ./wails/scripts/sync-native-ui.mjs"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.2",
