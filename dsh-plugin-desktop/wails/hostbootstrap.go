@@ -75,6 +75,12 @@ func defaultHostBootstrap() (command string, urlFile string, err error) {
 		return "", "", err
 	}
 	urlFile = defaultHostURLFile()
+	hostMainJS := filepath.Join(pluginDir, "lib", "host-main.js")
+	if fileExists(hostMainJS) {
+		parts := []string{"node", shellQuote(hostMainJS), "--dsh-wails-host-sidecar"}
+		command = fmt.Sprintf("cd %s && export DSH_WAILS_HOST_SIDECAR=1; %s", shellQuote(pluginDir), strings.Join(parts, " "))
+		return command, urlFile, nil
+	}
 	yarnLock := filepath.Join(repoDir, "yarn.lock")
 	workspacePkg := filepath.Join(repoDir, "package.json")
 	binJS := filepath.Join(pluginDir, "lib", "bin.js")

@@ -1,11 +1,12 @@
 /** Headless-safe npm launcher for the DSH Desktop Electron executable. */
 
 import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { posix, resolve, win32 } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { exportDesktopDiagnostics } from './diagnostic-export.ts'
+import { desktopWailsHostSidecarRequested } from './wails-host-sidecar.ts'
 
 /** Parsed launcher action. */
 export type DesktopCliAction = 'export-diagnostics' | 'help' | 'version' | 'launch'
@@ -136,7 +137,40 @@ export async function runDesktopCli(
     return 0
   }
   const forwarded = argv.filter(arg => arg === '--dsh-wails-host-sidecar' || arg === '--dsh-desktop-recovery' || arg === '--dsh-desktop-safe-mode')
+  if (desktopWailsHostSidecarRequested(['node', 'bin', ...forwarded], process.env)) {
+    return launchNodeHost(forwarded)
+  }
   return launchElectron(forwarded)
+}
+
+/** Prefer Node Host entry (no app.whenReady); fall back to Electron main sidecar. */
+async function launchNodeHost(extraArgs: readonly string[]): Promise<number> {
+  const hostMain = fileURLToPath(new URL('./host-main.js', import.meta.url))
+  if (!existsSync(hostMain)) {
+    process.stderr.write(
+      'dsh-plugin-desktop: lib/host-main.js missing; falling back to Electron Host sidecar.\n',
+    )
+    return launchElectron(extraArgs.includes('--dsh-wails-host-sidecar')
+      ? extraArgs
+      : [...extraArgs, '--dsh-wails-host-sidecar'])
+  }
+  const args = extraArgs.includes('--dsh-wails-host-sidecar')
+    ? [...extraArgs]
+    : [...extraArgs, '--dsh-wails-host-sidecar']
+  return new Promise<number>((resolveExit, reject) => {
+    const child = spawn(process.execPath, [hostMain, ...args], {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        DSH_WAILS_HOST_SIDECAR: '1',
+      },
+      windowsHide: true,
+    })
+    child.once('error', reject)
+    child.once('exit', (code, signal) => {
+      resolveExit(code ?? (signal === null ? 1 : 128))
+    })
+  })
 }
 
 const invokedPath = process.argv[1] === undefined ? undefined : resolve(process.argv[1])
