@@ -73,7 +73,18 @@ func (h *HostSidecar) Start(explicitURL string) (string, error) {
 	urlFile := strings.TrimSpace(os.Getenv("DSH_HOST_URL_FILE"))
 	command := strings.TrimSpace(os.Getenv("DSH_HOST_COMMAND"))
 	if command == "" && urlFile == "" {
-		return "", fmt.Errorf("no host URL: set DSH_HOST_URL, pass LoadHostURL, or configure DSH_HOST_COMMAND / DSH_HOST_URL_FILE")
+		if !hostAutostartEnabled() {
+			return "", fmt.Errorf("host autostart disabled (DSH_HOST_AUTOSTART=0); set DSH_HOST_URL or DSH_HOST_COMMAND")
+		}
+		boot, file, err := defaultHostBootstrap()
+		if err != nil {
+			return "", err
+		}
+		command = boot
+		urlFile = file
+	}
+	if urlFile == "" {
+		urlFile = defaultHostURLFile()
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -98,7 +109,7 @@ func (h *HostSidecar) Start(explicitURL string) (string, error) {
 		}
 	}
 
-	deadline := 120 * time.Second
+	deadline := 180 * time.Second
 	if v := strings.TrimSpace(os.Getenv("DSH_HOST_READY_TIMEOUT")); v != "" {
 		if parsed, err := time.ParseDuration(v); err == nil {
 			deadline = parsed
@@ -147,7 +158,9 @@ func (h *HostSidecar) Stop() error {
 
 func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error {
 	cmd := exec.CommandContext(ctx, "bash", "-lc", command)
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(),
+		"DSH_WAILS_HOST_SIDECAR=1",
+	)
 	if urlFile != "" {
 		cmd.Env = append(cmd.Env, "DSH_HOST_URL_FILE="+urlFile)
 	}

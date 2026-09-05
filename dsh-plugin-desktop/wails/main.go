@@ -19,6 +19,7 @@ var assets embed.FS
 func main() {
 	hostURL := flag.String("host-url", envOr("DSH_HOST_URL", ""), "Cordis Host UI URL to load (e.g. http://127.0.0.1:PORT/)")
 	startHidden := flag.Bool("hidden", false, "Start with the main window hidden (tray still runs)")
+	noHost := flag.Bool("no-host", false, "Do not auto-start Cordis Host; show embedded control UI only")
 	flag.Parse()
 
 	sidecar := NewHostSidecar()
@@ -61,11 +62,15 @@ func main() {
 	shell.attach(app, window)
 	if initialURL != "/" {
 		shell.setInitialHostURL(initialURL)
-	} else if os.Getenv("DSH_HOST_COMMAND") != "" || os.Getenv("DSH_HOST_URL_FILE") != "" || os.Getenv("DSH_HOST_URL") != "" {
+	} else if !*noHost {
 		go func() {
 			ready, err := shell.StartHostSidecar("")
 			if err != nil {
 				log.Printf("dsh-wails-shell: host sidecar: %v", err)
+				app.Dialog.Error().
+					SetTitle("Cordis Host failed").
+					SetMessage(err.Error()).
+					Show()
 				return
 			}
 			log.Printf("dsh-wails-shell: loaded Cordis Host UI %s", ready)
