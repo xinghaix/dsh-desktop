@@ -1,0 +1,16 @@
+Realistic user Desktop Host home install (created for Wails hybrid test)
+Root: /home/box/.dsh
+
+Layout:
+  bin/dsh-desktop          executable shim -> Node 22 + realpath(lib)/bin.js
+  bin/dsh-plugin-desktop   symlink to dsh-desktop
+  lib/                     -> /workspace/repos/dsh-desktop/dsh-plugin-desktop/lib
+  node_modules/            -> /workspace/repos/dsh-desktop/dsh-plugin-desktop/node_modules
+  package.json             -> plugin package.json
+  profiles/, sessions/, settings.yaml, storages/  (pre-existing Cordis CLI user data)
+
+Do NOT place plugin cordis.patch.yml at ~/.dsh/cordis.patch.yml — that is treated as a
+Cordis home patch layer and duplicates desktop-shell when composed with the install patch.
+
+Discovery should report: HOME:~/.dsh:bin/dsh-desktop
+Launch via Wails without DSH_BIN / DSH_HOME / DSH_HOST_COMMAND.

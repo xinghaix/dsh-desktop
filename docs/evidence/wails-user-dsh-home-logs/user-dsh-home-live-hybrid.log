@@ -1,0 +1,28 @@
+starting /tmp/dsh-wails-shell at 2026-09-05T11:53:19+00:00
+11:53AM INF AssetServer Info: middleware=true handler=true
+2026/09/05 11:53:19 dsh-wails-shell: crash-evidence=active dir=/home/box/.config/DSH Desktop/crash-evidence
+11:53AM INF Build Info: Wails=v3.0.0-beta.16 Compiler=go1.27.0 vcs.time=2026-09-05T10:31:30Z vcs.modified=true -buildmode=exe CGO_ENABLED=1 CGO_CFLAGS= GOARCH=amd64 GOAMD64=v1 vcs=git -compiler=gc CGO_CPPFLAGS= CGO_CXXFLAGS= CGO_LDFLAGS= GOOS=linux vcs.revision=35fe93ea1cb86271b3368ae5aace529483954cef
+11:53AM INF Platform Info: ID=debian Name=Debian GNU/Linux Version=13 Branding=13 (trixie) GTK=4.18.6 WebKitGTK=2.52.6
+2026/09/05 11:53:19 dsh-wails-shell: host discover: Desktop Host via HOME:~/.dsh:bin/dsh-desktop → /home/box/.dsh/bin/dsh-desktop
+11:53AM WRN [WARNING] Failed to connect to system bus; sleep/wake events will not fire: dial unix /var/run/dbus/system_bus_socket: connect: no such file or directory
+dsh-plugin-desktop: Host launcher mode=electron-as-node (profile node_modules present; prefer ELECTRON_RUN_AS_NODE for Electron ABI natives)
+Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal
+dsh-plugin-desktop: previous desktop run did not shut down cleanly (startedAt: 2026-09-05T11:53:19.445350594Z, pid: 2391980, version: dev)
+
+** (process:2): WARNING **: 11:53:19.762: Can't connect to a11y bus: Could not connect: No such file or directory
+11:53AM INF [AssetFileServerFS] Handling request url=/ file=.
+11:53AM INF [AssetFileServerFS] Handling request url=/style.css file=style.css
+11:53AM INF [AssetFileServerFS] Handling request url=/bridge.js file=bridge.js
+11:53AM INF [AssetFileServerFS] Handling request url=/assets/index-BG3s0XgO.js file=assets/index-BG3s0XgO.js
+(node:2392030) [SharpElectronLinux] Warning: Binaries provided by Electron for use on Linux may be incompatible with sharp - see https://sharp.pixelplumbing.com/install#electron-and-linux
+(Use `electron --trace-warnings ...` to show where the warning was created)
+[dsh-host] DSH_HOST_LAN_HTTPS state=inactive port=null addresses=172.30.0.2 fingerprint=cb2cc5fd5dd31f5b797dbba6dd1efb38831361bbbfb1d8fea166daa799782d23 error=null urls=-
+[dsh-host] DSH_HOST_READY http://127.0.0.1:43123/?token=o62NZyYSkbsb7VGTGmF5CaXZLOGAmnLVVeLaIE8hLZc
+[dsh-host] DSH_HOST_AUTH_HEADER x-dsh-desktop-renderer NiK6Qq2VVxcUc78dB5xw_s7mQ09LQzPkgOXMPQSZeY8
+[dsh-host] DSH_HOST_LAN_HTTPS state=inactive port=null addresses=172.30.0.2 fingerprint=cb2cc5fd5dd31f5b797dbba6dd1efb38831361bbbfb1d8fea166daa799782d23 error=null urls=-
+dsh-plugin-desktop: Wails Host sidecar ready at http://127.0.0.1:43123/?token=**** (Electron-light GUI skipped=true)
+2026/09/05 11:53:21 dsh-wails-shell: loaded Cordis Host UI http://127.0.0.1:39039/
+
+** (process:2): WARNING **: 11:53:21.355: Can't connect to a11y bus: Could not connect: No such file or directory
+
+** (process:2): WARNING **: 11:53:23.088: Can't connect to a11y bus: Could not connect: No such file or directory

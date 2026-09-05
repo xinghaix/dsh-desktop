@@ -1,0 +1,9 @@
+=== RUN   TestPrintLiveDiscover
+    print_discover_live_test.go:7: MSG=Desktop Host via HOME:~/.dsh:bin/dsh-desktop → /home/box/.dsh/bin/dsh-desktop
+    print_discover_live_test.go:9: HIT reason=HOME:~/.dsh:bin/dsh-desktop path=/home/box/.dsh/bin/dsh-desktop
+    print_discover_live_test.go:14: CHECKED DSH_BIN=(unset)
+    print_discover_live_test.go:14: CHECKED DSH_HOME=(unset)
+    print_discover_live_test.go:14: CHECKED /home/box/.dsh/bin/dsh-desktop
+--- PASS: TestPrintLiveDiscover (0.00s)
+PASS
+ok  	github.com/xinghaix/dsh-desktop/dsh-plugin-desktop/wails	0.058s

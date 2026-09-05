@@ -1,0 +1,13 @@
+starting no-host at 2026-09-05T11:54:22+00:00
+11:54AM INF AssetServer Info: middleware=true handler=true
+11:54AM INF Build Info: Wails=v3.0.0-beta.16 Compiler=go1.27.0 GOOS=linux vcs=git vcs.modified=true -compiler=gc CGO_CFLAGS= CGO_CPPFLAGS= GOAMD64=v1 vcs.revision=35fe93ea1cb86271b3368ae5aace529483954cef vcs.time=2026-09-05T10:31:30Z -buildmode=exe CGO_ENABLED=1 CGO_CXXFLAGS= CGO_LDFLAGS= GOARCH=amd64
+11:54AM INF Platform Info: ID=debian Name=Debian GNU/Linux Version=13 Branding=13 (trixie) GTK=4.18.6 WebKitGTK=2.52.6
+2026/09/05 11:54:22 dsh-wails-shell: crash-evidence=active dir=/home/box/.config/DSH Desktop/crash-evidence; previous unclean exit marker present: {"startedAt":"2026-09-05T11:53:19.737Z","pid":2392030,"version":"2.0.5","ownerId":"cf0c61a7-6e41-4c88-8698-a55adcf828b5"}
+11:54AM WRN [WARNING] Failed to connect to system bus; sleep/wake events will not fire: dial unix /var/run/dbus/system_bus_socket: connect: no such file or directory
+Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal
+
+** (process:2): WARNING **: 11:54:23.061: Can't connect to a11y bus: Could not connect: No such file or directory
+11:54AM INF [AssetFileServerFS] Handling request url=/ file=.
+11:54AM INF [AssetFileServerFS] Handling request url=/style.css file=style.css
+11:54AM INF [AssetFileServerFS] Handling request url=/bridge.js file=bridge.js
+11:54AM INF [AssetFileServerFS] Handling request url=/assets/index-BG3s0XgO.js file=assets/index-BG3s0XgO.js
