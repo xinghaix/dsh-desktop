@@ -20,7 +20,7 @@ Shell: dsh-plugin-desktop/wails/
 - File-based crash evidence (active-run + panic/exception dumps)
 - Dock/taskbar attention via Flash + tray tooltip count
 - Windows AppUserModelID; Node AES-GCM LAN HTTPS protector
-- Root/workspace wails scripts; scripts/wails-smoke.mjs; optional wails-smoke.yml
+- Root/workspace wails scripts; scripts/wails-smoke.mjs; docs/wails-ci-smoke.yml.example (workflow push needs workflow scope)
 
 ## Permanently platform-blocked
 
