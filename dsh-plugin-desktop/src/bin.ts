@@ -31,6 +31,7 @@ export function parseDesktopCli(argv: readonly string[]): DesktopCliAction {
   if (argv.length === 1 && argv[0] === '--export-diagnostics') return 'export-diagnostics'
   if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) return 'help'
   if (argv.length === 1 && (argv[0] === '--version' || argv[0] === '-V')) return 'version'
+  if (argv.length > 0 && argv.every(arg => arg === '--dsh-wails-host-sidecar' || arg === '--dsh-desktop-recovery' || arg === '--dsh-desktop-safe-mode')) return 'launch'
   throw new Error(`unknown arguments: ${argv.join(' ')}`)
 }
 
@@ -66,7 +67,7 @@ export interface DesktopCliOptions {
 }
 
 /** Launch Electron and mirror its terminal exit status. */
-async function launchElectron(): Promise<number> {
+async function launchElectron(extraArgs: readonly string[] = []): Promise<number> {
   let electronPath: string
   try {
     const imported = await import('electron') as { default?: unknown }
@@ -88,7 +89,8 @@ async function launchElectron(): Promise<number> {
   }
   const mainPath = fileURLToPath(new URL('./main.js', import.meta.url))
   return new Promise<number>((resolveExit, reject) => {
-    const child = spawn(electronPath, [mainPath], {
+    const electronArgs = [mainPath, ...extraArgs]
+    const child = spawn(electronPath, electronArgs, {
       stdio: 'inherit',
       env: process.env,
       windowsHide: true,
@@ -133,7 +135,8 @@ export async function runDesktopCli(
     process.stdout.write(`${path}\n`)
     return 0
   }
-  return launchElectron()
+  const forwarded = argv.filter(arg => arg === '--dsh-wails-host-sidecar' || arg === '--dsh-desktop-recovery' || arg === '--dsh-desktop-safe-mode')
+  return launchElectron(forwarded)
 }
 
 const invokedPath = process.argv[1] === undefined ? undefined : resolve(process.argv[1])

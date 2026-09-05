@@ -12,11 +12,15 @@ export interface AuxWindowResult {
 }
 
 /**
- * UpdateCheckResult is a lightweight update probe result (not a full installer).
+ * UpdateCheckResult is the hybrid update probe / download result.
  */
 export interface UpdateCheckResult {
     "checkedAt": string;
     "currentHint": string;
+    "latestHint": string;
     "status": string;
     "detail": string;
+    "downloadPath"?: string;
+    "canDownload": boolean;
+    "releaseChannel": string;
 }

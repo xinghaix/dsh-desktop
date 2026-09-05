@@ -26,6 +26,7 @@ type BridgeService struct {
 	mu         sync.Mutex
 	app        *application.App
 	shell      *ShellService
+	proxy      *AuthProxy
 	authHeader string
 	authValue  string
 	authURL    string
@@ -33,7 +34,7 @@ type BridgeService struct {
 }
 
 func NewBridgeService(shell *ShellService) *BridgeService {
-	return &BridgeService{shell: shell}
+	return &BridgeService{shell: shell, proxy: NewAuthProxy()}
 }
 
 func (b *BridgeService) attach(app *application.App) {
@@ -54,7 +55,11 @@ func (b *BridgeService) BridgeStatus() string {
 	if auth == "" {
 		auth = "(idle)"
 	}
-	return fmt.Sprintf("bridge=ready header=%s lastAuth=%s", header, auth)
+	proxyStatus := "auth-proxy=stopped"
+	if b.proxy != nil {
+		proxyStatus = b.proxy.Status()
+	}
+	return fmt.Sprintf("bridge=ready header=%s lastAuth=%s %s", header, auth, proxyStatus)
 }
 
 // SetRendererAccessHeader stores the Host generation's renderer capability.
@@ -241,6 +246,70 @@ func (b *BridgeService) setLastAuth(msg string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.lastAuth = msg
+}
+
+
+// StartAuthProxy starts the loopback renderer-header proxy for upstreamURL.
+func (b *BridgeService) StartAuthProxy(upstreamURL string) (string, error) {
+	b.mu.Lock()
+	headerName := b.authHeader
+	headerValue := b.authValue
+	proxy := b.proxy
+	b.mu.Unlock()
+	if proxy == nil {
+		return "", fmt.Errorf("auth proxy is not configured")
+	}
+	if headerName == "" || headerValue == "" {
+		return "", fmt.Errorf("renderer access header is not configured; wait for Host auth announce")
+	}
+	return proxy.StartListening(upstreamURL, headerName, headerValue)
+}
+
+// AuthProxyURL returns the current proxy URL, if any.
+func (b *BridgeService) AuthProxyURL() string {
+	b.mu.Lock()
+	proxy := b.proxy
+	b.mu.Unlock()
+	if proxy == nil {
+		return ""
+	}
+	return proxy.ProxyURL()
+}
+
+// AuthProxyStatus returns proxy diagnostics.
+func (b *BridgeService) AuthProxyStatus() string {
+	b.mu.Lock()
+	proxy := b.proxy
+	b.mu.Unlock()
+	if proxy == nil {
+		return "auth-proxy=(nil)"
+	}
+	return proxy.Status()
+}
+
+// PlatformAuthNotes returns Mac/Linux/Windows header-injection capability notes.
+func (b *BridgeService) PlatformAuthNotes() string {
+	return PlatformAuthCapability()
+}
+
+// PreferProxiedHostURL returns a proxy URL when the renderer header is known,
+// otherwise returns upstream unchanged (ordinary-browser fallback).
+func (b *BridgeService) PreferProxiedHostURL(upstreamURL string) (string, error) {
+	upstreamURL = strings.TrimSpace(upstreamURL)
+	if upstreamURL == "" {
+		return "", fmt.Errorf("upstream URL is required")
+	}
+	b.mu.Lock()
+	ready := b.authHeader != "" && b.authValue != ""
+	b.mu.Unlock()
+	if !ready {
+		return upstreamURL, nil
+	}
+	proxied, err := b.StartAuthProxy(upstreamURL)
+	if err != nil {
+		return upstreamURL, err
+	}
+	return proxied, nil
 }
 
 func mustURL(raw string) *url.URL {

@@ -172,8 +172,11 @@ import {
 } from './relaunch-arguments.ts'
 import {
   announceWailsHostAuthHeader,
+  announceWailsHostLanHttps,
   announceWailsHostReady,
+  announceWailsHostRecoveryRequired,
   desktopWailsHostSidecarRequested,
+  desktopWailsSkipElectronGui,
 } from './wails-host-sidecar.ts'
 import {
   cleanupDesktopSafeModeEnvironment,
@@ -412,6 +415,7 @@ async function start(): Promise<void> {
     setupRevision: desktopSetupWizardStateConstants.setupRevision,
   })
   const recoveryModeRequested = desktopRecoveryModeRequested()
+  const wailsElectronLight = desktopWailsSkipElectronGui()
   const safeModeRequested = desktopSafeModeRequested()
   const inheritedDshHome = process.env.DSH_HOME
   const safeModeHomeDir = desktopSafeModePaths(desktopUserDataDir).homeDir
@@ -814,6 +818,14 @@ async function start(): Promise<void> {
           activeProfileName,
         )
         if (admission.status === 'allow') break
+        if (wailsElectronLight) {
+          // Electron-light Host: no BrowserWindow dialogs; allow and continue so
+          // Wails can own profile UX. Log the cross-channel admission warning.
+          electronLogger.error(
+            `${BIN_NAME}: Wails Host sidecar auto-allowing cross-channel Profile ${JSON.stringify(activeProfileName)} (Electron dialogs skipped)`,
+          )
+          break
+        }
         const previous = admission.reason === 'other-channel-latest'
           ? admission.previous
           : undefined
@@ -941,6 +953,18 @@ async function start(): Promise<void> {
       })
     }
     if (recoveryModeRequested) {
+      if (wailsElectronLight) {
+        announceWailsHostRecoveryRequired(
+          'Recovery mode was requested; open Wails Recovery Assistant (Electron BrowserWindow skipped).',
+        )
+        electronLogger.error(
+          `${BIN_NAME}: Wails Host sidecar recovery requested — Electron recovery window skipped; announced to Wails shell`,
+        )
+        startupRecoveryController?.dispose()
+        startupRecoveryController = undefined
+        await shutdown.request(1)
+        return
+      }
       const recoveryResult = await openStartupRecoveryWindow(
         'Recovery mode was requested from the Desktop restart menu.',
         startupRecoveryController,
@@ -1072,6 +1096,19 @@ async function start(): Promise<void> {
       ? readDesktopSetupWizardState(marketUserDataDir, prepared.profile.dir)
       : undefined
     if (safeModePaths === undefined && desktopSetupWizardRequired(setupWizardState, setupWizardVersions)) {
+      if (wailsElectronLight) {
+        // Electron-light Host: skip BrowserWindow Setup Wizard; mark skipped so
+        // subsequent boots continue. Wails AuxWindowService owns hybrid setup UX.
+        electronLogger.error(
+          `${BIN_NAME}: Wails Host sidecar auto-skipping Desktop Setup Wizard (Electron window skipped)`,
+        )
+        await completeOrSkipDesktopSetupWizard(
+          marketUserDataDir,
+          prepared.profile.dir,
+          'skipped',
+          setupWizardVersions,
+        )
+      } else {
       const setupSettings = readDesktopSetupWizardSettings(prepared.settingsDocument)
       setupWizardWindow = new DesktopSetupWizardWindow({
         locale: desktopLocaleFromLanguageTag(app.getLocale()),
@@ -1137,6 +1174,7 @@ async function start(): Promise<void> {
           'completed',
           setupWizardVersions,
         )
+      }
       }
     }
     if (profileCheckpoint === undefined) {
@@ -1476,9 +1514,9 @@ async function start(): Promise<void> {
     })
     if (desktopWailsHostSidecarRequested()) {
       // Hybrid Wails shell: Cordis Host serves the UI; Electron skips BrowserWindow/Tray.
-      // WebKitGTK cannot inject x-dsh-desktop-renderer on every request, so allow
-      // ordinary loopback browser access for the authenticated URL while still
-      // announcing the renderer header for the Wails BridgeService / future platforms.
+      // Prefer Wails loopback auth-proxy (injects x-dsh-desktop-renderer). Keep
+      // ordinary loopback access as fallback when the proxy is unavailable
+      // (Linux WebKitGTK cannot inject per-request headers natively).
       browserAccess.setOrdinaryBrowserEnabled(true)
       const hostUiUrl = ctx.connection.authenticatedUrl(
         desktopLoopbackBrowserUrl(ctx.webServer.port),
@@ -1488,8 +1526,15 @@ async function start(): Promise<void> {
         browserAccess.rendererHeader.name,
         browserAccess.rendererHeader.value,
       )
+      try {
+        announceWailsHostLanHttps(lanHttps.snapshot())
+      } catch (cause) {
+        electronLogger.error(
+          `${BIN_NAME}: failed to announce LAN HTTPS snapshot: ${cause instanceof Error ? cause.message : String(cause)}`,
+        )
+      }
       electronLogger.error(
-        `${BIN_NAME}: Wails Host sidecar ready at ${hostUiUrl}`,
+        `${BIN_NAME}: Wails Host sidecar ready at ${hostUiUrl} (Electron-light GUI skipped=${String(wailsElectronLight)})`,
       )
       const rendererReport = { status: 'healthy' as const }
       lifecycleRecorder.startRendererBoot()

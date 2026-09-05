@@ -12,7 +12,21 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise } from "/wails/runtime.js";
+import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
+
+/**
+ * AuthProxyStatus returns proxy diagnostics.
+ */
+export function AuthProxyStatus(): $CancellablePromise<string> {
+    return $Call.ByID(777520412);
+}
+
+/**
+ * AuthProxyURL returns the current proxy URL, if any.
+ */
+export function AuthProxyURL(): $CancellablePromise<string> {
+    return $Call.ByID(2991191579);
+}
 
 /**
  * AuthenticateHostSession performs the Electron session.fetch equivalent:
@@ -82,6 +96,21 @@ export function OpenExternal(rawURL: string): $CancellablePromise<void> {
 }
 
 /**
+ * PlatformAuthNotes returns Mac/Linux/Windows header-injection capability notes.
+ */
+export function PlatformAuthNotes(): $CancellablePromise<string> {
+    return $Call.ByID(3182655554);
+}
+
+/**
+ * PreferProxiedHostURL returns a proxy URL when the renderer header is known,
+ * otherwise returns upstream unchanged (ordinary-browser fallback).
+ */
+export function PreferProxiedHostURL(upstreamURL: string): $CancellablePromise<string> {
+    return $Call.ByID(447270774, upstreamURL);
+}
+
+/**
  * RendererAccessHeaderName returns the configured header name, if any.
  */
 export function RendererAccessHeaderName(): $CancellablePromise<string> {
@@ -94,4 +123,11 @@ export function RendererAccessHeaderName(): $CancellablePromise<string> {
  */
 export function SetRendererAccessHeader(name: string, value: string): $CancellablePromise<void> {
     return $Call.ByID(580823976, name, value);
+}
+
+/**
+ * StartAuthProxy starts the loopback renderer-header proxy for upstreamURL.
+ */
+export function StartAuthProxy(upstreamURL: string): $CancellablePromise<string> {
+    return $Call.ByID(2616645950, upstreamURL);
 }

@@ -5,11 +5,14 @@ export const DESKTOP_SAFE_MODE_ARGUMENT = '--dsh-desktop-safe-mode'
 /** Process marker selecting Cordis Host-only boot for the Wails native shell. */
 export const DESKTOP_WAILS_HOST_SIDECAR_ARGUMENT = '--dsh-wails-host-sidecar'
 
-/** Rebuild the current Electron command line without retaining one-shot modes. */
+/**
+ * Rebuild the current Electron command line without retaining one-shot modes.
+ * Wails Host-sidecar is not one-shot: keep `--dsh-wails-host-sidecar` so profile
+ * switch / recovery relaunches stay Electron-light under the Wails shell.
+ */
 export function desktopDefaultRelaunchArguments(argv: readonly string[] = process.argv): string[] {
   return argv.slice(1).filter(argument => argument !== DESKTOP_RECOVERY_MODE_ARGUMENT
-    && argument !== DESKTOP_SAFE_MODE_ARGUMENT
-    && argument !== DESKTOP_WAILS_HOST_SIDECAR_ARGUMENT)
+    && argument !== DESKTOP_SAFE_MODE_ARGUMENT)
 }
 
 /** Build a one-shot recovery-mode command line. */

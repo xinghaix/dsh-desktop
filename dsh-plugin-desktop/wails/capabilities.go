@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,27 +18,40 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
 
+const desktopVersionEndpoint = "https://www.dshdesktop.cn/api/desktop/version"
+const desktopDownloadMac = "https://www.dshdesktop.cn/api/downloads/mac"
+const desktopDownloadWin = "https://www.dshdesktop.cn/api/downloads/windows"
+const desktopCurrentVersionHeader = "X-DSH-Desktop-Version"
+const desktopReleaseChannelHeader = "X-DSH-Desktop-Channel"
+const desktopTargetVersionHeader = "X-DSH-Desktop-Target-Version"
+const maxUpdateDownloadBytes = 1024 * 1024 * 1024
+
 // CapabilitiesService ports Electron DesktopRuntime system surfaces that are
 // still feasible in the hybrid Wails shell: notifications, save/export dialogs,
-// reveal-in-folder, terminal launch, and a lightweight update check stub.
+// reveal-in-folder, terminal launch, and update check/download/open.
 type CapabilitiesService struct {
 	mu       sync.Mutex
 	app      *application.App
 	shell    *ShellService
 	notifier *notifications.NotificationService
 	update   UpdateCheckResult
+	lanHTTPS string
 }
 
-// UpdateCheckResult is a lightweight update probe result (not a full installer).
+// UpdateCheckResult is the hybrid update probe / download result.
 type UpdateCheckResult struct {
-	CheckedAt   string `json:"checkedAt"`
-	CurrentHint string `json:"currentHint"`
-	Status      string `json:"status"`
-	Detail      string `json:"detail"`
+	CheckedAt     string `json:"checkedAt"`
+	CurrentHint   string `json:"currentHint"`
+	LatestHint    string `json:"latestHint"`
+	Status        string `json:"status"`
+	Detail        string `json:"detail"`
+	DownloadPath  string `json:"downloadPath,omitempty"`
+	CanDownload   bool   `json:"canDownload"`
+	ReleaseChannel string `json:"releaseChannel"`
 }
 
 func NewCapabilitiesService(shell *ShellService, notifier *notifications.NotificationService) *CapabilitiesService {
-	return &CapabilitiesService{shell: shell, notifier: notifier}
+	return &CapabilitiesService{shell: shell, notifier: notifier, lanHTTPS: "lan-https=host-owned (awaiting Host announce)"}
 }
 
 func (c *CapabilitiesService) attach(app *application.App) {
@@ -110,8 +127,6 @@ func (c *CapabilitiesService) RevealInFileManager(path string, selectFile bool) 
 }
 
 // OpenTerminal launches a system terminal in a useful working directory.
-// Packaged DSH terminal shims remain Electron/macOS/Windows-owned; this is the
-// hybrid fallback (xdg-terminal-exec / Terminal.app / wt.exe / cmd).
 func (c *CapabilitiesService) OpenTerminal(workdir string) error {
 	workdir = strings.TrimSpace(workdir)
 	if workdir == "" {
@@ -151,9 +166,7 @@ func (c *CapabilitiesService) OpenTerminal(workdir string) error {
 	return cmd.Start()
 }
 
-// CheckForUpdates performs a lightweight local probe (not electron-updater).
-// Full download/install remains Electron / future wails3 updater packaging debt.
-func (c *CapabilitiesService) CheckForUpdates() UpdateCheckResult {
+func currentPackageVersion() string {
 	hint := "dev"
 	if _, pluginDir, _, err := locateWailsLayout(); err == nil {
 		pkg := filepath.Join(pluginDir, "package.json")
@@ -163,32 +176,251 @@ func (c *CapabilitiesService) CheckForUpdates() UpdateCheckResult {
 			}
 		}
 	}
-	result := UpdateCheckResult{
-		CheckedAt:   time.Now().UTC().Format(time.RFC3339),
-		CurrentHint: hint,
-		Status:      "deferred",
-		Detail:      "Hybrid shell: update download/install still uses Electron desktop update adapters; Wails packaging will switch to wails3 updater later.",
+	return hint
+}
+
+func updateDownloadURL() (string, string, bool) {
+	switch runtime.GOOS {
+	case "darwin":
+		return desktopDownloadMac, "DSH-Desktop-update.dmg", true
+	case "windows":
+		return desktopDownloadWin, "DSH-Desktop-Setup.exe", true
+	default:
+		return "", "", false
 	}
-	c.mu.Lock()
-	c.update = result
-	c.mu.Unlock()
+}
+
+// CheckForUpdates probes the public Desktop version endpoint (same as Electron checker).
+func (c *CapabilitiesService) CheckForUpdates() UpdateCheckResult {
+	current := currentPackageVersion()
+	_, _, canDownload := updateDownloadURL()
+	result := UpdateCheckResult{
+		CheckedAt:      time.Now().UTC().Format(time.RFC3339),
+		CurrentHint:    current,
+		Status:         "error",
+		Detail:         "",
+		CanDownload:    canDownload,
+		ReleaseChannel: "stable",
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, desktopVersionEndpoint, nil)
+	if err != nil {
+		result.Detail = err.Error()
+		c.storeUpdate(result)
+		return result
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Cache-Control", "no-store")
+	req.Header.Set(desktopReleaseChannelHeader, "stable")
+	if current != "dev" {
+		req.Header.Set(desktopCurrentVersionHeader, current)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		result.Status = "network-error"
+		result.Detail = err.Error()
+		c.storeUpdate(result)
+		return result
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4*1024))
+	if err != nil {
+		result.Detail = err.Error()
+		c.storeUpdate(result)
+		return result
+	}
+	if resp.StatusCode != http.StatusOK {
+		result.Status = "http-error"
+		result.Detail = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		c.storeUpdate(result)
+		return result
+	}
+	latest := parseVersionJSON(string(body))
+	result.LatestHint = latest
+	if latest == "" {
+		result.Status = "invalid-response"
+		result.Detail = "version endpoint returned no parseable version"
+		c.storeUpdate(result)
+		return result
+	}
+	cmp := compareLooseSemVer(latest, current)
+	if current == "dev" || cmp > 0 {
+		result.Status = "update-available"
+		result.Detail = fmt.Sprintf("latest=%s current=%s; call DownloadAndInstallUpdate to fetch the installer (macOS/Windows).", latest, current)
+	} else {
+		result.Status = "up-to-date"
+		result.Detail = fmt.Sprintf("current=%s is not older than latest=%s", current, latest)
+	}
+	if !canDownload {
+		result.Detail += " Download/install is not offered on this OS (Electron/Wails package Linux installers separately)."
+	}
+	c.storeUpdate(result)
 	return result
 }
 
-// LastUpdateCheck returns the most recent CheckForUpdates result.
+// DownloadAndInstallUpdate checks for an update, downloads the installer to a
+// user-chosen path, and opens it with the OS default handler (Electron handoff).
+func (c *CapabilitiesService) DownloadAndInstallUpdate() UpdateCheckResult {
+	check := c.CheckForUpdates()
+	if check.Status != "update-available" {
+		return check
+	}
+	downloadURL, defaultName, canDownload := updateDownloadURL()
+	if !canDownload {
+		check.Status = "unsupported-platform"
+		check.Detail = "Installer download is only wired for macOS and Windows in the hybrid shell."
+		c.storeUpdate(check)
+		return check
+	}
+	version := check.LatestHint
+	if version == "" {
+		check.Status = "error"
+		check.Detail = "missing latest version"
+		c.storeUpdate(check)
+		return check
+	}
+	dest, err := c.SaveFileDialog(defaultName)
+	if err != nil {
+		check.Status = "dialog-error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	if dest == "" {
+		check.Status = "cancelled"
+		check.Detail = "user cancelled save dialog"
+		c.storeUpdate(check)
+		return check
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	if err != nil {
+		check.Status = "error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	req.Header.Set(desktopTargetVersionHeader, version)
+	req.Header.Set(desktopReleaseChannelHeader, "stable")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		check.Status = "download-error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		check.Status = "download-http-error"
+		check.Detail = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		c.storeUpdate(check)
+		return check
+	}
+	tmp := dest + ".partial"
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		check.Status = "write-error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	written, err := io.Copy(f, io.LimitReader(resp.Body, maxUpdateDownloadBytes+1))
+	closeErr := f.Close()
+	if err != nil {
+		_ = os.Remove(tmp)
+		check.Status = "write-error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmp)
+		check.Status = "write-error"
+		check.Detail = closeErr.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	if written > maxUpdateDownloadBytes {
+		_ = os.Remove(tmp)
+		check.Status = "too-large"
+		check.Detail = "installer exceeded 1GiB limit"
+		c.storeUpdate(check)
+		return check
+	}
+	if err := os.Rename(tmp, dest); err != nil {
+		_ = os.Remove(tmp)
+		check.Status = "write-error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	check.DownloadPath = dest
+	if err := openDownloadedUpdate(dest); err != nil {
+		check.Status = "downloaded-open-failed"
+		check.Detail = fmt.Sprintf("saved %s but failed to open: %v", dest, err)
+		c.storeUpdate(check)
+		return check
+	}
+	check.Status = "downloaded"
+	check.Detail = fmt.Sprintf("saved and opened installer at %s (version %s)", dest, version)
+	c.storeUpdate(check)
+	_ = c.NotifyAttention("DSH Desktop update", check.Detail)
+	return check
+}
+
+func openDownloadedUpdate(path string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", path).Start()
+	case "windows":
+		return exec.Command("cmd.exe", "/c", "start", "", path).Start()
+	default:
+		if _, err := exec.LookPath("xdg-open"); err == nil {
+			return exec.Command("xdg-open", path).Start()
+		}
+		return fmt.Errorf("no opener for %s", runtime.GOOS)
+	}
+}
+
+// LastUpdateCheck returns the most recent CheckForUpdates / Download result.
 func (c *CapabilitiesService) LastUpdateCheck() UpdateCheckResult {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.update
 }
 
-// LanHttpsStatus reports that LAN HTTPS remains Host/Electron-owned for now.
+// IngestLanHttpsAnnounceLine parses DSH_HOST_LAN_HTTPS … from Host stdout.
+func (c *CapabilitiesService) IngestLanHttpsAnnounceLine(line string) bool {
+	const prefix = "DSH_HOST_LAN_HTTPS "
+	line = strings.TrimSpace(line)
+	if !strings.HasPrefix(line, prefix) {
+		return false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lanHTTPS = strings.TrimSpace(strings.TrimPrefix(line, prefix))
+	return true
+}
+
+// LanHttpsStatus reports Host-announced LAN HTTPS state when available.
 func (c *CapabilitiesService) LanHttpsStatus() string {
-	return "lan-https=host-owned (Electron DesktopLanHttpsRuntime); Wails shell does not terminate TLS"
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.lanHTTPS == "" {
+		return "lan-https=host-owned (Electron DesktopLanHttpsRuntime); awaiting Host announce"
+	}
+	return "lan-https=" + c.lanHTTPS
+}
+
+func (c *CapabilitiesService) storeUpdate(result UpdateCheckResult) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.update = result
 }
 
 func extractJSONStringField(raw, key string) string {
-	// Tiny non-general extractor good enough for package.json "version".
 	needle := `"` + key + `"`
 	idx := strings.Index(raw, needle)
 	if idx < 0 {
@@ -209,4 +441,44 @@ func extractJSONStringField(raw, key string) string {
 		return ""
 	}
 	return rest[:end]
+}
+
+func parseVersionJSON(raw string) string {
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		// try plain string body
+		s := strings.TrimSpace(raw)
+		s = strings.Trim(s, `"`)
+		if s != "" && strings.Contains(s, ".") {
+			return strings.TrimPrefix(s, "v")
+		}
+		return ""
+	}
+	for _, key := range []string{"version", "latestVersion", "latest", "desktopVersion"} {
+		if v, ok := payload[key]; ok {
+			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+				return strings.TrimPrefix(strings.TrimSpace(s), "v")
+			}
+		}
+	}
+	return ""
+}
+
+// compareLooseSemVer returns >0 if a>b, <0 if a<b, 0 if equal/unparseable equal.
+func compareLooseSemVer(a, b string) int {
+	pa := strings.Split(strings.TrimPrefix(a, "v"), ".")
+	pb := strings.Split(strings.TrimPrefix(b, "v"), ".")
+	for i := 0; i < 3; i++ {
+		var ai, bi int
+		if i < len(pa) {
+			fmt.Sscanf(strings.Split(pa[i], "-")[0], "%d", &ai)
+		}
+		if i < len(pb) {
+			fmt.Sscanf(strings.Split(pb[i], "-")[0], "%d", &bi)
+		}
+		if ai != bi {
+			return ai - bi
+		}
+	}
+	return 0
 }

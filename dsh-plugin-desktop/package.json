@@ -135,6 +135,7 @@
     "start:wails": "node ./wails/scripts/run-wails.mjs start",
     "dev:wails": "node ./wails/scripts/run-wails.mjs dev",
     "package:wails": "node ./wails/scripts/run-wails.mjs package",
+    "smoke:wails": "node ./wails/scripts/run-wails.mjs smoke",
     "start:electron": "node lib/bin.js"
   },
   "dependencies": {

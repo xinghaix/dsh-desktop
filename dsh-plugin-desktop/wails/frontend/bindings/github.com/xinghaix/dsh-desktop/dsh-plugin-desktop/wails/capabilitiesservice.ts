@@ -4,24 +4,31 @@
 /**
  * CapabilitiesService ports Electron DesktopRuntime system surfaces that are
  * still feasible in the hybrid Wails shell: notifications, save/export dialogs,
- * reveal-in-folder, terminal launch, and a lightweight update check stub.
+ * reveal-in-folder, terminal launch, and update check/download/open.
  * @module
  */
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise } from "/wails/runtime.js";
+import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 /**
- * CheckForUpdates performs a lightweight local probe (not electron-updater).
- * Full download/install remains Electron / future wails3 updater packaging debt.
+ * CheckForUpdates probes the public Desktop version endpoint (same as Electron checker).
  */
 export function CheckForUpdates(): $CancellablePromise<$models.UpdateCheckResult> {
     return $Call.ByID(3300687414);
+}
+
+/**
+ * DownloadAndInstallUpdate checks for an update, downloads the installer to a
+ * user-chosen path, and opens it with the OS default handler (Electron handoff).
+ */
+export function DownloadAndInstallUpdate(): $CancellablePromise<$models.UpdateCheckResult> {
+    return $Call.ByID(2196464338);
 }
 
 /**
@@ -32,14 +39,21 @@ export function ExportTextFile(defaultFilename: string, contents: string): $Canc
 }
 
 /**
- * LanHttpsStatus reports that LAN HTTPS remains Host/Electron-owned for now.
+ * IngestLanHttpsAnnounceLine parses DSH_HOST_LAN_HTTPS … from Host stdout.
+ */
+export function IngestLanHttpsAnnounceLine(line: string): $CancellablePromise<boolean> {
+    return $Call.ByID(3688471678, line);
+}
+
+/**
+ * LanHttpsStatus reports Host-announced LAN HTTPS state when available.
  */
 export function LanHttpsStatus(): $CancellablePromise<string> {
     return $Call.ByID(3796462409);
 }
 
 /**
- * LastUpdateCheck returns the most recent CheckForUpdates result.
+ * LastUpdateCheck returns the most recent CheckForUpdates / Download result.
  */
 export function LastUpdateCheck(): $CancellablePromise<$models.UpdateCheckResult> {
     return $Call.ByID(3167788050);
@@ -54,8 +68,6 @@ export function NotifyAttention(title: string, body: string): $CancellablePromis
 
 /**
  * OpenTerminal launches a system terminal in a useful working directory.
- * Packaged DSH terminal shims remain Electron/macOS/Windows-owned; this is the
- * hybrid fallback (xdg-terminal-exec / Terminal.app / wt.exe / cmd).
  */
 export function OpenTerminal(workdir: string): $CancellablePromise<void> {
     return $Call.ByID(3461547347, workdir);

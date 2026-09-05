@@ -18,6 +18,7 @@ type ShellService struct {
 	hostURL string
 	sidecar *HostSidecar
 	aux     *AuxWindowService
+	bridge  *BridgeService
 }
 
 func NewShellService(sidecar *HostSidecar) *ShellService {
@@ -208,10 +209,21 @@ func (s *ShellService) StartHostSidecar(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := s.LoadHostURL(ready); err != nil {
-		return ready, err
+	navigate := ready
+	s.mu.Lock()
+	bridge := s.bridge
+	s.mu.Unlock()
+	if bridge != nil {
+		if proxied, perr := bridge.PreferProxiedHostURL(ready); perr == nil && proxied != "" {
+			navigate = proxied
+		} else if perr != nil {
+			fmt.Printf("dsh-wails-shell: auth proxy unavailable, loading Host URL directly: %v\n", perr)
+		}
 	}
-	return ready, nil
+	if err := s.LoadHostURL(navigate); err != nil {
+		return navigate, err
+	}
+	return navigate, nil
 }
 
 // StopHostSidecar stops a spawned Cordis Host process, if any.
@@ -247,6 +259,12 @@ func (s *ShellService) attachAux(aux *AuxWindowService) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.aux = aux
+}
+
+func (s *ShellService) attachBridge(bridge *BridgeService) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.bridge = bridge
 }
 
 // OpenSetupWizard opens the Wails setup wizard auxiliary window.

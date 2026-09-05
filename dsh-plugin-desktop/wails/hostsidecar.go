@@ -12,6 +12,7 @@ import (
 )
 
 const hostReadyPrefix = "DSH_HOST_READY "
+const hostRecoveryRequiredPrefix = "DSH_HOST_RECOVERY_REQUIRED "
 
 // HostSidecar optionally starts the Cordis Host (Node / Electron RunAsNode) and
 // discovers the loopback UI URL that Electron historically passed to loadURL.
@@ -30,6 +31,9 @@ type HostSidecar struct {
 	preferredProfile string
 	safeMode         bool
 	bridge           *BridgeService
+	aux              *AuxWindowService
+	caps             *CapabilitiesService
+	recoveryDetail   string
 }
 
 func NewHostSidecar() *HostSidecar {
@@ -81,6 +85,20 @@ func (h *HostSidecar) AttachBridge(bridge *BridgeService) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.bridge = bridge
+}
+
+// AttachAux lets Host recovery announcements open the Wails Recovery Assistant.
+func (h *HostSidecar) AttachAux(aux *AuxWindowService) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.aux = aux
+}
+
+// AttachCaps lets Host LAN HTTPS announce lines update CapabilitiesService.
+func (h *HostSidecar) AttachCaps(caps *CapabilitiesService) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.caps = caps
 }
 
 // Start discovers or launches the Cordis Host and returns the UI URL.
@@ -224,8 +242,24 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 					h.setURL(u)
 				}
 			}
+			if strings.HasPrefix(line, hostRecoveryRequiredPrefix) {
+				detail := strings.TrimSpace(strings.TrimPrefix(line, hostRecoveryRequiredPrefix))
+				h.mu.Lock()
+				h.recoveryDetail = detail
+				aux := h.aux
+				h.mu.Unlock()
+				if aux != nil {
+					_ = aux.OpenRecovery(detail)
+				}
+			}
 			if bridge != nil {
 				_ = bridge.IngestHostAuthHeaderLine(line)
+			}
+			h.mu.Lock()
+			caps := h.caps
+			h.mu.Unlock()
+			if caps != nil {
+				_ = caps.IngestLanHttpsAnnounceLine(line)
 			}
 		}
 	}()

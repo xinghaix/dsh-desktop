@@ -79,3 +79,10 @@ By default the shell auto-starts Cordis Host via the existing desktop start path
 
 See package.json scripts build:wails, start:wails, dev:wails, package:wails in dsh-plugin-desktop. Electron start/dev remain the fallback until wails3 package replaces electron-builder for the main path.
 
+
+## Auth / updates / LAN HTTPS (hard debt)
+
+- Auth: see AUTH.md (AuthProxy).
+- Updates: CheckForUpdates + DownloadAndInstallUpdate (macOS/Windows).
+- LAN HTTPS: Host-owned TLS; DSH_HOST_LAN_HTTPS announce (LAN-HTTPS.md).
+- Packaging: portable Go via run-wails.mjs; smoke:wails + wails-smoke.yml.

@@ -30,7 +30,10 @@ func main() {
 	notifier := notifications.New()
 	caps := NewCapabilitiesService(shell, notifier)
 	shell.attachAux(aux)
+	shell.attachBridge(bridge)
 	sidecar.AttachBridge(bridge)
+	sidecar.AttachAux(aux)
+	sidecar.AttachCaps(caps)
 
 	app := application.New(application.Options{
 		Name:        "DSH Desktop",
@@ -99,7 +102,7 @@ func main() {
 		e.Cancel()
 	})
 
-	setupApplicationMenu(app, shell, aux, caps, window)
+	setupApplicationMenu(app, shell, aux, bridge, caps, window)
 	setupSystemTray(app, shell, caps, window)
 
 	if err := app.Run(); err != nil {
@@ -107,7 +110,7 @@ func main() {
 	}
 }
 
-func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWindowService, caps *CapabilitiesService, window *application.WebviewWindow) {
+func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWindowService, bridge *BridgeService, caps *CapabilitiesService, window *application.WebviewWindow) {
 	menu := app.NewMenu()
 	if runtime.GOOS == "darwin" {
 		menu.AddRole(application.AppMenu)
@@ -192,7 +195,11 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 	})
 	toolsMenu.Add("Check for Updates…").OnClick(func(ctx *application.Context) {
 		res := caps.CheckForUpdates()
-		app.Dialog.Info().SetTitle("Updates").SetMessage(res.Status + "\n" + res.Detail + "\ncurrent=" + res.CurrentHint).Show()
+		app.Dialog.Info().SetTitle("Updates").SetMessage(res.Status + "\n" + res.Detail + "\ncurrent=" + res.CurrentHint + "\nlatest=" + res.LatestHint).Show()
+	})
+	toolsMenu.Add("Download / Install Update…").OnClick(func(ctx *application.Context) {
+		res := caps.DownloadAndInstallUpdate()
+		app.Dialog.Info().SetTitle("Update download").SetMessage(res.Status + "\n" + res.Detail).Show()
 	})
 	toolsMenu.AddSeparator()
 	toolsMenu.Add("LAN HTTPS Status").OnClick(func(ctx *application.Context) {
@@ -200,6 +207,9 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 	})
 
 	helpMenu := menu.AddSubmenu("Help")
+	helpMenu.Add("Auth / Renderer Header…").OnClick(func(ctx *application.Context) {
+		app.Dialog.Info().SetTitle("Auth bridge").SetMessage(bridge.BridgeStatus() + "\n\n" + bridge.PlatformAuthNotes()).Show()
+	})
 	helpMenu.Add("About DSH Desktop (Wails)").OnClick(func(ctx *application.Context) {
 		app.Dialog.Info().
 			SetTitle("DSH Desktop").

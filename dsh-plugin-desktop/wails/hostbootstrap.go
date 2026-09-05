@@ -81,12 +81,12 @@ func defaultHostBootstrap() (command string, urlFile string, err error) {
 	sidecarFlag := "--dsh-wails-host-sidecar"
 	if fileExists(yarnLock) && fileExists(workspacePkg) {
 		parts := []string{"yarn", "workspace", "dsh-plugin-desktop", "start", "--", sidecarFlag}
-		command = fmt.Sprintf("cd %s && %s", shellQuote(repoDir), strings.Join(parts, " "))
+		command = fmt.Sprintf("cd %s && export DSH_WAILS_HOST_SIDECAR=1; %s", shellQuote(repoDir), strings.Join(parts, " "))
 		return command, urlFile, nil
 	}
 	if fileExists(binJS) {
 		parts := []string{"node", shellQuote(binJS), sidecarFlag}
-		command = fmt.Sprintf("cd %s && %s", shellQuote(pluginDir), strings.Join(parts, " "))
+		command = fmt.Sprintf("cd %s && export DSH_WAILS_HOST_SIDECAR=1; %s", shellQuote(pluginDir), strings.Join(parts, " "))
 		return command, urlFile, nil
 	}
 	return "", "", fmt.Errorf("no default Cordis Host launcher: need %s or %s (or set DSH_HOST_COMMAND / DSH_HOST_URL)", yarnLock, binJS)
