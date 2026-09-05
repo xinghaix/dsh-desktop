@@ -10,7 +10,8 @@ This repository owns the desktop product around an unmodified DeepSeek Harness c
 
 ## Build, run, and verify
 
-- Start the desktop development workflow with `corepack yarn dev`.
+- Primary hybrid desktop path: `corepack yarn start:wails` / `dev:wails` / `smoke:wails`, plus `corepack yarn start:host` for the Node-first Cordis Host sidecar. See `docs/wails-migration.md` and `docs/wails-workspace-scripts.md`.
+- Electron `yarn start` / `yarn dev` remains the last-resort BrowserWindow/Tray shell (explicit allow; see `dsh-plugin-desktop/docs/electron-shell-fallback.md`). Do not treat it as the primary product path.
 - Build the desktop package with `corepack yarn build`.
 - Run unit tests with `corepack yarn test`.
 - Run type checking with `corepack yarn typecheck`.
@@ -18,8 +19,8 @@ This repository owns the desktop product around an unmodified DeepSeek Harness c
 - Run upstream operations through the root scripts, such as `corepack yarn upstream:build`.
 
 - `deepseek-harness/` is a pinned upstream Git submodule. Never edit files inside it from a desktop feature branch.
-- `dsh-plugin-desktop/` owns the Cordis Host and Client faces, Electron bootstrap, packaging, and release tests.
-- `dsh-plugin-desktop/wails/` owns the experimental Go 1.27 + Wails v3 native shell (hybrid Cordis Host sidecar). Do not edit `deepseek-harness/` from Wails work. See `docs/wails-migration.md`.
+- `dsh-plugin-desktop/` owns the Cordis Host and Client faces, the Wails native shell under `wails/`, Node Host bootstrap, packaging, and release tests. Electron bootstrap remains as a quarantined last-resort fallback; electron-builder is still the default product CI packaging path until the release flip.
+- `dsh-plugin-desktop/wails/` owns the primary Go 1.27 + Wails v3 native shell (hybrid Cordis Host sidecar: Node / ELECTRON_RUN_AS_NODE / LAST-RESORT Electron main). Do not edit `deepseek-harness/` from Wails work. Canonical maps: `docs/wails-migration.md`, `dsh-plugin-desktop/src/wails-shell-bridge.md`, `docs/wails-node-host-boot.md`.
 - `dsh-community-fabric/` owns the community interoperability RFC. Until schemas and a reviewed reference adapter exist, it remains a private documentation scaffold and must not declare loadable DSH or package entry points.
 - `dsh-community-market/` owns the community-market shell. Until its runtime is implemented, it remains a private documentation scaffold and must not declare loadable DSH or package entry points.
 - The outer repository and all owned packages use the root Yarn release with `nodeLinker: node-modules`.

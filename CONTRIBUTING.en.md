@@ -28,14 +28,17 @@ Plugins that follow the manifesto coexist better with other plugins and will be 
 ```sh
 git submodule update --init --recursive
 corepack yarn install --immutable
-corepack yarn check   # full headless gate: build, typecheck, tests, and smokes
-corepack yarn dev     # launch the application when a graphical session is available
+corepack yarn check        # full headless gate: build, typecheck, tests, and smokes
+corepack yarn start:wails   # primary path: Wails native shell (recommended)
+corepack yarn start:host    # Node-first Cordis Host sidecar
+corepack yarn dev:wails     # Wails development loop
+corepack yarn dev           # last-resort: Electron BrowserWindow/Tray
 ```
 
 ### Repository boundaries (please read before starting)
 
 - `deepseek-harness/` is the pinned upstream submodule. **Desktop development never edits files inside it**; upstream updates land through separate pin commits.
-- Desktop code lives in `dsh-plugin-desktop/`; `dsh-community-fabric/` owns the community-standard Draft and `dsh-community-market/` owns the market-shell design. Both community packages are currently documentation-only and not loadable; all three owned packages share the outer Yarn workspace.
+- Desktop code lives in `dsh-plugin-desktop/` (primary path: Go + Wails v3 native shell under `wails/` plus Node Host sidecar; Electron BrowserWindow/Tray is last-resort fallback — see `docs/wails-migration.md`); `dsh-community-fabric/` owns the community-standard Draft and `dsh-community-market/` owns the market-shell design. Both community packages are currently documentation-only and not loadable; all three owned packages share the outer Yarn workspace.
 - Builds, typechecks, unit tests, and smoke checks must stay headless-safe.
 
 ### Commits and pull requests
