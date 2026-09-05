@@ -29,11 +29,13 @@ func main() {
 	bridge := NewBridgeService(shell)
 	notifier := notifications.New()
 	caps := NewCapabilitiesService(shell, notifier)
+	crash := NewCrashEvidenceService()
 	shell.attachAux(aux)
 	shell.attachBridge(bridge)
 	sidecar.AttachBridge(bridge)
 	sidecar.AttachAux(aux)
 	sidecar.AttachCaps(caps)
+	caps.attachCrash(crash)
 
 	app := application.New(application.Options{
 		Name:        "DSH Desktop",
@@ -77,6 +79,16 @@ func main() {
 	aux.attach(app)
 	bridge.attach(app)
 	caps.attach(app)
+	log.Printf("dsh-wails-shell: %s", crash.BeginRun(currentPackageVersion()))
+	defer crash.MarkClean()
+	defer func() {
+		if r := recover(); r != nil {
+			if p := crash.WritePanicDump(r); p != "" {
+				log.Printf("dsh-wails-shell: panic dump written to %s", p)
+			}
+			panic(r)
+		}
+	}()
 	_ = caps.ApplyPlatformIdentity()
 	if initialURL != "/" {
 		shell.setInitialHostURL(initialURL)
@@ -194,6 +206,13 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 			app.Dialog.Error().SetTitle("Notification").SetMessage(err.Error()).Show()
 		}
 	})
+	toolsMenu.Add("Request Dock / Taskbar Attention").OnClick(func(ctx *application.Context) {
+		_ = caps.RequestUserAttention(1)
+		app.Dialog.Info().SetTitle("Attention").SetMessage(caps.DockAttentionStatus()).Show()
+	})
+	toolsMenu.Add("Clear Dock Attention").OnClick(func(ctx *application.Context) {
+		_ = caps.ClearUserAttention()
+	})
 	toolsMenu.Add("Check for Updates…").OnClick(func(ctx *application.Context) {
 		res := caps.CheckForUpdates()
 		app.Dialog.Info().SetTitle("Updates").SetMessage(res.Status + "\n" + res.Detail + "\ncurrent=" + res.CurrentHint + "\nlatest=" + res.LatestHint).Show()
@@ -211,10 +230,19 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 	helpMenu.Add("Auth / Renderer Header…").OnClick(func(ctx *application.Context) {
 		app.Dialog.Info().SetTitle("Auth bridge").SetMessage(bridge.BridgeStatus() + "\n\n" + bridge.PlatformAuthNotes()).Show()
 	})
+	helpMenu.Add("Crash Evidence Status").OnClick(func(ctx *application.Context) {
+		app.Dialog.Info().SetTitle("Crash evidence").SetMessage(caps.CrashEvidenceStatus()).Show()
+	})
+	helpMenu.Add("Platform Identity").OnClick(func(ctx *application.Context) {
+		id := caps.PlatformIdentity()
+		app.Dialog.Info().SetTitle("Platform identity").SetMessage(
+			"appId="+id.AppID+"\n"+id.AppUserModelID+"\n"+id.Dock+"\n"+id.CrashReporter+"\n"+id.PackagedUpdates+"\napplied="+id.Applied,
+		).Show()
+	})
 	helpMenu.Add("About DSH Desktop (Wails)").OnClick(func(ctx *application.Context) {
 		app.Dialog.Info().
 			SetTitle("DSH Desktop").
-			SetMessage("Native shell powered by Go + Wails v3.\nElectron BrowserWindow/Tray/Dialog surface is being replaced here;\nCordis Host remains a Node sidecar during the hybrid migration.").
+			SetMessage("Native shell powered by Go + Wails v3.\nPrimary product path: Wails + Node Cordis Host.\nElectron main.ts is LAST-RESORT when forced by ABI (see docs/wails-migration.md).").
 			Show()
 	})
 
@@ -230,6 +258,7 @@ func setupSystemTray(app *application.App, shell *ShellService, caps *Capabiliti
 		tray.SetIcon(icons.SystrayLight)
 	}
 	tray.SetTooltip("DSH Desktop")
+	caps.attachTray(tray)
 
 	trayMenu := app.NewMenu()
 	trayMenu.Add("Show DSH Desktop").OnClick(func(ctx *application.Context) {

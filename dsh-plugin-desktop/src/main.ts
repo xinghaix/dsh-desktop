@@ -546,6 +546,7 @@ async function start(): Promise<void> {
     process,
     electronLogger,
     requestQuit,
+    { evidenceDir: join(desktopUserDataDir, 'crash-evidence') },
   )
   removeShutdownRequests = installShutdownRequests(process, app, requestQuit)
 

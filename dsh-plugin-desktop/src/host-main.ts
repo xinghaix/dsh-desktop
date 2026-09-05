@@ -529,6 +529,7 @@ async function start(): Promise<void> {
     process,
     electronLogger,
     requestQuit,
+    { evidenceDir: join(desktopUserDataDir, 'crash-evidence') },
   )
   const nodeQuitSource = {
     on(_event: 'before-quit' | 'window-all-closed', _listener: (..._args: never[]) => void) { return this },

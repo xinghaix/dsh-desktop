@@ -175,3 +175,35 @@ export function beginDesktopRun(statePath: string, currentRun: DesktopRunRecord)
 function noFollowFlag(): number {
   return process.platform === 'win32' ? 0 : constants.O_NOFOLLOW
 }
+
+/** Best-effort file dump for Node Host crashes (Crashpad alternative). */
+export function writeDesktopExceptionDump(
+  evidenceDir: string,
+  error: unknown,
+  kind: string = 'uncaughtException',
+): string | undefined {
+  try {
+    mkdirSync(evidenceDir, { recursive: true, mode: PRIVATE_DIRECTORY_MODE })
+    try { chmodSync(evidenceDir, PRIVATE_DIRECTORY_MODE) } catch { /* best-effort */ }
+    const stamp = Date.now()
+    const target = join(evidenceDir, `${kind}-${stamp}.txt`)
+    const text = error instanceof Error
+      ? `${error.stack ?? error.message}`
+      : String(error)
+    const body = [
+      `kind=${kind}`,
+      `time=${new Date().toISOString()}`,
+      `pid=${String(process.pid)}`,
+      `platform=${process.platform}`,
+      `arch=${process.arch}`,
+      '',
+      text,
+      '',
+    ].join('\n')
+    writeFileSync(target, body, { encoding: 'utf8', mode: PRIVATE_FILE_MODE, flag: 'wx' })
+    try { chmodSync(target, PRIVATE_FILE_MODE) } catch { /* best-effort */ }
+    return target
+  } catch {
+    return undefined
+  }
+}

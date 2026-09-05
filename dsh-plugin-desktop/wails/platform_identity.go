@@ -9,21 +9,24 @@ const desktopAppUserModelID = "ai.deepseek.dsh.desktop"
 
 // PlatformIdentityStatus documents what the hybrid shell owns vs Electron-only.
 type PlatformIdentityStatus struct {
-	AppID            string `json:"appId"`
-	AppUserModelID   string `json:"appUserModelId"`
-	Dock             string `json:"dock"`
-	CrashReporter    string `json:"crashReporter"`
-	PackagedUpdates  string `json:"packagedUpdates"`
-	Applied          string `json:"applied"`
+	AppID           string `json:"appId"`
+	AppUserModelID  string `json:"appUserModelId"`
+	Dock            string `json:"dock"`
+	CrashReporter   string `json:"crashReporter"`
+	PackagedUpdates string `json:"packagedUpdates"`
+	Applied         string `json:"applied"`
 }
 
 func (c *CapabilitiesService) PlatformIdentity() PlatformIdentityStatus {
 	status := PlatformIdentityStatus{
-		AppID:           desktopAppUserModelID,
-		AppUserModelID:  "windows-only; applied at shell start when GOOS=windows",
-		Dock:            "macOS dock icon/badge remain limited in Wails v3 beta; MacOptions.ApplicationShouldTerminateAfterLastWindowClosed=false keeps tray lifecycle",
-		CrashReporter:   "BLOCKED: Electron crashReporter/Crashpad not available in Wails/Node Host; active-run.json + stderr logs only",
-		PackagedUpdates: "partial: CheckForUpdates/DownloadAndInstallUpdate for macOS/Windows; Linux installers deferred",
+		AppID:  desktopAppUserModelID,
+		AppUserModelID: "windows-only; applied at shell start when GOOS=windows",
+		Dock: "macOS: WebviewWindow.Flash (Dock bounce) + tray tooltip badge count; " +
+			"numeric Dock badge (app.setBadgeCount) unavailable in Wails v3 beta; " +
+			"MacOptions.ApplicationShouldTerminateAfterLastWindowClosed=false",
+		CrashReporter: "file-based crash-evidence (active-run.json + panic-*.txt); " +
+			"Electron Crashpad/minidumps permanently unavailable in Wails/Node Host",
+		PackagedUpdates: "CheckForUpdates/DownloadAndInstallUpdate for macOS, Windows, and Linux AppImage",
 		Applied:         "pending",
 	}
 	c.mu.Lock()
@@ -52,8 +55,8 @@ func applyPlatformIdentityBestEffort() string {
 		}
 		return "windows AppUserModelID=" + desktopAppUserModelID
 	case "darwin":
-		return "darwin: dock ownership deferred to Wails MacOptions; no Electron app.dock bridge"
+		return "darwin: Flash+tray tooltip attention; numeric Dock badge blocked in Wails v3 beta"
 	default:
-		return "linux: no AppUserModelID/dock; crashReporter blocked"
+		return "linux: tray tooltip attention; AppUserModelID N/A; file-based crash-evidence active"
 	}
 }
