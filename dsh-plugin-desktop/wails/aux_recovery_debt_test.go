@@ -35,3 +35,13 @@ func TestParseRecoveryRpcAnnounceLine(t *testing.T) {
 		t.Fatal("ready line must not parse as recovery rpc")
 	}
 }
+
+func TestParseDshWebReadyLine(t *testing.T) {
+	u, ok := parseDshWebReadyLine("dsh web: http://127.0.0.1:3080/?token=abc (LAN: http://192.168.1.2:3080/?token=abc)")
+	if !ok || u != "http://127.0.0.1:3080/?token=abc" {
+		t.Fatalf("unexpected dsh web URL: %q ok=%v", u, ok)
+	}
+	if _, ok := parseDshWebReadyLine("dsh web: opening the default browser; pass --no-open to disable"); ok {
+		t.Fatal("browser status line must not be treated as a Host URL")
+	}
+}

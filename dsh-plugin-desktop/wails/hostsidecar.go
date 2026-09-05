@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -12,6 +13,7 @@ import (
 )
 
 const hostReadyPrefix = "DSH_HOST_READY "
+const dshWebReadyPrefix = "dsh web: "
 const hostRecoveryRequiredPrefix = "DSH_HOST_RECOVERY_REQUIRED "
 
 // HostSidecar optionally starts the Cordis Host (Node / Electron RunAsNode) and
@@ -20,7 +22,8 @@ const hostRecoveryRequiredPrefix = "DSH_HOST_RECOVERY_REQUIRED "
 // Discovery order for Start:
 //  1. Explicit URL argument / DSH_HOST_URL
 //  2. URL file (DSH_HOST_URL_FILE) written by the host when the web server is up
-//  3. Stdout line "DSH_HOST_READY http://127.0.0.1:PORT/" from DSH_HOST_COMMAND
+//  3. Stdout line "DSH_HOST_READY http://127.0.0.1:PORT/" or
+//     "dsh web: http://127.0.0.1:PORT/?token=..." from DSH_HOST_COMMAND
 type HostSidecar struct {
 	mu               sync.Mutex
 	cmd              *exec.Cmd
@@ -177,9 +180,12 @@ func (h *HostSidecar) Start(explicitURL string) (string, error) {
 	}
 	h.cancel = cancel
 	h.running = true
+	h.url = ""
 	h.lastErr = ""
 	h.readyAnnounced = false
 	h.lastStdoutHint = ""
+	h.recoveryDetail = ""
+	h.recoveryRPC = nil
 	// Invalidate any in-flight Wait from a prior spawn before clearing exitExpected.
 	h.spawnSeq++
 	h.exitExpected = false
@@ -309,6 +315,8 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 				if u != "" {
 					h.setURL(u)
 				}
+			} else if u, ok := parseDshWebReadyLine(line); ok {
+				h.setURL(u)
 			}
 			if strings.HasPrefix(line, hostRecoveryRequiredPrefix) {
 				detail := strings.TrimSpace(strings.TrimPrefix(line, hostRecoveryRequiredPrefix))
@@ -365,6 +373,7 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 		cb := h.onUnexpectedExit
 		if h.cmd == cmd {
 			h.cmd = nil
+			h.url = ""
 		}
 		h.running = false
 		var notify error
@@ -387,6 +396,23 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 		}
 	}(spawnID)
 	return nil
+}
+
+// parseDshWebReadyLine extracts the authenticated URL printed by `dsh web`.
+func parseDshWebReadyLine(line string) (string, bool) {
+	if !strings.HasPrefix(line, dshWebReadyPrefix) {
+		return "", false
+	}
+	parts := strings.Fields(strings.TrimSpace(strings.TrimPrefix(line, dshWebReadyPrefix)))
+	if len(parts) == 0 {
+		return "", false
+	}
+	raw := parts[0]
+	parsed, err := url.Parse(raw)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return "", false
+	}
+	return raw, true
 }
 
 func (h *HostSidecar) waitForURL(ctx context.Context, urlFile string, deadline time.Duration) (string, error) {

@@ -13,6 +13,8 @@ func isolateNoUserHost(t *testing.T) string {
 	t.Setenv("HOME", home)
 	t.Setenv("DSH_BIN", "")
 	t.Setenv("DSH_HOME", "")
+	t.Setenv("DSH_PROFILE", "")
+	t.Setenv("DSH_DESKTOP_DEFAULT_PROFILE", "")
 	t.Setenv("DSH_ALLOW_PACKAGED_HOST", "")
 	t.Setenv("DSH_DESKTOP_USER_DATA", filepath.Join(home, "ud"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
@@ -142,6 +144,28 @@ func TestCommandFromHostBinJS(t *testing.T) {
 	}
 }
 
+func TestCommandFromPublishedDshUsesNoOpenAndNoWailsFlag(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js")
+	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bin, []byte("ok\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DSH_DESKTOP_DEFAULT_PROFILE", "web")
+	cmd, err := commandFromHostBin(bin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd, "--profile") || !strings.Contains(cmd, "web") || !strings.Contains(cmd, "--no-open") || !strings.Contains(cmd, "--port 0") {
+		t.Fatalf("expected published dsh command with profile, no-open, and random port, got %q", cmd)
+	}
+	if strings.Contains(cmd, hostSidecarArgument) {
+		t.Fatalf("published dsh must not receive unsupported Wails flag, got %q", cmd)
+	}
+}
+
 func TestCommandFromHostBinExecutable(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "dsh-desktop")
@@ -182,6 +206,7 @@ func TestDefaultHostBootstrapHonorsDSHBin(t *testing.T) {
 }
 
 func TestDefaultHostBootstrapPathFallback(t *testing.T) {
+	_ = isolateNoUserHost(t)
 	dir := t.TempDir()
 	shim := filepath.Join(dir, "dsh-desktop")
 	if err := os.WriteFile(shim, []byte("#!/bin/sh\n"), 0o755); err != nil {

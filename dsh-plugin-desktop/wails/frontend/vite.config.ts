@@ -8,5 +8,9 @@ export default defineConfig({
     port: Number(process.env.WAILS_VITE_PORT) || 9245,
     strictPort: true,
   },
+  build: {
+    // dist 还包含提交进仓库的 Host 回退页和 native-ui 嵌入资源，不能被 Vite 清空。
+    emptyOutDir: false,
+  },
   plugins: [wails("./bindings")],
 });

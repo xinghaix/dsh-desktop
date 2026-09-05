@@ -231,8 +231,11 @@ func commandFromHostBin(bin string) (string, error) {
 		slash := filepath.ToSlash(bin)
 		if strings.Contains(slash, "/@deepseek-ai/dsh/") {
 			profile := resolveBootstrapProfile()
-			return fmt.Sprintf("export DSH_WAILS_HOST_SIDECAR=1; node %s --profile %s %s",
-				shellQuote(bin), shellQuote(profile), hostSidecarArgument), nil
+			// dsh CLI 使用环境变量识别桌面 sidecar，不接受 Wails 专用参数；
+			// --no-open 防止 Host 另外打开系统浏览器，--port 0 让系统分配空闲端口，
+			// 最终 URL 从 stdout 获取。
+			return fmt.Sprintf("export DSH_WAILS_HOST_SIDECAR=1; node %s --profile %s --no-open --port 0",
+				shellQuote(bin), shellQuote(profile)), nil
 		}
 		return fmt.Sprintf("export DSH_WAILS_HOST_SIDECAR=1; node %s %s", shellQuote(bin), hostSidecarArgument), nil
 	default:
