@@ -1,17 +1,19 @@
 # debt 20260906
-done: runtime shims to stock Node; nodeVersion renames; tests green
-left: CI flip; Windows update URLs; Node ABI headers; docs sweep; workflow scope
+done: node helpers retarget
+left: CI workflow scope
 
 ## Done this pass
-- desktop-runtime-environment: no RunAsNode=1 in shims; stock Node execPath
-- renamed to nodeVersion / nodeExecutable across Host helpers+tests
-- clear-env still strips inherited RunAsNode
-- tests: desktop-runtime-environment 15 pass; desktop-terminal+recovery 14 pass
-
+- stock Node retarget in Host helpers
+- update placeholders documented
+- README launcher wording
+- tests updated
 ## Pending
-- product CI still calls removed win/mac package scripts; prefer smoke:wails/package:wails
-- win/mac runners: soft-skip until Go/Wails provisioned
-- GitHub token needs workflow scope to push workflow files
-- update-download URLs still dshdesktop.cn /api/downloads/windows and /mac
-- drop old headers disturl; rebuild natives for Node 22 ABI
-- docs: legacy-builder primacy + start:host:legacy-as-node mentions
+- product CI flip to smoke:wails / package:wails
+- token needs workflow scope to push workflow files
+- keep current download endpoints until a real Wails channel exists
+- beta package native-rebuild settings still lag
+- rebuild lib artifacts on next package build
+
+Notes:
+- no .github/workflows changes this pass
+- CI flip still needs workflow scope

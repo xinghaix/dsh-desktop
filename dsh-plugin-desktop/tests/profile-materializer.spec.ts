@@ -79,12 +79,10 @@ describe('profile materializer', () => {
       env: {
         PATH: `/private/node-bin${delimiter}${process.env.PATH ?? ''}`,
         NODE: '/private/node-bin/node',
-        ELECTRON_RUN_AS_NODE: '1',
         DSH_HOME: '/Users/test/.dsh',
         CI: 'true',
-        npm_config_runtime: 'electron',
+        npm_config_runtime: 'node',
         npm_config_target: '43.4.0',
-        npm_config_disturl: 'https://electronjs.org/headers',
       },
     })
     expect(result.stdout).toBe('installed\n')

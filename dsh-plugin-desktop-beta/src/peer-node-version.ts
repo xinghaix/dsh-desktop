@@ -9,5 +9,3 @@ export function resolveDesktopNodeVersion(
   throw new Error('dsh-plugin-desktop: process.versions.node unavailable')
 }
 
-/** @deprecated use resolveDesktopNodeVersion */
-export const resolveDesktopElectronVersion = resolveDesktopNodeVersion

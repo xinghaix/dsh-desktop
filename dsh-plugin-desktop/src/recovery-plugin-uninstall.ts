@@ -7,7 +7,6 @@ import { PNPM_IGNORE_MINIMUM_RELEASE_AGE } from './pnpm-policy.ts'
 
 const DEFAULT_TIMEOUT_MS = 120_000
 const DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024
-const ELECTRON_HEADERS_URL = 'https://electronjs.org/headers'
 const PACKAGE_NAME_PATTERN = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/u
 
 export interface RecoveryPluginUninstallOptions {
@@ -84,12 +83,10 @@ export function recoveryPluginEnvironment(
     .filter(value => value.length > 0)
     .join(platform === 'win32' ? ';' : ':')
   environment.NODE = options.nodeShimPath
-  environment.ELECTRON_RUN_AS_NODE = '1'
   environment.DSH_HOME = options.homeDir
   environment.CI = 'true'
-  environment.npm_config_runtime = 'electron'
+  environment.npm_config_runtime = 'node'
   environment.npm_config_target = options.nodeVersion
-  environment.npm_config_disturl = ELECTRON_HEADERS_URL
   return environment
 }
 

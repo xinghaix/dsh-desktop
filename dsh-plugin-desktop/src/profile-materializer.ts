@@ -6,13 +6,12 @@ import { delimiter, isAbsolute } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { PNPM_IGNORE_MINIMUM_RELEASE_AGE } from './pnpm-policy.ts'
 
-const ELECTRON_HEADERS_URL = 'https://electronjs.org/headers'
 const DEFAULT_TIMEOUT_MS = 120_000
 const DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024
 const TERMINATION_GRACE_MS = 3_000
 const DIAGNOSTIC_STREAM_CHARS = 8_000
 
-/** Runtime inputs resolved by the Electron bootstrap. */
+/** Runtime inputs resolved by the Host Node bootstrap. */
 export interface ProfileMaterializerOptions {
   readonly nodeExecutable: string
   readonly clearEnvironmentPath: string
@@ -175,12 +174,10 @@ export async function materializeProfile(
     ...process.env,
     PATH: path.length === 0 ? options.nodeBinDir : `${options.nodeBinDir}${delimiter}${path}`,
     NODE: options.nodeShimPath,
-    ELECTRON_RUN_AS_NODE: '1',
     DSH_HOME: options.homeDir,
     CI: 'true',
-    npm_config_runtime: 'electron',
+    npm_config_runtime: 'node',
     npm_config_target: options.nodeVersion,
-    npm_config_disturl: ELECTRON_HEADERS_URL,
   }
   const spawn = options.spawn ?? childSpawn
   const child = spawn(options.nodeExecutable, argv.slice(1), {

@@ -9,7 +9,7 @@
 ### 当前主路径（Wails + Node Host）
 
 - 原生壳：`wails/`（Go 1.27 + Wails v3）
-- Host：Node-first `host-main.ts` / `NodeDesktopRuntime`（无 app.whenReady）；launcher 自动 Node -> ELECTRON_RUN_AS_NODE -> QUARANTINED LEGACY `main.ts`（需显式允许）
+- Host：Node-first `host-main.ts` / `NodeDesktopRuntime`（无 app.whenReady）；launcher 优先 stock Node Host；QUARANTINED LEGACY `main.ts` 仅在显式允许时使用
 - Auth：AuthProxy 生产路径 + BridgeService；Aux 经 AuxWindowService（优先 native-ui）
 - 文档：`../docs/wails-migration.md`、`src/wails-shell-bridge.md`、`../docs/wails-node-host-boot.md`、`docs/legacy-shell-fallback.md`、`wails/README.md` / `wails/LOCATION.md`
 - 打包：`package:wails` / `smoke:wails` 已存在；legacy-builder 在发布切换前仍是默认产品 CI

@@ -179,12 +179,10 @@ describe('desktop pnpm execution service', () => {
       env: {
         PATH: `${bootstrap().nodeBinDir}${delimiter}${globalThis.process.env.PATH ?? ''}`,
         NODE: bootstrap().nodeShimPath,
-        ELECTRON_RUN_AS_NODE: '1',
         DSH_HOME: bootstrap().homeDir,
         CI: 'true',
-        npm_config_runtime: 'electron',
+        npm_config_runtime: 'node',
         npm_config_target: '43.4.0',
-        npm_config_disturl: 'https://electronjs.org/headers',
       },
     })
     operation.cancel()

@@ -14,7 +14,14 @@ import {
 /** Desktop platforms with a fixed installer download endpoint. */
 export type DesktopDownloadPlatform = 'darwin' | 'win32'
 
-/** Fixed download endpoints that record one user-confirmed installer download. */
+/**
+ * Fixed download endpoints that record one user-confirmed installer download.
+ *
+ * Wails debt (do not invent CDN paths): these still hit the pre-Wails
+ * dshdesktop.cn installer APIs (mac `.dmg` / windows `.exe`). Retarget only when
+ * signed Wails artifacts and a real release channel exist. See
+ * `docs/evidence/wails-electron-removal-debt-20260906.md`.
+ */
 export const DESKTOP_DOWNLOAD_URLS: Readonly<Record<DesktopDownloadPlatform, string>> = {
   darwin: 'https://www.dshdesktop.cn/api/downloads/mac',
   win32: 'https://www.dshdesktop.cn/api/downloads/windows',
@@ -36,7 +43,7 @@ export type UpdateDownloadErrorCode =
   | 'network'
   | 'response-too-large'
 
-/** Fetch-compatible request boundary supplied by the Electron adapter or a test. */
+/** Fetch-compatible request boundary supplied by the Host/Wails adapter or a test. */
 export type UpdateArtifactRequest = (url: string, init: RequestInit) => Promise<Response>
 
 /** Inputs for one user-confirmed installer download. */
@@ -49,7 +56,7 @@ export interface DownloadDesktopUpdateOptions {
   readonly channel?: DesktopReleaseChannel
   /** Absolute installer path selected by the user. */
   readonly destinationPath: string
-  /** Request implementation, normally backed by Electron `net.fetch`. */
+  /** Request implementation, normally backed by Host/`fetch`. */
   readonly request: UpdateArtifactRequest
   /** Optional cancellation signal owned by the update coordinator. */
   readonly signal?: AbortSignal

@@ -245,7 +245,7 @@ This project is licensed under the [MIT License](LICENSE).
 ## Wails v3 native shell (current primary path)
 
 - Native shell: Go 1.27 + Wails v3 in [`dsh-plugin-desktop/wails/`](dsh-plugin-desktop/wails/)
-- Host: Node-first `host-main.ts` / `NodeDesktopRuntime` (no `app.whenReady`); launcher auto Node -> ELECTRON_RUN_AS_NODE -> QUARANTINED LEGACY `main.ts` (explicit allow)
+- Host: Node-first `host-main.ts` / `NodeDesktopRuntime` (no `app.whenReady`); launcher prefers stock Node Host; QUARANTINED LEGACY `main.ts` only with explicit allow
 - Auth: AuthProxy production path + BridgeService; Aux Recovery/Setup/Profile via AuxWindowService (prefer native-ui)
 - Recommended entry: `start:wails` / `dev:wails` / `smoke:wails` / `start:host`
 - Legacy NativeWindow/Tray is archived — see [`legacy-shell-fallback.md`](dsh-plugin-desktop/docs/legacy-shell-fallback.md)

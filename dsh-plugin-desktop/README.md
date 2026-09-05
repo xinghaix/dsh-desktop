@@ -9,7 +9,7 @@ Primary desktop shell is Go 1.27 + Wails v3 under `wails/` with a Node-first Cor
 ### Current primary path (Wails + Node Host)
 
 - Native shell: `wails/` (Go 1.27 + Wails v3)
-- Host: Node-first `host-main.ts` / `NodeDesktopRuntime` (no app.whenReady); launcher auto Node -> ELECTRON_RUN_AS_NODE -> QUARANTINED LEGACY `main.ts` with explicit allow
+- Host: Node-first `host-main.ts` / `NodeDesktopRuntime` (no app.whenReady); launcher prefers stock Node Host; QUARANTINED LEGACY `main.ts` only with explicit allow
 - Auth: AuthProxy production path + BridgeService; Aux via AuxWindowService preferring native-ui
 - Docs: `../docs/wails-migration.md`, `src/wails-shell-bridge.md`, `../docs/wails-node-host-boot.md`, `docs/legacy-shell-fallback.md`, `wails/README.md` / `wails/LOCATION.md`
 - Packaging: `package:wails` / `smoke:wails` exist; legacy-builder remains default product CI until release flip
@@ -38,7 +38,7 @@ After login-shell recovery, the launcher creates the layered launch-environment 
 
 The `desktop-pnpm` Host row provides one package-manager capability against the immutable active profile: `ctx.desktopPnpm.run(argv, signal?)`. It executes the packaged pnpm entry directly with the active Profile directory as `cwd`. Every Desktop-owned pnpm operation process-locally applies exactly one `--config.minimumReleaseAge=0` at the final package-manager boundary; it never rewrites the user's pnpm configuration. Callers own the remaining command construction, Profile bundle reconciliation, receipts, validation, and user-facing progress. Desktop deliberately adds no plugin-specific retry, snapshot, or rollback to this interface; all recovery is handled by the three healthy-start checkpoints.
 
-`run()` returns live stdout and stderr streams, a `done` promise that settles after the complete process tree exits, and `cancel()`. One operation may run per generation. The service uses the ordinary DSH subprocess provider, the exact packaged JavaScript entry, shell-free argv, and child-scoped DSH home, LEGACY-backed Node, CI, and native-module ABI values. The public runtime path still does not expose `node` or `dsh`; its private helper and the `ELECTRON_RUN_AS_NODE` and npm ABI variables exist only inside package-manager subprocess trees. The launcher does not modify the system `PATH`, shell startup files, profile configuration, or `.env` documents.
+`run()` returns live stdout and stderr streams, a `done` promise that settles after the complete process tree exits, and `cancel()`. One operation may run per generation. The service uses the ordinary DSH subprocess provider, the exact packaged JavaScript entry, shell-free argv, and child-scoped DSH home, stock Node, CI, and native-module ABI values. The public runtime path still does not expose `node` or `dsh`; its private helper and the `ELECTRON_RUN_AS_NODE` and npm ABI variables exist only inside package-manager subprocess trees. The launcher does not modify the system `PATH`, shell startup files, profile configuration, or `.env` documents.
 
 Plugin authors should use the supported contract imports, lifecycle rules, and adaptation patterns in the [Desktop plugin service architecture](docs/plugin-services.md).
 

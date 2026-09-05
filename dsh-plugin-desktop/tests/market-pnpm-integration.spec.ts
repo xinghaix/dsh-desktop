@@ -220,7 +220,7 @@ describe('desktop pnpm and community market integration', () => {
           PACKAGE_NAME,
         ],
         cwd: profileDir,
-        env: { ELECTRON_RUN_AS_NODE: '1', DSH_HOME: selectedBootstrap.homeDir },
+        env: { DSH_HOME: selectedBootstrap.homeDir, npm_config_runtime: 'node' },
       })
 
       const persisted = parseYaml(await readFile(settingsPath, 'utf8')) as {

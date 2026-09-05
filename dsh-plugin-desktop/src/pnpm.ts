@@ -13,7 +13,6 @@ import { assertDesktopProfileName } from './profile-manager.ts'
 import { withDesktopPnpmPolicy } from './pnpm-policy.ts'
 
 const BIN_NAME = 'dsh-plugin-desktop'
-const ELECTRON_HEADERS_URL = 'https://electronjs.org/headers'
 const TERMINATION_GRACE_MS = 3_000
 
 /** Launcher-resolved values used by the active Desktop pnpm generation. */
@@ -127,7 +126,7 @@ function validateBootstrap(bootstrap: DesktopPnpmBootstrap): void {
     ['DSH bootstrap', bootstrap.dshBootstrapPath],
   ] as const) assertAbsolutePath(label, value)
   if (bootstrap.nodeVersion.length === 0 || bootstrap.nodeVersion.includes('\0')) {
-    throw new Error(`${BIN_NAME}: desktop pnpm Electron version must not be empty or contain NUL`)
+    throw new Error(`${BIN_NAME}: invalid nodeVersion`)
   }
 }
 
@@ -214,12 +213,10 @@ class DesktopPnpmService extends Service implements DesktopPnpm {
           ? this.bootstrap.nodeBinDir
           : `${this.bootstrap.nodeBinDir}${delimiter}${inherited}`,
         NODE: this.bootstrap.nodeShimPath,
-        ELECTRON_RUN_AS_NODE: '1',
         DSH_HOME: this.bootstrap.homeDir,
         CI: 'true',
-        npm_config_runtime: 'electron',
+        npm_config_runtime: 'node',
         npm_config_target: this.bootstrap.nodeVersion,
-        npm_config_disturl: ELECTRON_HEADERS_URL,
       },
     }
     const child = this.ctx.subprocess.spawn(spec)

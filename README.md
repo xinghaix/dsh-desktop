@@ -248,7 +248,7 @@ Discord：[加入 DSH Desktop 社区](https://discord.gg/TJeGqKRNM)
 ## Wails v3 原生壳（当前主路径）
 
 - 原生壳：Go 1.27 + Wails v3，位于 [`dsh-plugin-desktop/wails/`](dsh-plugin-desktop/wails/)
-- Host：Node-first `host-main.ts` / `NodeDesktopRuntime`（无 `app.whenReady`）；launcher 自动 Node → ELECTRON_RUN_AS_NODE → 最后手段 LEGACY `main.ts`（需显式允许）
+- Host：Node-first `host-main.ts` / `NodeDesktopRuntime`（无 `app.whenReady`）；launcher 优先 stock Node Host；QUARANTINED LEGACY `main.ts` 仅在显式允许时使用
 - Auth：AuthProxy 生产路径 + BridgeService；Aux Recovery/Setup/Profile 经 AuxWindowService（优先 native-ui）
 - 推荐入口：`start:wails` / `dev:wails` / `smoke:wails` / `start:host`
 - LEGACY NativeWindow/Tray **不是**当前主产品路径；代码仍保留，见 [`legacy-shell-fallback.md`](dsh-plugin-desktop/docs/legacy-shell-fallback.md)

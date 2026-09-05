@@ -46,7 +46,6 @@ const STATE_DIRECTORY_MODE = 0o700
 const EXECUTABLE_FILE_MODE = 0o700
 const PRIVATE_FILE_MODE = 0o600
 const WINDOWS_SHELL_COMMANDS = ['pwsh.exe', 'powershell.exe', 'cmd.exe'] as const
-const ELECTRON_HEADERS_URL = 'https://electronjs.org/headers'
 
 /** Platforms with a native terminal launch contract owned by DSH Desktop. */
 export type DesktopTerminalPlatform = 'darwin' | 'win32'
@@ -217,7 +216,7 @@ function macShim(nodeExecutable: string, binPath?: string): string {
   const entry = binPath === undefined ? '' : ` ${quoteSh(binPath)}`
   return [
     '#!/bin/sh',
-    `${RUN_AS_NODE}=1 exec ${quoteSh(nodeExecutable)}${entry} "$@"`,
+    `exec ${quoteSh(nodeExecutable)}${entry} "$@"`,
     '',
   ].join('\n')
 }
@@ -227,7 +226,6 @@ function windowsShim(): string {
   return [
     '@echo off',
     'setlocal DisableDelayedExpansion',
-    `set "${RUN_AS_NODE}=1"`,
     `"%${WINDOWS_APP_EXECUTABLE}%" %*`,
     'exit /b %errorlevel%',
     '',
@@ -240,7 +238,6 @@ function macDshShim(options: DesktopTerminalOptions): string {
     '#!/bin/sh',
     [
       `${DEFAULT_PROFILE}=${quoteSh(options.profileName)}`,
-      `${RUN_AS_NODE}=1`,
       `exec ${quoteSh(options.nodeExecutable)} --expose-internals ${quoteSh(options.dshBootstrapPath)} "$@"`,
     ].join(' '),
     '',
@@ -252,7 +249,6 @@ function windowsDshShim(): string {
   return [
     '@echo off',
     'setlocal DisableDelayedExpansion',
-    `set "${RUN_AS_NODE}=1"`,
     `"%${WINDOWS_APP_EXECUTABLE}%" --expose-internals "%${WINDOWS_DSH_BOOTSTRAP}%" %*`,
     'exit /b %errorlevel%',
     '',
@@ -264,10 +260,8 @@ function macPnpmShim(options: DesktopTerminalOptions): string {
   return [
     '#!/bin/sh',
     [
-      `${RUN_AS_NODE}=1`,
-      'npm_config_runtime=electron',
+      'npm_config_runtime=node',
       `npm_config_target=${quoteSh(options.nodeVersion)}`,
-      `npm_config_disturl=${quoteSh(ELECTRON_HEADERS_URL)}`,
       `exec ${quoteSh(options.nodeExecutable)} ${quoteSh(options.pnpmBinPath)} ${PNPM_IGNORE_MINIMUM_RELEASE_AGE} "$@"`,
     ].join(' '),
     '',
@@ -279,10 +273,8 @@ function windowsPnpmShim(): string {
   return [
     '@echo off',
     'setlocal DisableDelayedExpansion',
-    `set "${RUN_AS_NODE}=1"`,
-    'set "npm_config_runtime=electron"',
+    'set "npm_config_runtime=node"',
     `set "npm_config_target=%${WINDOWS_NODE_VERSION}%"`,
-    `set "npm_config_disturl=${ELECTRON_HEADERS_URL}"`,
     `"%${WINDOWS_APP_EXECUTABLE}%" "%${WINDOWS_PNPM_ENTRY}%" ${PNPM_IGNORE_MINIMUM_RELEASE_AGE} %*`,
     'exit /b %errorlevel%',
     '',
@@ -435,7 +427,7 @@ function prepareDesktopTerminalFiles(options: DesktopTerminalOptions): DesktopTe
     ['application executable', options.nodeExecutable],
     ['dsh bootstrap', options.dshBootstrapPath],
     ['pnpm entry', options.pnpmBinPath],
-    ['Electron version', options.nodeVersion],
+    ['Node version', options.nodeVersion],
     ['profile directory', options.profileDir],
     ['Harness home', options.homeDir],
     ['state directory', options.stateDir],
