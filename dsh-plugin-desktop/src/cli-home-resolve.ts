@@ -128,7 +128,7 @@ function friendlyMissingMessage(checked: readonly string[]): string {
     "  2. Or point the CLI bin / home override variables",
     "  3. Or enable the documented bundled opt-in flag",
     "",
-    "Note: Host is Cordis Web UI (dsh web profile family); Wails may launch a packaged Host. This rule only forces CLI entry to use the user home dsh.",
+    "Note: Host is Cordis Web UI (dsh web profile family). Wails attaches a user-installed Host only; packaged host-main is off by default. This rule forces CLI entry to use the user home dsh.",
   ]
   return lines.join("\n")
 }

@@ -7,13 +7,14 @@ import (
 	"testing"
 )
 
-
 func isolateNoUserHost(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("DSH_BIN", "")
 	t.Setenv("DSH_HOME", "")
+	t.Setenv("DSH_ALLOW_PACKAGED_HOST", "")
+	t.Setenv("DSH_DESKTOP_USER_DATA", filepath.Join(home, "ud"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
 	t.Setenv("PATH", "/usr/bin:/bin")
 	return home
@@ -21,6 +22,7 @@ func isolateNoUserHost(t *testing.T) string {
 
 func TestDefaultHostBootstrapPrefersHostMain(t *testing.T) {
 	_ = isolateNoUserHost(t)
+	t.Setenv("DSH_ALLOW_PACKAGED_HOST", "1")
 	dir := t.TempDir()
 	plugin := filepath.Join(dir, "dsh-plugin-desktop")
 	wailsDir := filepath.Join(plugin, "wails")
@@ -78,6 +80,7 @@ func TestResolveHostLauncherModeGoEnv(t *testing.T) {
 
 func TestDefaultHostBootstrapElectronAsNode(t *testing.T) {
 	_ = isolateNoUserHost(t)
+	t.Setenv("DSH_ALLOW_PACKAGED_HOST", "1")
 	dir := t.TempDir()
 	plugin := filepath.Join(dir, "dsh-plugin-desktop")
 	wailsDir := filepath.Join(plugin, "wails")
@@ -203,7 +206,6 @@ func TestDefaultHostBootstrapPathFallback(t *testing.T) {
 	}
 }
 
-
 func TestProbeHostDiscoveryFromDSHHome(t *testing.T) {
 	home := isolateNoUserHost(t)
 	dshHome := filepath.Join(home, "my-dsh-home")
@@ -229,12 +231,20 @@ func TestProbeHostDiscoveryFromDSHHome(t *testing.T) {
 	// Without packaged layout, bootstrap uses user-home Host as escape hatch.
 	empty := t.TempDir()
 	oldWD, err := os.Getwd()
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(oldWD) }()
-	if err := os.Chdir(empty); err != nil { t.Fatal(err) }
+	if err := os.Chdir(empty); err != nil {
+		t.Fatal(err)
+	}
 	cmd, _, err := defaultHostBootstrap()
-	if err != nil { t.Fatal(err) }
-	if !strings.Contains(cmd, "dsh-desktop") { t.Fatalf("cmd=%q", cmd) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd, "dsh-desktop") {
+		t.Fatalf("cmd=%q", cmd)
+	}
 }
 
 func TestProbeHostDiscoveryFromDotDshHome(t *testing.T) {
@@ -291,9 +301,9 @@ func TestProbeHostDiscoveryMissingFriendlyMessage(t *testing.T) {
 	}
 }
 
-func TestPackagedBeatsUserHome(t *testing.T) {
+func TestUserHomeBeatsPackagedByDefault(t *testing.T) {
 	home := isolateNoUserHost(t)
-	// Fake monorepo layout in cwd
+	t.Setenv("DSH_ALLOW_PACKAGED_HOST", "")
 	dir := t.TempDir()
 	plugin := filepath.Join(dir, "dsh-plugin-desktop")
 	wailsDir := filepath.Join(plugin, "wails")
@@ -307,10 +317,10 @@ func TestPackagedBeatsUserHome(t *testing.T) {
 	if err := os.MkdirAll(lib, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(lib, "host-main.js"), []byte("monorepo\n"), 0o644); err != nil {
+	monoHost := filepath.Join(lib, "host-main.js")
+	if err := os.WriteFile(monoHost, []byte("monorepo\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	// User home install
 	userLib := filepath.Join(home, "dsh", "lib")
 	if err := os.MkdirAll(userLib, 0o755); err != nil {
 		t.Fatal(err)
@@ -331,12 +341,84 @@ func TestPackagedBeatsUserHome(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	monoHost := filepath.Join(plugin, "lib", "host-main.js")
-	if !strings.Contains(cmd, monoHost) {
-		t.Fatalf("expected packaged/monorepo host, got %q", cmd)
+	if !strings.Contains(cmd, userHost) {
+		t.Fatalf("expected user home host, got %q", cmd)
 	}
-	if strings.Contains(cmd, userHost) {
-		t.Fatalf("should not prefer user home when packaged Host exists: %q", cmd)
+	if strings.Contains(cmd, monoHost) {
+		t.Fatalf("must not use packaged host by default: %q", cmd)
+	}
+}
+
+func TestPackagedOnlyWhenAllowFlag(t *testing.T) {
+	_ = isolateNoUserHost(t)
+	t.Setenv("DSH_ALLOW_PACKAGED_HOST", "1")
+	dir := t.TempDir()
+	plugin := filepath.Join(dir, "dsh-plugin-desktop")
+	wailsDir := filepath.Join(plugin, "wails")
+	if err := os.MkdirAll(wailsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(wailsDir, "hostsidecar.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lib := filepath.Join(plugin, "lib")
+	if err := os.MkdirAll(lib, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	monoHost := filepath.Join(lib, "host-main.js")
+	if err := os.WriteFile(monoHost, []byte("monorepo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(oldWD) }()
+	if err := os.Chdir(wailsDir); err != nil {
+		t.Fatal(err)
+	}
+	cmd, _, err := defaultHostBootstrap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd, monoHost) {
+		t.Fatalf("expected packaged host with allow flag, got %q", cmd)
+	}
+}
+
+func TestUserOnlyDefaultRejectsMonorepo(t *testing.T) {
+	_ = isolateNoUserHost(t)
+	t.Setenv("DSH_ALLOW_PACKAGED_HOST", "")
+	dir := t.TempDir()
+	plugin := filepath.Join(dir, "dsh-plugin-desktop")
+	wailsDir := filepath.Join(plugin, "wails")
+	if err := os.MkdirAll(wailsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(wailsDir, "hostsidecar.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lib := filepath.Join(plugin, "lib")
+	if err := os.MkdirAll(lib, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(lib, "host-main.js"), []byte("monorepo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(oldWD) }()
+	if err := os.Chdir(wailsDir); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = defaultHostBootstrap()
+	if err == nil {
+		t.Fatal("expected error when only monorepo host exists")
+	}
+	if !strings.Contains(err.Error(), "DSH_BIN") && !strings.Contains(err.Error(), "Checked paths") && !strings.Contains(err.Error(), "已检查") {
+		t.Fatalf("expected friendly miss, got %v", err)
 	}
 }
 
@@ -358,5 +440,62 @@ func TestDSHBinBeatsDSHHome(t *testing.T) {
 	rep := ProbeHostDiscovery()
 	if rep.Hit == nil || rep.Hit.Reason != "DSH_BIN" {
 		t.Fatalf("expected DSH_BIN, got %+v", rep.Hit)
+	}
+}
+
+func TestResolveActiveProfileDefaultsToWeb(t *testing.T) {
+	home := isolateNoUserHost(t)
+	t.Setenv("DSH_DESKTOP_USER_DATA", filepath.Join(home, "ud"))
+	t.Setenv("DSH_HOME", filepath.Join(home, ".dsh"))
+	if got := resolveActiveProfileName(""); got != "web" {
+		t.Fatalf("expected web, got %q", got)
+	}
+	prof := filepath.Join(home, ".dsh", "profiles", "mine")
+	if err := os.MkdirAll(prof, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := resolveActiveProfileName(""); got != "mine" {
+		t.Fatalf("expected mine, got %q", got)
+	}
+}
+
+func TestUserChosenDshHomePersisted(t *testing.T) {
+	home := isolateNoUserHost(t)
+	ud := filepath.Join(home, "ud")
+	t.Setenv("DSH_DESKTOP_USER_DATA", ud)
+	chosen := filepath.Join(home, "custom-dsh")
+	binDir := filepath.Join(chosen, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	shim := filepath.Join(binDir, "dsh-desktop")
+	if err := os.WriteFile(shim, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveUserChosenDshHome(chosen); err != nil {
+		t.Fatal(err)
+	}
+	if loadUserChosenDshHome() != chosen {
+		t.Fatalf("load=%q", loadUserChosenDshHome())
+	}
+	rep := ProbeHostDiscovery()
+	if rep.Hit == nil || !strings.Contains(rep.Hit.Path, "dsh-desktop") {
+		t.Fatalf("expected hit via chosen dir, got %+v msg=%s", rep.Hit, rep.Message)
+	}
+}
+
+func TestCommandFromHostBinPlainDshAddsProfile(t *testing.T) {
+	_ = isolateNoUserHost(t)
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "dsh")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := commandFromHostBin(bin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd, "--profile") || !strings.Contains(cmd, "web") {
+		t.Fatalf("expected --profile web, got %q", cmd)
 	}
 }

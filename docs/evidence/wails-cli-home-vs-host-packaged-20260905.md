@@ -14,18 +14,18 @@ Branch: `feat/wails-user-dsh-home`
 | Surface | Order |
 |---------|-------|
 | `dsh` via `desktop-cli` / terminal shim | `DSH_CLI_BIN` then home (`DSH_HOME` / `~/.dsh` / … `node_modules/@deepseek-ai/dsh/lib/bin.js`); never silent ASAR; opt-in `DSH_CLI_ALLOW_BUNDLED=1` |
-| Wails Host spawn | `DSH_BIN` override; then packaged/monorepo Host launcher (`host-main` / workspace); then user-home Host install as escape hatch |
+| Wails Host spawn | User install only: `DSH_BIN` → `DSH_HOME` / chosen dir → home → PATH; packaged only if `DSH_ALLOW_PACKAGED_HOST=1` |
 
 ## How to try
 
 1. Home CLI present: install `@deepseek-ai/dsh` under `~/.dsh`, run `desktop-cli --version` → home entry + stderr reason.
 2. Home CLI missing: empty HOME → friendly missing text (no silent bundled).
-3. Wails hybrid with monorepo layout: Host boots from packaged `host-main` (same Cordis Web UI family).
-4. Unit: `vitest` `cli-home-resolve` + `desktop-cli`; `go test` in `wails/` (`TestPackagedBeatsUserHome`).
+3. Wails with monorepo layout but empty home: install page (no packaged spawn unless DSH_ALLOW_PACKAGED_HOST=1).
+4. Unit: vitest cli-home-resolve + desktop-cli; go test in wails/ (user-only default tests).
 
 ## Acceptance
 
 - Concept docs describe Host as Cordis web-profile UI stack (not a separate mystery runtime).
 - CLI home-first verified by vitest.
-- Wails packaged Host path still preferred when layout exists (`TestPackagedBeatsUserHome`).
+- Wails user-only default (`TestUserHomeBeatsPackagedByDefault`, `TestUserOnlyDefaultRejectsMonorepo`); packaged opt-in (`TestPackagedOnlyWhenAllowFlag`).
 - Push only `origin/feat/wails-user-dsh-home`.

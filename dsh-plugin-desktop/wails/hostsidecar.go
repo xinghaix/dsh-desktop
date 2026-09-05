@@ -230,8 +230,12 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 	if urlFile != "" {
 		cmd.Env = append(cmd.Env, "DSH_HOST_URL_FILE="+urlFile)
 	}
-	if profile != "" {
-		cmd.Env = append(cmd.Env, "DSH_DESKTOP_DEFAULT_PROFILE="+profile)
+	if profile == "" {
+		profile = resolveBootstrapProfile()
+	}
+	cmd.Env = append(cmd.Env, "DSH_DESKTOP_DEFAULT_PROFILE="+profile)
+	if strings.TrimSpace(os.Getenv("DSH_PROFILE")) == "" {
+		cmd.Env = append(cmd.Env, "DSH_PROFILE="+profile)
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

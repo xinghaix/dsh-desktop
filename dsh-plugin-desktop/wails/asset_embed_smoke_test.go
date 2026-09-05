@@ -47,6 +47,7 @@ func TestEmbeddedShellUIAssetsServed(t *testing.T) {
 		"/shell-ui/native-ui/assets/DesktopFrame-B7VTinjh.css",
 		"/shell-ui/recovery.html",
 		"/shell-ui/status.html",
+		"/shell-ui/host-install.html",
 		"/index.html",
 	}
 	for _, p := range paths {

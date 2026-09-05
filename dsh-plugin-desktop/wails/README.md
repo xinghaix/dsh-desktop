@@ -97,4 +97,4 @@ Preferred hybrid entry (also mirrored at repo root): build:wails, start:wails, d
 
 ### User-installed Host (AppImage / system)
 
-Host = Cordis Web UI (same family as `dsh --profile web`); Wails loads it. Launch: DSH_BIN, then packaged/monorepo, then user-home escape hatch. CLI entry is home-first (see docs/wails-node-host-boot.md).
+Host = Cordis Web UI (same family as `dsh --profile web`); Wails loads a **user-installed** Host only. Packaged/monorepo host-main requires `DSH_ALLOW_PACKAGED_HOST=1`. Profile: existing or `web`. CLI entry is home-first (see docs/wails-node-host-boot.md).

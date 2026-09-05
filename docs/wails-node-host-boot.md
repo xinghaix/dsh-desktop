@@ -30,7 +30,7 @@ Wails shell: same directory family via crash_evidence.go.
 - DSH_BIN: Desktop Host JS entry or dsh-desktop executable (Wails sidecar mode).
 - PATH: dsh-desktop or dsh-plugin-desktop when monorepo layout is missing.
 - DSH_HOST_URL / DSH_HOST_COMMAND: attach or spawn an already chosen Host.
-- `dsh --profile web` is the Host/Web UI Cordis stack; Wails loads its UI. Packaged launch may use `host-main`/`dsh-desktop` for desktop plugins + sidecar announce on that same stack.
+- `dsh --profile web` is the Host/Web UI Cordis stack; Wails loads its UI from a **user install**. Packaged `host-main` is not the product default (`DSH_ALLOW_PACKAGED_HOST=1` for dev only).
 - Design note: docs/evidence/wails-user-installed-dsh-20260905.md
 
 
@@ -38,11 +38,11 @@ Wails shell: same directory family via crash_evidence.go.
 
 ## What “Host” means
 
-Host is the Cordis process that serves the Web UI — the same stack users get from `dsh --profile web` (web-capable profile). Wails is a native shell that loads that Host UI URL. Desktop may package/launch that Host (product path via `host-main` / `dsh-desktop`, including desktop plugins and sidecar announce); it is not a separate mystery runtime.
+Host is the Cordis process that serves the Web UI — the same stack users get from `dsh --profile web` (or their existing profile). Wails is a native shell that loads that Host UI URL from a **user-installed** dsh. Desktop control features should be tools/plugins on that install, not a bundled Host.
 
 ## Architecture split: home CLI vs packaged Host launch
 
-- **Wails Host launch (desktop product):** `DSH_BIN` override, then packaged/monorepo Host launcher, then user-home Host install as escape hatch when layout is missing.
+- **Wails Host launch (desktop product):** user-installed only — `DSH_BIN` → `DSH_HOME` / chosen dir → home roots → PATH. Packaged/monorepo `host-main` only with `DSH_ALLOW_PACKAGED_HOST=1` (dev). Missing → install-help page. Profile: existing user profile or `web`.
 - **`dsh` CLI (`desktop-cli` / terminal shims):** home-first — `DSH_CLI_BIN` → `DSH_HOME` / `~/.dsh`|`~/dsh`|XDG `…/@deepseek-ai/dsh/lib/bin.js`. No silent ASAR fallback. Opt-in only: `DSH_CLI_ALLOW_BUNDLED=1`.
 - Do not use the desktop-bundled CLI/runtime to impersonate the user’s home `dsh`.
 - Evidence: `docs/evidence/wails-cli-home-vs-host-packaged-20260905.md`

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Install Desktop Host / 安装 Desktop Host</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <style>
+    body { margin: 0; background: #06070f; color: #e8ecf5; font-family: Inter, system-ui, sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 28px 24px 36px; }
+    h1 { font-size: 1.45rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+    .sub { color: #9aa3b8; margin: 0 0 22px; line-height: 1.5; }
+    .card { background: #121624; border: 1px solid #2a3142; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
+    .card h2 { font-size: 1rem; margin: 0 0 10px; }
+    .card ol, .card ul { margin: 0; padding-left: 1.2rem; color: #c5cce0; line-height: 1.55; }
+    .card code { background: #0b0d16; padding: 1px 6px; border-radius: 6px; font-size: 0.9em; }
+    .paths { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; color: #a9b3c9; max-height: 220px; overflow: auto; background: #0b0d16; border-radius: 10px; padding: 12px; border: 1px solid #1e2433; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    button { background: #3b82f6; color: #fff; border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer; font-weight: 600; }
+    button.secondary { background: #1e2433; color: #e8ecf5; border: 1px solid #2a3142; }
+    button:hover { filter: brightness(1.08); }
+    .note { color: #8b93a7; font-size: 0.88rem; margin-top: 16px; line-height: 1.45; }
+    .ok { color: #86efac; } .warn { color: #fbbf24; }
+  </style>
+  <script type="module">
+    import * as wails from "/wails/runtime.js";
+    window.__dshCall = (name, ...args) => wails.Call.ByName(name, ...args);
+  </script>
+</head>
+<body>
+<main>
+  <h1>需要安装用户级 dsh Host</h1>
+  <p class="sub">Desktop Host required — install user-level <code>dsh</code> (same stack as <code>dsh --profile web</code>). Wails will not use a packaged/monorepo <code>host-main</code> by default.</p>
+  <div class="card"><h2>安装步骤 / Install steps</h2><ol>
+    <li>Install <code>@deepseek-ai/dsh</code> under <code>~/.dsh</code> or <code>~/dsh</code> (or any folder you choose).</li>
+    <li>Ensure one of: <code>bin/dsh</code>, <code>bin/dsh-desktop</code>, or <code>node_modules/@deepseek-ai/dsh/lib/bin.js</code>.</li>
+    <li>Or set <code>export DSH_HOME=/path/to/install</code> / <code>export DSH_BIN=/path/to/dsh</code>.</li>
+    <li>Restart Desktop, or click <strong>Retry discovery</strong> below.</li>
+  </ol></div>
+  <div class="card"><h2>已检查路径 / Checked paths</h2><div class="paths" id="paths">Loading…</div></div>
+  <div class="card"><h2>Profile</h2><ul>
+    <li>Uses your existing user profile when present.</li>
+    <li>Otherwise starts with the <code>web</code> profile (<code>dsh --profile web</code>).</li>
+  </ul></div>
+  <div class="actions">
+    <button id="btn-choose" type="button">Choose directory… / 选择目录…</button>
+    <button id="btn-retry" type="button">Retry discovery / 重新发现</button>
+    <button id="btn-control" type="button" class="secondary">Control UI</button>
+  </div>
+  <p class="note" id="status"></p>
+  <p class="note">Desktop features that control/connect dsh run as tools/plugins against your user install — not a bundled Host inside the app package.</p>
+</main>
+<script type="module">
+  const call = (n, ...a) => window.__dshCall(n, ...a);
+  const status = document.getElementById("status");
+  const pathsEl = document.getElementById("paths");
+  async function refresh() {
+    try {
+      const checked = await call("main.ShellService.HostDiscoverCheckedPaths");
+      pathsEl.textContent = checked || "(none)";
+      const st = await call("main.ShellService.HostDiscoverStatus");
+      status.textContent = st || "";
+      status.className = "note " + (String(st).startsWith("host-discover=ok") ? "ok" : "warn");
+    } catch (e) { pathsEl.textContent = String(e); }
+  }
+  document.getElementById("btn-choose").onclick = async () => {
+    try {
+      const path = await call("main.ShellService.ChooseUserDshHomeDirectory");
+      status.textContent = path ? ("Saved DSH_HOME=" + path) : "Cancelled";
+      await refresh();
+      if (path) {
+        try {
+          const ready = await call("main.ShellService.StartHostSidecar", "");
+          status.textContent = "Host ready: " + ready; status.className = "note ok";
+        } catch (e) { status.textContent = String(e); status.className = "note warn"; await refresh(); }
+      }
+    } catch (e) { status.textContent = String(e); }
+  };
+  document.getElementById("btn-retry").onclick = async () => {
+    status.textContent = "Starting Host sidecar…";
+    try {
+      const ready = await call("main.ShellService.StartHostSidecar", "");
+      status.textContent = "Host ready: " + ready; status.className = "note ok";
+    } catch (e) { status.textContent = String(e); status.className = "note warn"; await refresh(); }
+  };
+  document.getElementById("btn-control").onclick = () => call("main.ShellService.ShowControlUI");
+  refresh();
+</script>
+</body>
+</html>

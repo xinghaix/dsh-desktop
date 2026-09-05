@@ -219,23 +219,61 @@ func (s *ShellService) HostDiscoverStatus() string {
 	return rep.Message
 }
 
-// ShowHostDiscoverHelp opens an Info dialog with discovery status / install hints.
+// ShowHostDiscoverHelp opens the Host install-help page (or status when Host is found).
 func (s *ShellService) ShowHostDiscoverHelp() error {
-	s.mu.Lock()
-	aux := s.aux
-	s.mu.Unlock()
 	rep := ProbeHostDiscovery()
-	title := "Desktop Host discovery"
 	if rep.Hit != nil {
-		title = "Desktop Host found"
-	} else {
-		title = "Desktop Host not found"
+		s.mu.Lock()
+		aux := s.aux
+		s.mu.Unlock()
+		title := "Desktop Host found"
+		if aux != nil {
+			return aux.OpenInfoDialog(title, rep.Message)
+		}
+		s.ShowInfoDialog(title, rep.Message)
+		return nil
 	}
-	if aux != nil {
-		return aux.OpenInfoDialog(title, rep.Message)
+	return s.ShowHostInstallPage()
+}
+
+// ShowHostInstallPage loads the polished install-help page into the main window.
+func (s *ShellService) ShowHostInstallPage() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.window == nil {
+		return fmt.Errorf("main window is not attached")
 	}
-	s.ShowInfoDialog(title, rep.Message)
+	s.hostURL = ""
+	s.window.SetURL("/shell-ui/host-install.html")
+	s.window.SetTitle("DSH Desktop — Install Host")
+	s.window.Show()
+	s.window.Focus()
 	return nil
+}
+
+// ChooseUserDshHomeDirectory opens a folder picker, persists DSH_HOME, and returns the path.
+func (s *ShellService) ChooseUserDshHomeDirectory() (string, error) {
+	path, err := s.OpenDirectoryDialog()
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(path) == "" {
+		return "", nil
+	}
+	if err := saveUserChosenDshHome(path); err != nil {
+		return "", err
+	}
+	_ = os.Setenv("DSH_HOME", path)
+	return path, nil
+}
+
+// HostDiscoverCheckedPathsJSON returns checked discovery paths for the install page.
+func (s *ShellService) HostDiscoverCheckedPaths() string {
+	rep := ProbeHostDiscovery()
+	if len(rep.Checked) == 0 {
+		return "(none)"
+	}
+	return strings.Join(rep.Checked, "\n")
 }
 
 // StartHostSidecar starts/discovers the Cordis Host and navigates to its UI URL.

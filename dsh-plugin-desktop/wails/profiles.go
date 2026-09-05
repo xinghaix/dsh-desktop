@@ -99,9 +99,11 @@ func resolveActiveProfileName(preferred string) string {
 		}
 	}
 	if len(names) > 0 {
+		// Prefer an existing user profile (stable lexicographic pick when none preferred).
 		return names[0]
 	}
-	return "default"
+	// No local profiles yet: align with `dsh --profile web` (Cordis Web UI Host).
+	return "web"
 }
 
 func resolveProfileDir(profileName string) string {
