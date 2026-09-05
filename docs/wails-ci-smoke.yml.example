@@ -1,9 +1,26 @@
-# Example GitHub Actions job for Wails smoke (copy into .github/workflows/ when
-# the pushing credential has the `workflow` scope). Electron ci.yml stays default.
+# Example GitHub Actions workflow for Wails smoke.
+#
+# DO NOT commit this as a live workflow under .github/workflows until the pushing
+# credential has the GitHub workflow OAuth/PAT scope. Pushing a new workflow
+# file without that scope is rejected. Electron product CI (ci.yml / electron-builder)
+# remains the default release path.
+#
+# Enable when scope exists (from repo root on feat/wails3-shell):
+#   cp docs/wails-ci-smoke.yml.example .github/workflows/wails-smoke.yml
+#   git add .github/workflows/wails-smoke.yml
+#   git commit -m "ci(wails): add additive wails-smoke workflow"
+#   git push origin feat/wails3-shell   # xinghaix remote in this fork
+#
+# Local equivalent without workflow scope:
+#   node scripts/wails-smoke.mjs
+#   node dsh-plugin-desktop/wails/scripts/run-wails.mjs package-deps
 name: Wails smoke
 on:
   pull_request:
-    paths: ['dsh-plugin-desktop/wails/**']
+    paths:
+      - 'dsh-plugin-desktop/wails/**'
+      - 'docs/wails-ci-smoke.yml.example'
+      - 'scripts/wails-smoke.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,6 +44,8 @@ jobs:
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev || sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
       - run: go test ./...
       - run: go build -o bin/dsh-wails-shell .
-      - name: package script fallback
+      - name: package script fallback + AppImage dep probe
         working-directory: ${{ github.workspace }}/dsh-plugin-desktop
-        run: node ./wails/scripts/run-wails.mjs package
+        run: |
+          node ./wails/scripts/run-wails.mjs package
+          node ./wails/scripts/run-wails.mjs package-deps

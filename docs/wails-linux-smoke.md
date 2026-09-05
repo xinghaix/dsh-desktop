@@ -8,7 +8,7 @@ Related: `docs/wails-migration.md`, `docs/wails-workspace-scripts.md`, `dsh-plug
 ## Box prerequisites
 
 ```bash
-export PATH="/home/box/sdk/node-v22.19.0-linux-x64/bin:/home/box/sdk/go1.27.0/bin:/home/box/go/bin:$PATH"
+export PATH="/home/box/sdk/node-v22.19.0-linux-x64/bin:/home/box/bin:/home/box/sdk/go1.27.0/bin:/home/box/go/bin:$PATH"
 export GOPATH=/home/box/go
 export DISPLAY=:8   # or current X display
 # Host sidecar is spawned via `bash -lc`, so login PATH must resolve Node >= 22
@@ -18,8 +18,8 @@ eval "$(dbus-launch --sh-syntax)"
 pgrep -x dunst >/dev/null || dunst &
 ```
 
-Minimal packages useful here: `scrot` (screenshots), `libnotify-bin`, `dunst`, `dbus-x11`.
-Tray needs a `StatusNotifierWatcher` (often missing on this desktop — expect systray register errors until a watcher is installed).
+Minimal packages: `scrot`, `libnotify-bin`, `dunst`, `dbus-x11`, `haskell-gtk-sni-tray-utils`, `ayatana-indicator-application`, `libayatana-appindicator3-1`.
+Tray: start `gtk-sni-tray-standalone -w` on the same session bus (or `source scripts/linux-smoke-env.sh`). Apt install succeeded on this bed.
 
 ## Build / unit smoke
 
@@ -51,8 +51,9 @@ Run with screenshots under `/workspace/artifacts/` or `docs/evidence/`.
 | 10 | Export | **Export...** | Export flow starts or errors cleanly |
 | 11 | Updates path | **Updates** | Linux AppImage update check path (network may fail) |
 | 12 | Crash evidence | Kill -9 shell mid-run; relaunch | `crash-evidence` unclean-exit marker logged |
-| 13 | Hide to tray | **Hide to tray** | *Partial* until StatusNotifierWatcher present |
-| 14 | AuthProxy / LAN HTTPS | Host announce lines | Auth header + `DSH_HOST_LAN_HTTPS` state lines |
+| 13 | Hide to tray | **Hide to tray** | Works with gtk-sni-tray-standalone -w on same session bus (*Partial* without StatusNotifierWatcher) |
+| 14 | AuthProxy / LAN HTTPS | Host announce; Tools LAN HTTPS Status; Help Capabilities Status | Auth header + `DSH_HOST_LAN_HTTPS`; status lan-https=announced |
+| 15 | Sleep/wake | login1 PrepareForSleep | **N/A** (no system D-Bus on this bed) |
 
 ### Screenshot commands
 
@@ -79,12 +80,12 @@ Skip or mark N/A here; verify on macOS:
 - a11y bus missing → set `GTK_A11Y=none` to silence GTK warnings if desired
 - Host spawn uses `bash -lc` → **system Node 20 breaks** Host (`findPackageJSON`); keep Node 22 on login PATH (`~/bin/node`)
 - Full Host UI may show web authentication gate without credentials (shell+sidecar still valid smoke)
-- `wails3 package` AppImage host deps may be incomplete; `go build` binary is the smoke artifact
+- `wails3 package` AppImage host deps may be incomplete; `go build` binary is the smoke artifact (see docs/wails-package-appimage.md; probe via package-deps:wails)
 
 ## Quick re-run script
 
 ```bash
-export PATH="/home/box/sdk/node-v22.19.0-linux-x64/bin:/home/box/sdk/go1.27.0/bin:/home/box/go/bin:$PATH"
+export PATH="/home/box/sdk/node-v22.19.0-linux-x64/bin:/home/box/bin:/home/box/sdk/go1.27.0/bin:/home/box/go/bin:$PATH"
 export GOPATH=/home/box/go DISPLAY=:8
 cd /workspace/repos/dsh-desktop
 yarn smoke:wails

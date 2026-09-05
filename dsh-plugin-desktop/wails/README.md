@@ -80,12 +80,13 @@ By default the shell auto-starts Cordis Host via the existing desktop start path
 Preferred hybrid entry (also mirrored at repo root): build:wails, start:wails, dev:wails, package:wails, smoke:wails, start:host. Electron start/dev remain last-resort BrowserWindow/Tray fallback; electron-builder stays default product CI until the release flip.
 
 
-## Auth / updates / LAN HTTPS (hard debt)
+## Auth / updates / LAN HTTPS
 
 - Auth: see AUTH.md (AuthProxy).
-- Updates: CheckForUpdates + DownloadAndInstallUpdate (macOS/Windows).
-- LAN HTTPS: Host-owned TLS; DSH_HOST_LAN_HTTPS announce (LAN-HTTPS.md).
-- Packaging: portable Go via run-wails.mjs; smoke:wails + wails-smoke.yml.
+- Updates: CheckForUpdates + DownloadAndInstallUpdate (macOS/Windows/Linux AppImage URL).
+- LAN HTTPS: Host-owned TLS; DSH_HOST_LAN_HTTPS announce (LAN-HTTPS.md); Help -> Capabilities Status.
+- Packaging: package:wails / package-deps:wails; docs/wails-package-appimage.md; CI example docs/wails-ci-smoke.yml.example.
+- Recovery controller debt: docs/wails-migration.md (aux UI only; checkpoint/uninstall still Electron controller).
 
 ## Crash evidence / dock / updates
 

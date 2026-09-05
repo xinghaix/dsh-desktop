@@ -16,20 +16,65 @@ Shell: dsh-plugin-desktop/wails/
 - Host sidecar auto-start (Node / Electron-as-Node / LAST-RESORT Electron main)
 - AuthProxy production path (loopback hardened)
 - Aux Recovery/Setup/Profile; prefers lib/native-ui + scheme bridge
-- Notifications, export, reveal, terminal, updates (mac/win/linux AppImage)
+- Notifications, export, reveal, terminal, updates (mac/win/linux AppImage download URL)
 - File-based crash evidence (active-run + panic/exception dumps)
 - Dock/taskbar attention via Flash + tray tooltip count
 - Windows AppUserModelID; Node AES-GCM LAN HTTPS protector
+- Host DSH_HOST_LAN_HTTPS announce -> Capabilities LAN HTTPS / Capabilities Status
 - Root/workspace wails scripts; scripts/wails-smoke.mjs; docs/wails-ci-smoke.yml.example (workflow push needs workflow scope)
+- package:wails Go-binary fallback + AppImage dependency probe (package-deps)
 
 ## Permanently platform-blocked
 
 - Native webview per-request header hooks (AuthProxy workaround)
 - Electron Crashpad/minidumps (file-based substitute only)
 - macOS numeric Dock badge / setBadgeCount (Flash + tooltip only)
-- Full Electron Recovery checkpoint uninstall UX without Host controller state
 - Interactive GUI on truly headless Linux (this cloud box has DISPLAY — see docs/wails-linux-smoke.md)
 - wails3 package AppImage host deps may be missing (go binary fallback OK)
-- electron-builder remains default product CI until release flip
+
+## Release notes — packaging path (electron-builder vs Wails)
+
+**Shipping / product CI today:** electron-builder remains the **authoritative** desktop
+release path (GitHub Actions product workflows, app.asar / platform installers).
+Do not announce Wails AppImage/deb as the primary download channel until an explicit
+release flip lands.
+
+**Primary developer / hybrid run path today:** Wails + Node Cordis Host
+(start:wails / smoke:wails). Electron BrowserWindow / Tray / main.ts is
+last-resort Host GUI only.
+
+**Parallel packaging:** package:wails exercises wails3 package when the host has
+tooling; otherwise it writes bin/dsh-wails-shell. Linux AppImage dependency details:
+docs/wails-package-appimage.md. CI smoke job stays example-only until workflow scope
+allows committing the live wails-smoke workflow file.
+
+When writing release notes for a Wails-hybrid milestone:
+
+1. Call out hybrid run path first (Wails shell + Node Host).
+2. State clearly that **installers users download are still electron-builder** until flip.
+3. Mention AppImage/package:wails as preview/packaging R&D, not the default channel.
+4. Link docs/wails-migration.md and dsh-plugin-desktop/docs/electron-shell-fallback.md.
+
+## Recovery controller debt
+
+Wails aux Recovery is **not** a full port of Electron
+DesktopStartupRecoveryController (src/startup-recovery-controller.ts +
+src/startup-recovery-window.ts).
+
+| Surface | Wails hybrid today | Still Electron / Host debt |
+| --- | --- | --- |
+| Open Recovery window | AuxWindowService.OpenRecovery + native-ui /aux HTML | — |
+| Host ask for Recovery | DSH_HOST_RECOVERY_REQUIRED opens aux | — |
+| Restart / safe-mode / quit / profiles / control | CompleteRecovery shell actions | No generation quiesce contract |
+| Checkpoint list / restore preview / confirm | Not wired | Controller preview TTL + restore slots |
+| Plugin uninstall preview / confirm | Not wired | Controller uninstall preview + immutable-target rules |
+| Pre-Host generation authority | Absent in Go shell | DesktopStartupRecoveryController binds one generation id |
+| Destructive confirm dialogs | Status dialogs only | Electron DesktopDialogWindow confirm path |
+
+**Operator expectation:** Recovery Assistant in Wails can surface failure text and
+relaunch/switch-profile affordances. Checkpoint rollback and plugin uninstall from
+Recovery remain Electron-main / controller debt until a Host-facing recovery API
+owns that state for the sidecar. Do not claim parity with Electron Recovery tabs for
+uninstall/checkpoint in release notes.
 
 Canonical surface map: dsh-plugin-desktop/src/wails-shell-bridge.md
