@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Set up DSH Desktop</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <style>
+    .grid { display: grid; gap: 12px; margin: 16px 0; }
+    .card { padding: 12px 14px; border: 1px solid #2a3142; border-radius: 10px; background: #121624; }
+    .card label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+    .hint { color: #9aa3b5; font-size: 0.9rem; margin-top: 4px; }
+  </style>
+  <script type="module">
+    import * as wails from "/wails/runtime.js";
+    window.__dshCall = (name, ...args) => wails.Call.ByName(name, ...args);
+  </script>
+</head>
+<body>
+<main class="panel">
+  <h1>Set up DSH Desktop</h1>
+  <p class="lead">Wails shell setup wizard (hybrid). Full Electron native-ui React wizard remains available in Electron fallback; this window covers shell-owned first-run choices.</p>
+  <div class="grid">
+    <div class="card"><label><input type="radio" name="mode" value="compatibility" checked/><span><strong>Compatibility</strong><div class="hint">Stable defaults for most users.</div></span></label></div>
+    <div class="card"><label><input type="radio" name="mode" value="extended"/><span><strong>Extended</strong><div class="hint">Extra desktop capabilities enabled.</div></span></label></div>
+    <div class="card"><label><input type="radio" name="mode" value="advanced"/><span><strong>Advanced</strong><div class="hint">Power-user networking and market options.</div></span></label></div>
+  </div>
+  <div class="actions">
+    <button id="btn-continue" type="button">Continue</button>
+    <button id="btn-quit" type="button" class="danger">Quit</button>
+  </div>
+  <pre id="log" class="log"></pre>
+</main>
+<script type="module">
+  const log = (m) => { const el = document.getElementById("log"); el.textContent = m + "\n" + el.textContent; };
+  document.getElementById("btn-continue").onclick = async () => {
+    try {
+      await window.__dshCall("main.AuxWindowService.CompleteSetup", "continue");
+      log("Continuing to Cordis Host…");
+    } catch (e) { log(String(e)); }
+  };
+  document.getElementById("btn-quit").onclick = async () => {
+    try { await window.__dshCall("main.AuxWindowService.CompleteSetup", "quit"); }
+    catch (e) { log(String(e)); }
+  };
+</script>
+</body>
+</html>

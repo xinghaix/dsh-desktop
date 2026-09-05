@@ -24,12 +24,15 @@ func main() {
 
 	sidecar := NewHostSidecar()
 	shell := NewShellService(sidecar)
+	aux := NewAuxWindowService(shell)
+	shell.attachAux(aux)
 
 	app := application.New(application.Options{
 		Name:        "DSH Desktop",
 		Description: "DSH Desktop native shell (Wails v3)",
 		Services: []application.Service{
 			application.NewService(shell),
+			application.NewService(aux),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -60,6 +63,7 @@ func main() {
 		},
 	})
 	shell.attach(app, window)
+	aux.attach(app)
 	if initialURL != "/" {
 		shell.setInitialHostURL(initialURL)
 	} else if !*noHost {
@@ -67,10 +71,12 @@ func main() {
 			ready, err := shell.StartHostSidecar("")
 			if err != nil {
 				log.Printf("dsh-wails-shell: host sidecar: %v", err)
-				app.Dialog.Error().
-					SetTitle("Cordis Host failed").
-					SetMessage(err.Error()).
-					Show()
+				if openErr := aux.OpenRecovery(err.Error()); openErr != nil {
+					app.Dialog.Error().
+						SetTitle("Cordis Host failed").
+						SetMessage(err.Error()).
+						Show()
+				}
 				return
 			}
 			log.Printf("dsh-wails-shell: loaded Cordis Host UI %s", ready)
@@ -83,7 +89,7 @@ func main() {
 		e.Cancel()
 	})
 
-	setupApplicationMenu(app, shell, window)
+	setupApplicationMenu(app, shell, aux, window)
 	setupSystemTray(app, shell, window)
 
 	if err := app.Run(); err != nil {
@@ -91,7 +97,7 @@ func main() {
 	}
 }
 
-func setupApplicationMenu(app *application.App, shell *ShellService, window *application.WebviewWindow) {
+func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWindowService, window *application.WebviewWindow) {
 	menu := app.NewMenu()
 	if runtime.GOOS == "darwin" {
 		menu.AddRole(application.AppMenu)
@@ -108,6 +114,22 @@ func setupApplicationMenu(app *application.App, shell *ShellService, window *app
 			return
 		}
 		app.Dialog.Info().SetTitle("Selected Directory").SetMessage(path).Show()
+	})
+	fileMenu.AddSeparator()
+	fileMenu.Add("Setup Wizard…").OnClick(func(ctx *application.Context) {
+		if err := aux.OpenSetupWizard(); err != nil {
+			app.Dialog.Error().SetTitle("Setup Wizard").SetMessage(err.Error()).Show()
+		}
+	})
+	fileMenu.Add("Switch Profile…").OnClick(func(ctx *application.Context) {
+		if err := aux.OpenProfileSelector(); err != nil {
+			app.Dialog.Error().SetTitle("Profiles").SetMessage(err.Error()).Show()
+		}
+	})
+	fileMenu.Add("Recovery Assistant…").OnClick(func(ctx *application.Context) {
+		if err := aux.OpenRecovery(""); err != nil {
+			app.Dialog.Error().SetTitle("Recovery").SetMessage(err.Error()).Show()
+		}
 	})
 	fileMenu.AddSeparator()
 	fileMenu.Add("Quit DSH Desktop").OnClick(func(ctx *application.Context) {

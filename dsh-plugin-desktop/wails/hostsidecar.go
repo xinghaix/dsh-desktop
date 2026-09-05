@@ -21,12 +21,14 @@ const hostReadyPrefix = "DSH_HOST_READY "
 //  2. URL file (DSH_HOST_URL_FILE) written by the host when the web server is up
 //  3. Stdout line "DSH_HOST_READY http://127.0.0.1:PORT/" from DSH_HOST_COMMAND
 type HostSidecar struct {
-	mu      sync.Mutex
-	cmd     *exec.Cmd
-	cancel  context.CancelFunc
-	url     string
-	running bool
-	lastErr string
+	mu               sync.Mutex
+	cmd              *exec.Cmd
+	cancel           context.CancelFunc
+	url              string
+	running          bool
+	lastErr          string
+	preferredProfile string
+	safeMode         bool
 }
 
 func NewHostSidecar() *HostSidecar {
@@ -57,6 +59,20 @@ func (h *HostSidecar) CurrentURL() string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return h.url
+}
+
+// SetPreferredProfile asks the next Host spawn to prefer this profile name.
+func (h *HostSidecar) SetPreferredProfile(name string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.preferredProfile = strings.TrimSpace(name)
+}
+
+// SetSafeMode asks the next Host spawn to enter disposable Safe Mode.
+func (h *HostSidecar) SetSafeMode(enabled bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.safeMode = enabled
 }
 
 // Start discovers or launches the Cordis Host and returns the UI URL.
@@ -158,11 +174,22 @@ func (h *HostSidecar) Stop() error {
 
 func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error {
 	cmd := exec.CommandContext(ctx, "bash", "-lc", command)
+	h.mu.Lock()
+	profile := h.preferredProfile
+	safe := h.safeMode
+	h.safeMode = false // one-shot
+	h.mu.Unlock()
 	cmd.Env = append(os.Environ(),
 		"DSH_WAILS_HOST_SIDECAR=1",
 	)
 	if urlFile != "" {
 		cmd.Env = append(cmd.Env, "DSH_HOST_URL_FILE="+urlFile)
+	}
+	if profile != "" {
+		cmd.Env = append(cmd.Env, "DSH_DESKTOP_DEFAULT_PROFILE="+profile)
+	}
+	if safe {
+		cmd.Env = append(cmd.Env, "DSH_DESKTOP_SAFE_MODE=1")
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

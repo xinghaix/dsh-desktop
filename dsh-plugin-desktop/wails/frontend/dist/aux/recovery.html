@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DSH Desktop Recovery</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <style>
+    .fail { padding: 12px; border-radius: 8px; background: #3f1d1d; border: 1px solid #7f1d1d; color: #fecaca; white-space: pre-wrap; }
+  </style>
+  <script type="module">
+    import * as wails from "/wails/runtime.js";
+    window.__dshCall = (name, ...args) => wails.Call.ByName(name, ...args);
+  </script>
+</head>
+<body>
+<main class="panel">
+  <h1>Recovery Assistant</h1>
+  <p class="lead">Startup recovery for the Wails shell. Electron still owns the full Recovery Assistant HTML UI with checkpoint uninstall; this window covers Host relaunch, Safe Mode hint, profiles, and control UI.</p>
+  <p id="detail" class="fail">Loading…</p>
+  <div class="actions">
+    <button id="btn-restart" type="button">Restart Host</button>
+    <button id="btn-safe" type="button" class="secondary">Safe Mode Restart</button>
+    <button id="btn-profiles" type="button" class="secondary">Profiles…</button>
+    <button id="btn-control" type="button" class="secondary">Control UI</button>
+    <button id="btn-quit" type="button" class="danger">Quit</button>
+  </div>
+  <pre id="log" class="log"></pre>
+</main>
+<script type="module">
+  const log = (m) => { const el = document.getElementById("log"); el.textContent = m + "\n" + el.textContent; };
+  async function load() {
+    try {
+      const detail = await window.__dshCall("main.AuxWindowService.RecoveryDetail");
+      document.getElementById("detail").textContent = detail || "(no detail)";
+    } catch (e) {
+      document.getElementById("detail").textContent = String(e);
+    }
+  }
+  const go = (action) => async () => {
+    try { await window.__dshCall("main.AuxWindowService.CompleteRecovery", action); log(action); }
+    catch (e) { log(String(e)); }
+  };
+  document.getElementById("btn-restart").onclick = go("restart");
+  document.getElementById("btn-safe").onclick = go("safe-mode");
+  document.getElementById("btn-profiles").onclick = go("profiles");
+  document.getElementById("btn-control").onclick = go("control");
+  document.getElementById("btn-quit").onclick = go("quit");
+  load();
+</script>
+</body>
+</html>

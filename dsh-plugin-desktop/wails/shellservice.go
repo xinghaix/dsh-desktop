@@ -17,6 +17,7 @@ type ShellService struct {
 	window  *application.WebviewWindow
 	hostURL string
 	sidecar *HostSidecar
+	aux     *AuxWindowService
 }
 
 func NewShellService(sidecar *HostSidecar) *ShellService {
@@ -205,3 +206,59 @@ func (s *ShellService) StopHostSidecar() error {
 	return sidecar.Stop()
 }
 
+
+// Preferred profile / safe-mode hints for Host sidecar relaunches (hybrid).
+func (s *ShellService) setPreferredProfile(name string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.sidecar != nil {
+		s.sidecar.SetPreferredProfile(name)
+	}
+}
+
+func (s *ShellService) setSafeMode(enabled bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.sidecar != nil {
+		s.sidecar.SetSafeMode(enabled)
+	}
+}
+
+func (s *ShellService) attachAux(aux *AuxWindowService) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.aux = aux
+}
+
+// OpenSetupWizard opens the Wails setup wizard auxiliary window.
+func (s *ShellService) OpenSetupWizard() error {
+	s.mu.Lock()
+	aux := s.aux
+	s.mu.Unlock()
+	if aux == nil {
+		return fmt.Errorf("aux windows not attached")
+	}
+	return aux.OpenSetupWizard()
+}
+
+// OpenProfileSelector opens the Wails profile selection auxiliary window.
+func (s *ShellService) OpenProfileSelector() error {
+	s.mu.Lock()
+	aux := s.aux
+	s.mu.Unlock()
+	if aux == nil {
+		return fmt.Errorf("aux windows not attached")
+	}
+	return aux.OpenProfileSelector()
+}
+
+// OpenRecovery opens the Wails startup recovery auxiliary window.
+func (s *ShellService) OpenRecovery(detail string) error {
+	s.mu.Lock()
+	aux := s.aux
+	s.mu.Unlock()
+	if aux == nil {
+		return fmt.Errorf("aux windows not attached")
+	}
+	return aux.OpenRecovery(detail)
+}

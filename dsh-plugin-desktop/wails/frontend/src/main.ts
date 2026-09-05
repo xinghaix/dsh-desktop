@@ -52,6 +52,34 @@ document.getElementById("btn-control")!.addEventListener("click", async () => {
     await refreshStatus();
 });
 
+
+document.getElementById("btn-setup")?.addEventListener("click", async () => {
+    try {
+        await ShellService.OpenSetupWizard();
+        log("Opened setup wizard");
+    } catch (err) {
+        log(`OpenSetupWizard failed: ${String(err)}`);
+    }
+});
+
+document.getElementById("btn-profiles")?.addEventListener("click", async () => {
+    try {
+        await ShellService.OpenProfileSelector();
+        log("Opened profile selector");
+    } catch (err) {
+        log(`OpenProfileSelector failed: ${String(err)}`);
+    }
+});
+
+document.getElementById("btn-recovery")?.addEventListener("click", async () => {
+    try {
+        await ShellService.OpenRecovery("");
+        log("Opened recovery");
+    } catch (err) {
+        log(`OpenRecovery failed: ${String(err)}`);
+    }
+});
+
 document.getElementById("btn-dir")!.addEventListener("click", async () => {
     try {
         const path = await ShellService.OpenDirectoryDialog();

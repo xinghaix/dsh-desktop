@@ -10,7 +10,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise } from "/wails/runtime.js";
 
 /**
  * CurrentURL returns the URL currently scheduled for the main window.
@@ -46,6 +46,27 @@ export function LoadHostURL(url: string): $CancellablePromise<void> {
  */
 export function OpenDirectoryDialog(): $CancellablePromise<string> {
     return $Call.ByID(338629742);
+}
+
+/**
+ * OpenProfileSelector opens the Wails profile selection auxiliary window.
+ */
+export function OpenProfileSelector(): $CancellablePromise<void> {
+    return $Call.ByID(3079507533);
+}
+
+/**
+ * OpenRecovery opens the Wails startup recovery auxiliary window.
+ */
+export function OpenRecovery(detail: string): $CancellablePromise<void> {
+    return $Call.ByID(1587964428, detail);
+}
+
+/**
+ * OpenSetupWizard opens the Wails setup wizard auxiliary window.
+ */
+export function OpenSetupWizard(): $CancellablePromise<void> {
+    return $Call.ByID(4069984159);
 }
 
 /**

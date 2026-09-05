@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Create Profile</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <script type="module">
+    import * as wails from "/wails/runtime.js";
+    window.__dshCall = (name, ...args) => wails.Call.ByName(name, ...args);
+  </script>
+</head>
+<body>
+<main class="panel">
+  <h1>Create Profile</h1>
+  <p class="lead">Choose a profile name. The Wails shell passes it as <code>DSH_DESKTOP_DEFAULT_PROFILE</code> on the next Host sidecar launch; Host materializes the profile.</p>
+  <label class="field"><span>Profile name</span>
+    <input id="name" type="text" maxlength="64" placeholder="work" autocomplete="off"/>
+  </label>
+  <div class="actions">
+    <button id="btn-create" type="button">Create &amp; Start</button>
+    <button id="btn-cancel" type="button" class="secondary">Cancel</button>
+  </div>
+  <pre id="log" class="log"></pre>
+</main>
+<script type="module">
+  const log = (m) => { const el = document.getElementById("log"); el.textContent = m + "\n" + el.textContent; };
+  document.getElementById("btn-create").onclick = async () => {
+    const name = document.getElementById("name").value.trim();
+    if (!name) { log("Enter a profile name"); return; }
+    try {
+      await window.__dshCall("main.AuxWindowService.CompleteProfileCreate", "create", name);
+      log("Creating " + name);
+    } catch (e) { log(String(e)); }
+  };
+  document.getElementById("btn-cancel").onclick = async () => {
+    try { await window.__dshCall("main.AuxWindowService.CompleteProfileCreate", "cancel", ""); }
+    catch (e) { log(String(e)); }
+  };
+</script>
+</body>
+</html>
