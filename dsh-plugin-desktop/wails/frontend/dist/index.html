@@ -22,6 +22,7 @@
     <div class="actions">
         <button id="btn-load" type="button">Load Host URL</button>
         <button id="btn-sidecar" type="button">Start Host sidecar</button>
+        <button id="btn-host-discover" type="button" class="secondary">Host discovery…</button>
         <button id="btn-control" type="button" class="secondary">Control UI</button>
         <button id="btn-setup" type="button" class="secondary">Setup Wizard…</button>
         <button id="btn-profiles" type="button" class="secondary">Profiles…</button>
@@ -57,7 +58,16 @@
   document.getElementById("btn-updates")?.addEventListener("click", () => call("main.CapabilitiesService.CheckForUpdates").then((r) => log(JSON.stringify(r))).catch((e) => log(String(e))));
   document.getElementById("btn-lan")?.addEventListener("click", () => call("main.CapabilitiesService.LanHttpsStatus").then((s) => log(s)).catch((e) => log(String(e))));
   document.getElementById("btn-crash")?.addEventListener("click", () => call("main.CapabilitiesService.CrashEvidenceStatus").then((s) => log(s)).catch((e) => log(String(e))));
+  document.getElementById("btn-host-discover")?.addEventListener("click", () => call("main.ShellService.ShowHostDiscoverHelp").then(() => log("Opened Host discovery help")).catch((e) => log(String(e))));
+  call("main.ShellService.HostDiscoverStatus").then((s) => { if (s) log("Host discovery: " + s); }).catch(() => {});
   document.getElementById("btn-caps")?.addEventListener("click", () => call("main.CapabilitiesService.CapabilitiesStatus").then((s) => log(s)).catch((e) => log(String(e))));
+
+  document.getElementById("btn-sidecar")?.addEventListener("click", async () => {
+    try {
+      const st = await call("main.ShellService.HostDiscoverStatus");
+      if (st) log("Host discovery: " + st);
+    } catch (e) { log(String(e)); }
+  }, true);
 </script>
 </body>
 </html>

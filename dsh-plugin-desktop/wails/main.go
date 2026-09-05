@@ -96,14 +96,23 @@ func main() {
 		shell.setInitialHostURL(initialURL)
 	} else if !*noHost {
 		go func() {
+			rep := ProbeHostDiscovery()
+			if rep.Hit != nil {
+				log.Printf("dsh-wails-shell: host discover: %s", rep.Message)
+			} else {
+				log.Printf("dsh-wails-shell: host discover: no user install yet; will try monorepo fallback\n%s", rep.Message)
+			}
 			ready, err := shell.StartHostSidecar("")
 			if err != nil {
 				log.Printf("dsh-wails-shell: host sidecar: %v", err)
-				if openErr := aux.OpenRecovery(err.Error()); openErr != nil {
-					app.Dialog.Error().
-						SetTitle("Cordis Host failed").
-						SetMessage(err.Error()).
-						Show()
+				msg := err.Error()
+				if openErr := aux.OpenInfoDialog("Desktop Host not found", msg); openErr != nil {
+					if recErr := aux.OpenRecovery(msg); recErr != nil {
+						app.Dialog.Error().
+							SetTitle("Cordis Host failed").
+							SetMessage(msg).
+							Show()
+					}
 				}
 				return
 			}

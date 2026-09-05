@@ -97,4 +97,4 @@ Preferred hybrid entry (also mirrored at repo root): build:wails, start:wails, d
 
 ### User-installed Host (AppImage / system)
 
-When the shell cannot find the monorepo plugin layout, set DSH_BIN to a Desktop Host entry or install dsh-desktop on PATH. Prefer DSH_HOST_URL / DSH_HOST_COMMAND for an already-running Host. See docs/evidence/wails-user-installed-dsh-20260905.md.
+Home-first discovery: DSH_BIN -> DSH_HOME -> ~/.dsh|~/dsh|XDG|~/.local/bin -> PATH -> monorepo fallback. Control UI Host discovery shows checked paths. See docs/evidence/wails-user-dsh-home-20260905.md.

@@ -1,0 +1,119 @@
+# github.com/wailsapp/wails/v3/pkg/application
+linux_cgo.c: In function ‘window_move_x11’:
+linux_cgo.c:1013:5: warning: ‘gdk_x11_display_get_xdisplay’ is deprecated [-Wdeprecated-declarations]
+ 1013 |     Display *xdisplay = gdk_x11_display_get_xdisplay(display);
+      |     ^~~~~~~
+In file included from /usr/include/gtk-4.0/gdk/x11/gdkx.h:39,
+                 from linux_cgo.c:6:
+/usr/include/gtk-4.0/gdk/x11/gdkx11display.h:60:15: note: declared here
+   60 | Display *     gdk_x11_display_get_xdisplay     (GdkDisplay  *display);
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+linux_cgo.c:1014:5: warning: ‘gdk_x11_surface_get_xid’ is deprecated [-Wdeprecated-declarations]
+ 1014 |     Window xwindow = gdk_x11_surface_get_xid(GDK_X11_SURFACE(surface));
+      |     ^~~~~~
+In file included from /usr/include/gtk-4.0/gdk/x11/gdkx.h:47:
+/usr/include/gtk-4.0/gdk/x11/gdkx11surface.h:56:10: note: declared here
+   56 | Window   gdk_x11_surface_get_xid           (GdkSurface   *surface);
+      |          ^~~~~~~~~~~~~~~~~~~~~~~
+linux_cgo.c: In function ‘window_get_position_x11’:
+linux_cgo.c:1036:5: warning: ‘gdk_x11_display_get_xdisplay’ is deprecated [-Wdeprecated-declarations]
+ 1036 |     Display *xdisplay = gdk_x11_display_get_xdisplay(display);
+      |     ^~~~~~~
+/usr/include/gtk-4.0/gdk/x11/gdkx11display.h:60:15: note: declared here
+   60 | Display *     gdk_x11_display_get_xdisplay     (GdkDisplay  *display);
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+linux_cgo.c:1037:5: warning: ‘gdk_x11_surface_get_xid’ is deprecated [-Wdeprecated-declarations]
+ 1037 |     Window xwindow = gdk_x11_surface_get_xid(GDK_X11_SURFACE(surface));
+      |     ^~~~~~
+/usr/include/gtk-4.0/gdk/x11/gdkx11surface.h:56:10: note: declared here
+   56 | Window   gdk_x11_surface_get_xid           (GdkSurface   *surface);
+      |          ^~~~~~~~~~~~~~~~~~~~~~~
+linux_cgo.c: In function ‘window_send_always_on_top_x11’:
+linux_cgo.c:1067:5: warning: ‘gdk_x11_display_get_xdisplay’ is deprecated [-Wdeprecated-declarations]
+ 1067 |     Display *xdisplay = gdk_x11_display_get_xdisplay(display);
+      |     ^~~~~~~
+/usr/include/gtk-4.0/gdk/x11/gdkx11display.h:60:15: note: declared here
+   60 | Display *     gdk_x11_display_get_xdisplay     (GdkDisplay  *display);
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+linux_cgo.c:1068:5: warning: ‘gdk_x11_surface_get_xid’ is deprecated [-Wdeprecated-declarations]
+ 1068 |     Window xwindow = gdk_x11_surface_get_xid(GDK_X11_SURFACE(surface));
+      |     ^~~~~~
+/usr/include/gtk-4.0/gdk/x11/gdkx11surface.h:56:10: note: declared here
+   56 | Window   gdk_x11_surface_get_xid           (GdkSurface   *surface);
+      |          ^~~~~~~~~~~~~~~~~~~~~~~
+=== RUN   TestAcceptDiscoverPrint
+===ACCEPT_DISCOVER_BEGIN===
+未找到可用的 Desktop Host（Cordis Host）。
+No usable Desktop Host was found for the Wails shell.
+
+已检查 / Checked paths:
+  - DSH_BIN=(unset)
+  - DSH_HOME=(unset)
+  - /tmp/dsh-miss-rrv6/.dsh/bin/dsh-desktop
+  - /tmp/dsh-miss-rrv6/.dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-miss-rrv6/.dsh/lib/host-main.js
+  - /tmp/dsh-miss-rrv6/.dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-miss-rrv6/.dsh/lib/bin.js
+  - /tmp/dsh-miss-rrv6/dsh/bin/dsh-desktop
+  - /tmp/dsh-miss-rrv6/dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-miss-rrv6/dsh/lib/host-main.js
+  - /tmp/dsh-miss-rrv6/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-miss-rrv6/dsh/lib/bin.js
+  - /tmp/dsh-miss-rrv6/.local/share/dsh/bin/dsh-desktop
+  - /tmp/dsh-miss-rrv6/.local/share/dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-miss-rrv6/.local/share/dsh/lib/host-main.js
+  - /tmp/dsh-miss-rrv6/.local/share/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-miss-rrv6/.local/share/dsh/lib/bin.js
+  - /tmp/dsh-miss-rrv6/.local/opt/dsh/bin/dsh-desktop
+  - /tmp/dsh-miss-rrv6/.local/opt/dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-miss-rrv6/.local/opt/dsh/lib/host-main.js
+  - /tmp/dsh-miss-rrv6/.local/opt/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-miss-rrv6/.local/opt/dsh/lib/bin.js
+  - /tmp/dsh-miss-rrv6/.local/bin/dsh-desktop
+  - /tmp/dsh-miss-rrv6/.local/bin/dsh-plugin-desktop
+  … and 2 more
+
+下一步 / Next steps:
+  1. 安装 Desktop（含 Host）到家目录，例如 ~/.dsh 或 ~/dsh，确保存在 bin/dsh-desktop 或 lib/host-main.js
+     Install Desktop Host under your home (e.g. ~/.dsh or ~/dsh) with bin/dsh-desktop or lib/host-main.js
+  2. 或设置环境变量 / Or set:
+       export DSH_HOME=$HOME/.dsh
+       export DSH_BIN=/path/to/host-main.js   # or dsh-desktop executable
+  3. 或把 dsh-desktop 放到 PATH / Or put dsh-desktop on PATH (~/.local/bin)
+  4. 已有运行中的 Host 时可设置 DSH_HOST_URL / Or attach with DSH_HOST_URL
+
+说明: 公共 CLI `dsh`（@deepseek-ai/dsh）不是 Desktop Host；需要 dsh-desktop / host-main。
+Note: bare `dsh` CLI is not a Desktop Host substitute.
+
+HIT=(none)
+CHECKED DSH_BIN=(unset)
+CHECKED DSH_HOME=(unset)
+CHECKED /tmp/dsh-miss-rrv6/.dsh/bin/dsh-desktop
+CHECKED /tmp/dsh-miss-rrv6/.dsh/bin/dsh-plugin-desktop
+CHECKED /tmp/dsh-miss-rrv6/.dsh/lib/host-main.js
+CHECKED /tmp/dsh-miss-rrv6/.dsh/dsh-plugin-desktop/lib/host-main.js
+CHECKED /tmp/dsh-miss-rrv6/.dsh/lib/bin.js
+CHECKED /tmp/dsh-miss-rrv6/dsh/bin/dsh-desktop
+CHECKED /tmp/dsh-miss-rrv6/dsh/bin/dsh-plugin-desktop
+CHECKED /tmp/dsh-miss-rrv6/dsh/lib/host-main.js
+CHECKED /tmp/dsh-miss-rrv6/dsh/dsh-plugin-desktop/lib/host-main.js
+CHECKED /tmp/dsh-miss-rrv6/dsh/lib/bin.js
+CHECKED /tmp/dsh-miss-rrv6/.local/share/dsh/bin/dsh-desktop
+CHECKED /tmp/dsh-miss-rrv6/.local/share/dsh/bin/dsh-plugin-desktop
+CHECKED /tmp/dsh-miss-rrv6/.local/share/dsh/lib/host-main.js
+CHECKED /tmp/dsh-miss-rrv6/.local/share/dsh/dsh-plugin-desktop/lib/host-main.js
+CHECKED /tmp/dsh-miss-rrv6/.local/share/dsh/lib/bin.js
+CHECKED /tmp/dsh-miss-rrv6/.local/opt/dsh/bin/dsh-desktop
+CHECKED /tmp/dsh-miss-rrv6/.local/opt/dsh/bin/dsh-plugin-desktop
+CHECKED /tmp/dsh-miss-rrv6/.local/opt/dsh/lib/host-main.js
+CHECKED /tmp/dsh-miss-rrv6/.local/opt/dsh/dsh-plugin-desktop/lib/host-main.js
+CHECKED /tmp/dsh-miss-rrv6/.local/opt/dsh/lib/bin.js
+CHECKED /tmp/dsh-miss-rrv6/.local/bin/dsh-desktop
+CHECKED /tmp/dsh-miss-rrv6/.local/bin/dsh-plugin-desktop
+CHECKED PATH:dsh-desktop
+CHECKED PATH:dsh-plugin-desktop
+BOOTSTRAP_CMD cd '/workspace/repos/dsh-desktop/dsh-plugin-desktop' && export DSH_WAILS_HOST_SIDECAR=1; node '/workspace/repos/dsh-desktop/dsh-plugin-desktop/lib/host-main.js' --dsh-wails-host-sidecar
+===ACCEPT_DISCOVER_END===
+--- PASS: TestAcceptDiscoverPrint (0.00s)
+PASS
+ok  	github.com/xinghaix/dsh-desktop/dsh-plugin-desktop/wails	0.059s

@@ -1,0 +1,104 @@
+11:24AM INF Build Info: Wails=v3.0.0-beta.16 Compiler=go1.27.0 CGO_LDFLAGS= vcs.time=2026-09-05T10:31:30Z vcs.modified=true -buildmode=exe -compiler=gc CGO_ENABLED=1 GOARCH=amd64 GOOS=linux GOAMD64=v1 vcs=git vcs.revision=35fe93ea1cb86271b3368ae5aace529483954cef CGO_CFLAGS= CGO_CPPFLAGS= CGO_CXXFLAGS=
+11:24AM INF Platform Info: ID=debian Name=Debian GNU/Linux Version=13 Branding=13 (trixie) GTK=4.18.6 WebKitGTK=2.52.6
+11:24AM INF AssetServer Info: middleware=true handler=true
+2026/09/05 11:24:03 dsh-wails-shell: crash-evidence=active dir=/tmp/dsh-alone-UsOS/userdata/crash-evidence
+2026/09/05 11:24:03 dsh-wails-shell: host discover: no user install yet; will try monorepo fallback
+未找到可用的 Desktop Host（Cordis Host）。
+No usable Desktop Host was found for the Wails shell.
+
+已检查 / Checked paths:
+  - DSH_BIN=(unset)
+  - DSH_HOME=(unset)
+  - /tmp/dsh-alone-UsOS/home/.dsh/bin/dsh-desktop
+  - /tmp/dsh-alone-UsOS/home/.dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-alone-UsOS/home/.dsh/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.dsh/lib/bin.js
+  - /tmp/dsh-alone-UsOS/home/dsh/bin/dsh-desktop
+  - /tmp/dsh-alone-UsOS/home/dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-alone-UsOS/home/dsh/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/dsh/lib/bin.js
+  - /tmp/dsh-alone-UsOS/home/.local/share/dsh/bin/dsh-desktop
+  - /tmp/dsh-alone-UsOS/home/.local/share/dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-alone-UsOS/home/.local/share/dsh/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.local/share/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.local/share/dsh/lib/bin.js
+  - /tmp/dsh-alone-UsOS/home/.local/opt/dsh/bin/dsh-desktop
+  - /tmp/dsh-alone-UsOS/home/.local/opt/dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-alone-UsOS/home/.local/opt/dsh/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.local/opt/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.local/opt/dsh/lib/bin.js
+  - /tmp/dsh-alone-UsOS/home/.local/bin/dsh-desktop
+  - /tmp/dsh-alone-UsOS/home/.local/bin/dsh-plugin-desktop
+  … and 2 more
+
+下一步 / Next steps:
+  1. 安装 Desktop（含 Host）到家目录，例如 ~/.dsh 或 ~/dsh，确保存在 bin/dsh-desktop 或 lib/host-main.js
+     Install Desktop Host under your home (e.g. ~/.dsh or ~/dsh) with bin/dsh-desktop or lib/host-main.js
+  2. 或设置环境变量 / Or set:
+       export DSH_HOME=$HOME/.dsh
+       export DSH_BIN=/path/to/host-main.js   # or dsh-desktop executable
+  3. 或把 dsh-desktop 放到 PATH / Or put dsh-desktop on PATH (~/.local/bin)
+  4. 已有运行中的 Host 时可设置 DSH_HOST_URL / Or attach with DSH_HOST_URL
+
+说明: 公共 CLI `dsh`（@deepseek-ai/dsh）不是 Desktop Host；需要 dsh-desktop / host-main。
+Note: bare `dsh` CLI is not a Desktop Host substitute.
+2026/09/05 11:24:03 dsh-wails-shell: host sidecar: 未找到可用的 Desktop Host（Cordis Host）。
+No usable Desktop Host was found for the Wails shell.
+
+已检查 / Checked paths:
+  - DSH_BIN=(unset)
+  - DSH_HOME=(unset)
+  - /tmp/dsh-alone-UsOS/home/.dsh/bin/dsh-desktop
+  - /tmp/dsh-alone-UsOS/home/.dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-alone-UsOS/home/.dsh/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.dsh/lib/bin.js
+  - /tmp/dsh-alone-UsOS/home/dsh/bin/dsh-desktop
+  - /tmp/dsh-alone-UsOS/home/dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-alone-UsOS/home/dsh/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/dsh/lib/bin.js
+  - /tmp/dsh-alone-UsOS/home/.local/share/dsh/bin/dsh-desktop
+  - /tmp/dsh-alone-UsOS/home/.local/share/dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-alone-UsOS/home/.local/share/dsh/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.local/share/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.local/share/dsh/lib/bin.js
+  - /tmp/dsh-alone-UsOS/home/.local/opt/dsh/bin/dsh-desktop
+  - /tmp/dsh-alone-UsOS/home/.local/opt/dsh/bin/dsh-plugin-desktop
+  - /tmp/dsh-alone-UsOS/home/.local/opt/dsh/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.local/opt/dsh/dsh-plugin-desktop/lib/host-main.js
+  - /tmp/dsh-alone-UsOS/home/.local/opt/dsh/lib/bin.js
+  - /tmp/dsh-alone-UsOS/home/.local/bin/dsh-desktop
+  - /tmp/dsh-alone-UsOS/home/.local/bin/dsh-plugin-desktop
+  … and 2 more
+
+下一步 / Next steps:
+  1. 安装 Desktop（含 Host）到家目录，例如 ~/.dsh 或 ~/dsh，确保存在 bin/dsh-desktop 或 lib/host-main.js
+     Install Desktop Host under your home (e.g. ~/.dsh or ~/dsh) with bin/dsh-desktop or lib/host-main.js
+  2. 或设置环境变量 / Or set:
+       export DSH_HOME=$HOME/.dsh
+       export DSH_BIN=/path/to/host-main.js   # or dsh-desktop executable
+  3. 或把 dsh-desktop 放到 PATH / Or put dsh-desktop on PATH (~/.local/bin)
+  4. 已有运行中的 Host 时可设置 DSH_HOST_URL / Or attach with DSH_HOST_URL
+
+说明: 公共 CLI `dsh`（@deepseek-ai/dsh）不是 Desktop Host；需要 dsh-desktop / host-main。
+Note: bare `dsh` CLI is not a Desktop Host substitute.
+
+(also no monorepo layout: could not locate dsh-plugin-desktop/wails layout from cwd/executable)
+11:24AM WRN [WARNING] Failed to connect to system bus; sleep/wake events will not fire: dial unix /var/run/dbus/system_bus_socket: connect: no such file or directory
+11:24AM ERR systray error: failed to register: The name org.kde.StatusNotifierWatcher was not provided by any .service files
+
+(dsh-wails-shell:2383098): Gtk-WARNING **: 11:24:03.345: Unable to acquire the address of the accessibility bus: GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown: The name org.a11y.Bus was not provided by any .service files. If you are attempting to run GTK without a11y support, GTK_A11Y should be set to 'none'.
+Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal
+
+** (process:2): WARNING **: 11:24:03.802: Can't connect to a11y bus: Could not connect: No such file or directory
+
+** (process:2): WARNING **: 11:24:03.873: Can't connect to a11y bus: Could not connect: No such file or directory
+11:24AM INF [AssetFileServerFS] Handling request url=/shell-ui/status.html file=shell-ui/status.html
+11:24AM INF [AssetFileServerFS] Handling request url=/ file=.
+11:24AM INF [AssetFileServerFS] Handling request url=/style.css file=style.css
+11:24AM INF [AssetFileServerFS] Handling request url=/bridge.js file=bridge.js
+11:24AM INF [AssetFileServerFS] Handling request url=/assets/index-BG3s0XgO.js file=assets/index-BG3s0XgO.js
+11:24AM INF [AssetFileServerFS] Handling request url=/style.css file=style.css

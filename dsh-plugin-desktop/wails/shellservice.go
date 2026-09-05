@@ -209,6 +209,35 @@ func (s *ShellService) HostSidecarStatus() string {
 	return sidecar.Status()
 }
 
+// HostDiscoverStatus reports home-first Desktop Host discovery for the control UI.
+// Includes hit reason/path or a friendly missing message with checked paths.
+func (s *ShellService) HostDiscoverStatus() string {
+	rep := ProbeHostDiscovery()
+	if rep.Hit != nil {
+		return fmt.Sprintf("host-discover=ok reason=%s path=%s", rep.Hit.Reason, rep.Hit.Path)
+	}
+	return rep.Message
+}
+
+// ShowHostDiscoverHelp opens an Info dialog with discovery status / install hints.
+func (s *ShellService) ShowHostDiscoverHelp() error {
+	s.mu.Lock()
+	aux := s.aux
+	s.mu.Unlock()
+	rep := ProbeHostDiscovery()
+	title := "Desktop Host discovery"
+	if rep.Hit != nil {
+		title = "Desktop Host found"
+	} else {
+		title = "Desktop Host not found"
+	}
+	if aux != nil {
+		return aux.OpenInfoDialog(title, rep.Message)
+	}
+	s.ShowInfoDialog(title, rep.Message)
+	return nil
+}
+
 // StartHostSidecar starts/discovers the Cordis Host and navigates to its UI URL.
 // Pass an empty url to use DSH_HOST_URL / DSH_HOST_COMMAND / DSH_HOST_URL_FILE.
 func (s *ShellService) StartHostSidecar(url string) (string, error) {

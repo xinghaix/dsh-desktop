@@ -32,3 +32,9 @@ Wails shell: same directory family via crash_evidence.go.
 - DSH_HOST_URL / DSH_HOST_COMMAND: attach or spawn an already chosen Host.
 - Bare public dsh CLI is not a Desktop Host.
 - Design note: docs/evidence/wails-user-installed-dsh-20260905.md
+
+
+## User dsh home-first (feat/wails-user-dsh-home)
+
+Order: DSH_BIN -> DSH_HOME -> ~/.dsh|~/dsh|XDG -> ~/.local/bin -> PATH -> monorepo fallback.
+Friendly missing copy lists checked paths. See docs/evidence/wails-user-dsh-home-20260905.md.
