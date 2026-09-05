@@ -4,7 +4,7 @@ Timezone notes: log timestamps below are UTC; local user zone Asia/Shanghai (UTC
 
 | # | Check | Result | Evidence |
 |---|-------|--------|----------|
-| 1 | New branch pushed to origin (xinghaix); `feat/wails3-shell` intact | PASS (pending push at write time; verify after) | branch `feat/wails-user-dsh-home`; base `35fe93ea1c` |
+| 1 | New branch pushed to origin (xinghaix); `feat/wails3-shell` intact | PASS | origin `feat/wails-user-dsh-home` @ `67e65aa8c2`; `feat/wails3-shell` still `35fe93ea1c` |
 | 2 | Discovery order: DSH_BIN > DSH_HOME > home installs > ~/.local/bin > PATH > monorepo | PASS | unit tests + accept logs |
 | 3 | Missing user dsh home: friendly prompt (checked paths + install / env next steps) | PASS | `wails-user-dsh-home-logs/missing-home-discover.log`, `missing-host-dialog.log`, screenshot `wails-user-dsh-home-missing-dialog-20260905.png` (InfoDialog `status.html`) |
 | 4 | Present user dsh home: shell selects that Host entry (announce) | PASS | `present-home-discover.log`, `present-home-hybrid.log` (`HOME:~/dsh:bin/dsh-desktop` + `DSH_HOST_READY` + loaded UI), screenshot `wails-user-dsh-home-present-hybrid-20260905.png` |
