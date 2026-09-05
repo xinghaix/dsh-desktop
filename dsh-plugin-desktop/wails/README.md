@@ -74,3 +74,8 @@ See `../../../docs/wails-migration.md` for the live checklist.
 ### Host auto-start
 
 By default the shell auto-starts Cordis Host via the existing desktop start path in sidecar mode. Use -no-host or DSH_HOST_AUTOSTART=0 for control UI only.
+
+## Workspace scripts (preferred hybrid entry)
+
+See package.json scripts build:wails, start:wails, dev:wails, package:wails in dsh-plugin-desktop. Electron start/dev remain the fallback until wails3 package replaces electron-builder for the main path.
+

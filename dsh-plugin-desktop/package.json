@@ -129,7 +129,13 @@
     "dist:mac-smoke": "node scripts/package-mac.ts",
     "dist:win": "node scripts/package-win.ts",
     "dist:win-portable": "node scripts/package-win-portable.ts",
-    "prepack": "yarn run check"
+    "prepack": "yarn run check",
+    "build:wails": "node ./wails/scripts/run-wails.mjs build",
+    "build:wails3": "node ./wails/scripts/run-wails.mjs build:wails3",
+    "start:wails": "node ./wails/scripts/run-wails.mjs start",
+    "dev:wails": "node ./wails/scripts/run-wails.mjs dev",
+    "package:wails": "node ./wails/scripts/run-wails.mjs package",
+    "start:electron": "node lib/bin.js"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.2",
