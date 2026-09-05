@@ -70,6 +70,7 @@ func (a *AuxWindowService) capabilities() *CapabilitiesService {
 	return a.caps
 }
 
+//wails:ignore
 // AttachRecoveryRPC stores the Host Recovery RPC client for checkpoint/uninstall.
 func (a *AuxWindowService) AttachRecoveryRPC(client *RecoveryRpcClient) {
 	a.mu.Lock()

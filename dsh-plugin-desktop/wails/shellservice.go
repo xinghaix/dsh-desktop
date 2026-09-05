@@ -467,6 +467,8 @@ func (s *ShellService) ShowHostRestartingPage(attempt, max int, detail string) e
 
 // HandleUnexpectedHostExit runs backoff auto-relaunch, then host-error on exhaustion.
 // Safe to call from the HostSidecar OnUnexpectedExit callback (non-blocking).
+//
+//wails:ignore
 func (s *ShellService) HandleUnexpectedHostExit(err error) {
 	if err == nil {
 		return
@@ -574,6 +576,8 @@ func (s *ShellService) ResetHostRelaunchAttempts() {
 }
 
 // RecoveryRPC returns the Host Recovery RPC client when the sidecar announced one.
+//
+//wails:ignore
 func (s *ShellService) RecoveryRPC() *RecoveryRpcClient {
 	s.mu.Lock()
 	sidecar := s.sidecar
