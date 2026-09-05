@@ -1,4 +1,4 @@
-/** Headless-safe npm launcher for the DSH Desktop Electron executable. */
+/** Headless-safe npm launcher for the DSH Desktop Beta Node Host. */
 
 import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -6,6 +6,7 @@ import { homedir } from 'node:os'
 import { posix, resolve, win32 } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { exportDesktopDiagnostics } from './diagnostic-export.ts'
+import { planHostSidecarSpawn } from './host-launcher.ts'
 import {
   DESKTOP_PACKAGE_NAME,
   DESKTOP_PRODUCT_NAME,
@@ -35,6 +36,7 @@ export function parseDesktopCli(argv: readonly string[]): DesktopCliAction {
   if (argv.length === 1 && argv[0] === '--export-diagnostics') return 'export-diagnostics'
   if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) return 'help'
   if (argv.length === 1 && (argv[0] === '--version' || argv[0] === '-V')) return 'version'
+  if (argv.length > 0 && argv.every(arg => arg === '--dsh-wails-host-sidecar' || arg === '--dsh-desktop-recovery' || arg === '--dsh-desktop-safe-mode')) return 'launch'
   throw new Error(`unknown arguments: ${argv.join(' ')}`)
 }
 
@@ -69,40 +71,6 @@ export interface DesktopCliOptions {
   readonly userDataDir?: string
 }
 
-/** Launch Electron and mirror its terminal exit status. */
-async function launchElectron(): Promise<number> {
-  let electronPath: string
-  try {
-    const imported = await import('electron') as { default?: unknown }
-    const candidate = imported.default
-    if (typeof candidate !== 'string') {
-      throw new Error('electron package did not provide its executable path')
-    }
-    electronPath = candidate
-  } catch {
-    process.stderr.write(
-      `${DESKTOP_PACKAGE_NAME}: electron is not available in this installation.\n`
-      + 'Install the desktop launcher globally (npm installs the electron peer automatically):\n'
-      + `  npm install -g ${DESKTOP_PACKAGE_NAME}\n`
-      + 'Or add electron to the profile before launching:\n'
-      + '  dsh plugin --profile <name> add electron\n'
-      + 'Or use the packaged DSH Desktop application.\n',
-    )
-    return 1
-  }
-  const mainPath = fileURLToPath(new URL('./main.js', import.meta.url))
-  return new Promise<number>((resolveExit, reject) => {
-    const child = spawn(electronPath, [mainPath], {
-      stdio: 'inherit',
-      env: process.env,
-      windowsHide: true,
-    })
-    child.once('error', reject)
-    child.once('exit', (code, signal) => {
-      resolveExit(code ?? (signal === null ? 1 : 128))
-    })
-  })
-}
 
 /**
  * Run the npm launcher.
@@ -137,7 +105,32 @@ export async function runDesktopCli(
     process.stdout.write(`${path}\n`)
     return 0
   }
-  return launchElectron()
+  const forwarded = argv.filter(arg => arg === '--dsh-wails-host-sidecar' || arg === '--dsh-desktop-recovery' || arg === '--dsh-desktop-safe-mode')
+  return launchNodeHost(forwarded)
+}
+
+/** Spawn Node host-main sidecar (Wails hybrid / headless Host). */
+async function launchNodeHost(extraArgs: readonly string[]): Promise<number> {
+  const hostMain = fileURLToPath(new URL('./host-main.js', import.meta.url))
+  const plan = await planHostSidecarSpawn({
+    hostMainPath: hostMain,
+    extraArgs,
+    environment: process.env,
+  })
+  process.stderr.write(
+    `${DESKTOP_PACKAGE_NAME}: Host launcher mode=${plan.mode} (${plan.reason})\n`,
+  )
+  return new Promise<number>((resolveExit, reject) => {
+    const child = spawn(plan.execPath, [...plan.argv], {
+      stdio: 'inherit',
+      env: plan.env,
+      windowsHide: true,
+    })
+    child.once('error', reject)
+    child.once('exit', (code, signal) => {
+      resolveExit(code ?? (signal === null ? 1 : 128))
+    })
+  })
 }
 
 const invokedPath = process.argv[1] === undefined ? undefined : resolve(process.argv[1])

@@ -10,7 +10,6 @@ import {
   runDesktopCli,
 } from '../src/bin.ts'
 
-vi.mock('electron', () => ({ default: undefined }))
 
 describe('desktop npm launcher', () => {
   it('launches with no arguments', () => {
@@ -57,16 +56,9 @@ describe('desktop npm launcher', () => {
       write.mockRestore()
     }
   })
-
-  it('reports a clear message when electron is missing', async () => {
-    const write = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
-    try {
-      const code = await runDesktopCli([])
-      expect(code).toBe(1)
-      expect(write).toHaveBeenCalledWith(expect.stringContaining('electron is not available'))
-      expect(write).toHaveBeenCalledWith(expect.stringContaining('npm install -g dsh-plugin-desktop-beta'))
-    } finally {
-      write.mockRestore()
-    }
+  it('defaults empty argv to Node Host launch path', async () => {
+    // runDesktopCli([]) plans Node host-main; missing lib/host-main.js rejects.
+    await expect(runDesktopCli([])).rejects.toThrow(/host-main|rebuild/i)
   })
 })
+

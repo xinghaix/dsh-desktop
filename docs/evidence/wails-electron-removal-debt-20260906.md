@@ -1,5 +1,5 @@
 # debt 20260906
-done: node helpers retarget + beta ABI align + lib rebuild
+done: node helpers retarget + beta ABI align + lib rebuild + beta Electron main quarantine
 left: CI workflow scope
 
 ## Done this pass
@@ -7,6 +7,10 @@ left: CI workflow scope
 - beta native-rebuild settings aligned (runtime=node, no electronjs.org headers)
 - peer-node-version lib artifacts rebuilt; peer-electron-version leftovers removed
 - beta tsdown entries aligned to Wails/Node Host surface
+- beta deleted obsolete Electron `src/main.ts` (was importing deleted electron-runtime); mirror stable
+- beta `bin.ts` / `bin.spec.ts` / `verify-cli-runtime.mjs` retargeted to Node Host boot
+- beta orphan electron-builder packaging scripts removed (already under `_deprecated/electron-shell`)
+- beta README EN/ZH architecture + launcher wording retargeted; legacy-shell-fallback copied
 - update placeholders documented (prior)
 - README launcher wording (prior)
 - tests/scripts updated
@@ -14,7 +18,6 @@ left: CI workflow scope
 - product CI flip to smoke:wails / package:wails
 - token needs workflow scope to push workflow files
 - keep current download endpoints until a real Wails channel exists
-- stale Electron main.ts in beta still imports deleted electron-runtime (quarantined from tsdown; not entry)
 
 Notes:
 - no .github/workflows changes this pass
