@@ -1,0 +1,19 @@
+.task
+bin
+frontend/dist
+frontend/node_modules
+build/linux/appimage/build
+build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+# Mobile generated (per-machine; overlays hold absolute paths)
+build/ios/xcode/overlay.json
+build/ios/xcode/gen/
+build/android/overlay.json
+build/android/gen/
+# Commit production frontend/dist so go:embed / go build work without a local Vite run.
+!frontend/dist/
+!frontend/dist/**
+
+# linuxdeploy / appimagetool staging copies (keep build.sh)
+build/linux/appimage/dsh-wails-shell
+build/linux/appimage/dsh-wails-shell.png
+build/linux/appimage/*.AppImage

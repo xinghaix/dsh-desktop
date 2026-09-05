@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Switch Profile</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <style>
+    #profiles { list-style: none; padding: 0; margin: 16px 0; }
+    #profiles li { margin: 0 0 8px; }
+    #profiles button { width: 100%; text-align: left; background: #121624; border: 1px solid #2a3142; }
+    #profiles button:hover { border-color: #3b82f6; }
+  </style>
+  <script type="module">
+    import * as wails from "/wails/runtime.js";
+    window.__dshCall = (name, ...args) => wails.Call.ByName(name, ...args);
+  </script>
+</head>
+<body>
+<main class="panel">
+  <h1>Switch Profile</h1>
+  <p class="lead">Select a local profile directory. Authoritative Cordis profile CRUD still lives in the Host; this window relaunches the Host sidecar with a preferred profile hint.</p>
+  <ul id="profiles"></ul>
+  <div class="actions">
+    <button id="btn-create" type="button">Create Profile…</button>
+    <button id="btn-restart" type="button" class="secondary">Restart Host</button>
+    <button id="btn-cancel" type="button" class="secondary">Cancel</button>
+  </div>
+  <pre id="log" class="log"></pre>
+</main>
+<script type="module">
+  const log = (m) => { const el = document.getElementById("log"); el.textContent = m + "\n" + el.textContent; };
+  async function refresh() {
+    const names = await window.__dshCall("main.AuxWindowService.ListKnownProfiles");
+    const ul = document.getElementById("profiles");
+    ul.innerHTML = "";
+    for (const name of names || []) {
+      const li = document.createElement("li");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = name;
+      btn.onclick = async () => {
+        try {
+          await window.__dshCall("main.AuxWindowService.CompleteProfileSelection", "switch", name);
+          log("Switching to " + name);
+        } catch (e) { log(String(e)); }
+      };
+      li.appendChild(btn);
+      ul.appendChild(li);
+    }
+  }
+  document.getElementById("btn-create").onclick = async () => {
+    try { await window.__dshCall("main.AuxWindowService.CompleteProfileSelection", "create", ""); }
+    catch (e) { log(String(e)); }
+  };
+  document.getElementById("btn-restart").onclick = async () => {
+    try { await window.__dshCall("main.AuxWindowService.CompleteProfileSelection", "restart", ""); }
+    catch (e) { log(String(e)); }
+  };
+  document.getElementById("btn-cancel").onclick = async () => {
+    try { await window.__dshCall("main.AuxWindowService.CompleteProfileSelection", "cancel", ""); }
+    catch (e) { log(String(e)); }
+  };
+  refresh().catch((e) => log(String(e)));
+</script>
+</body>
+</html>

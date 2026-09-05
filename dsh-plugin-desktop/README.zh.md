@@ -2,9 +2,19 @@
 
 [English](README.md) | 中文
 
-`dsh-plugin-desktop` 在 Electron 中运行 DSH，同时仍然参与普通 Cordis 组合。安装后的应用名称为 **DSH Desktop**。该包提供 `dsh-plugin-desktop` 可执行命令和 `dsh-desktop` 别名；已注册的 npm 包名是可靠的 `npx` 入口。
+当前主路径为 Go 1.27 + Wails v3（`wails/`）+ Node-first Cordis Host sidecar（`start:wails` / `start:host`）。Electron BrowserWindow/Tray 仍作为最后手段 fallback（见 `docs/electron-shell-fallback.md`）。`dsh-plugin-desktop` 仍以普通 Cordis 插件方式组合。安装后的应用名称为 **DSH Desktop**。该包提供 `dsh-plugin-desktop` 可执行命令和 `dsh-desktop` 别名；已注册的 npm 包名是可靠的 `npx` 入口。
 
 ## 架构
+
+### 当前主路径（Wails + Node Host）
+
+- 原生壳：`wails/`（Go 1.27 + Wails v3）
+- Host：Node-first `host-main.ts` / `NodeDesktopRuntime`（无 app.whenReady）；launcher 自动 Node -> ELECTRON_RUN_AS_NODE -> LAST-RESORT Electron `main.ts`（需显式允许）
+- Auth：AuthProxy 生产路径 + BridgeService；Aux 经 AuxWindowService（优先 native-ui）
+- 文档：`../docs/wails-migration.md`、`src/wails-shell-bridge.md`、`../docs/wails-node-host-boot.md`、`docs/electron-shell-fallback.md`、`wails/README.md` / `wails/LOCATION.md`
+- 打包：`package:wails` / `smoke:wails` 已存在；electron-builder 在发布切换前仍是默认产品 CI
+
+### Electron 最后手段路径（仍保留）
 
 Electron 可执行文件只包含最小启动代码。它获取单实例锁、解析当前选中的 DSH profile、提供原生运行时能力，并在 Electron main 进程中启动 Host Cordis 根。`desktop-shell` Host 插件通过 Cordis effect 拥有 `BrowserWindow`、导航策略、settings namespace，以及关闭与退出生命周期。原生 runtime 拥有实体托盘；`desktop-shell`、`desktop-profiles`、`desktop-terminal` 与 `desktop-updates` 则通过有序 item registry 提供 effect-scoped 命令。
 
@@ -100,13 +110,22 @@ yarn check
 
 该检查会验证生产依赖图中的每个必需第一方 peer 都由 desktop deploy root 声明。Headless Loader smoke 会激活 launcher 拥有的 desktop row 与 profile 本地第三方 row，然后启动已发布 Web profile 并检查其 loopback 根页面与 client manifest。单元和类型测试覆盖两种 profile 组合、重启栅栏、client environment 校验、desktop layout 状态与各平台原生窗口选项。
 
-有图形会话时，显式启动桌面应用：
+主路径图形入口：
+
+```sh
+yarn start:wails
+yarn start:host
+yarn dev:wails
+yarn smoke:wails
+```
+
+Electron 最后手段入口（非主产品路径）：
 
 ```sh
 yarn dev
 ```
 
-`dev` 会在启动前自动构建，不需要另行手动构建。
+`dev` / `dev:wails` 会在启动前自动构建，不需要另行手动构建。
 
 以下 headless-safe 启动器入口不会导入或启动 Electron：
 

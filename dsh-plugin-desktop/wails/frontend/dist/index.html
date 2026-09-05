@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="/style.css"/>
+    <title>DSH Desktop — Wails shell</title>
+  <script type="module" src="/bridge.js"></script>
+  <script type="module" crossorigin src="/assets/index-BG3s0XgO.js"></script>
+</head>
+<body>
+<main class="panel">
+    <h1>DSH Desktop <span class="muted">Wails v3 shell</span></h1>
+    <p class="lead">Native shell control surface. Load the Cordis Host UI URL that Electron used to <code>BrowserWindow.loadURL</code>.</p>
+    <p id="status" class="status">Checking shell…</p>
+
+    <label class="field">
+        <span>Host UI URL</span>
+        <input id="host-url" type="url" placeholder="http://127.0.0.1:PORT/" autocomplete="off"/>
+    </label>
+
+    <div class="actions">
+        <button id="btn-load" type="button">Load Host URL</button>
+        <button id="btn-sidecar" type="button">Start Host sidecar</button>
+        <button id="btn-control" type="button" class="secondary">Control UI</button>
+        <button id="btn-setup" type="button" class="secondary">Setup Wizard…</button>
+        <button id="btn-profiles" type="button" class="secondary">Profiles…</button>
+        <button id="btn-recovery" type="button" class="secondary">Recovery…</button>
+        <button id="btn-notify" type="button" class="secondary">Notify</button>
+        <button id="btn-terminal" type="button" class="secondary">Terminal</button>
+        <button id="btn-export" type="button" class="secondary">Export…</button>
+        <button id="btn-updates" type="button" class="secondary">Updates</button>
+        <button id="btn-lan" type="button" class="secondary">LAN HTTPS</button>
+        <button id="btn-crash" type="button" class="secondary">Crash evidence</button>
+        <button id="btn-caps" type="button" class="secondary">Capabilities</button>
+        <button id="btn-dir" type="button" class="secondary">Open Directory…</button>
+        <button id="btn-about" type="button" class="secondary">About</button>
+        <button id="btn-hide" type="button" class="secondary">Hide to tray</button>
+        <button id="btn-quit" type="button" class="danger">Quit</button>
+    </div>
+
+    <pre id="log" class="log" aria-live="polite"></pre>
+</main>
+
+<script type="module">
+  // Inline aux window hooks (works even before vite rebuild of assets bundle).
+  import * as wails from "/wails/runtime.js";
+  const call = (n, ...a) => wails.Call.ByName(n, ...a);
+  const logEl = document.getElementById("log");
+  const log = (m) => { if (logEl) logEl.textContent = `[${new Date().toISOString()}] ${m}\n${logEl.textContent ?? ""}`.trim(); };
+  document.getElementById("btn-setup")?.addEventListener("click", () => call("main.ShellService.OpenSetupWizard").then(() => log("Opened setup wizard")).catch((e) => log(String(e))));
+  document.getElementById("btn-profiles")?.addEventListener("click", () => call("main.ShellService.OpenProfileSelector").then(() => log("Opened profiles")).catch((e) => log(String(e))));
+  document.getElementById("btn-recovery")?.addEventListener("click", () => call("main.ShellService.OpenRecovery", "").then(() => log("Opened recovery")).catch((e) => log(String(e))));
+  document.getElementById("btn-notify")?.addEventListener("click", () => call("main.CapabilitiesService.NotifyAttention", "DSH Desktop", "Test notification").then(() => log("Notified")).catch((e) => log(String(e))));
+  document.getElementById("btn-terminal")?.addEventListener("click", () => call("main.CapabilitiesService.OpenTerminal", "").then(() => log("Terminal")).catch((e) => log(String(e))));
+  document.getElementById("btn-export")?.addEventListener("click", () => call("main.CapabilitiesService.ExportTextFile", "dsh-shell-note.txt", "DSH Wails export\n").then((p) => log(p ? "Exported "+p : "cancelled")).catch((e) => log(String(e))));
+  document.getElementById("btn-updates")?.addEventListener("click", () => call("main.CapabilitiesService.CheckForUpdates").then((r) => log(JSON.stringify(r))).catch((e) => log(String(e))));
+  document.getElementById("btn-lan")?.addEventListener("click", () => call("main.CapabilitiesService.LanHttpsStatus").then((s) => log(s)).catch((e) => log(String(e))));
+  document.getElementById("btn-crash")?.addEventListener("click", () => call("main.CapabilitiesService.CrashEvidenceStatus").then((s) => log(s)).catch((e) => log(String(e))));
+  document.getElementById("btn-caps")?.addEventListener("click", () => call("main.CapabilitiesService.CapabilitiesStatus").then((s) => log(s)).catch((e) => log(String(e))));
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import type { LogFileSink } from './log-files.ts'
 import { maskSecrets } from './mask-secrets.ts'
+import { writeDesktopExceptionDump } from './crash-evidence.ts'
 
 /** Logger for Electron-main-scope messages that bypass Cordis `ctx.logger`. */
 export interface DesktopLogger {
@@ -53,17 +54,27 @@ export function installDesktopChildProcessLogging(
   return () => { app.off('child-process-gone', handler) }
 }
 
+export interface DesktopUncaughtExceptionOptions {
+  /** Directory for file-based crash dumps (Crashpad alternative on Node Host). */
+  readonly evidenceDir?: string
+}
+
 /** Persist the first uncaught exception before requesting a fatal exit. */
 export function installDesktopUncaughtExceptionLogging(
   proc: DesktopUncaughtExceptionProcess,
   logger: DesktopLogger,
   exit: (code: number) => void,
+  options: DesktopUncaughtExceptionOptions = {},
 ): () => void {
   let handled = false
   const handler = (error: Error): void => {
     if (handled) return
     handled = true
     proc.off('uncaughtException', handler)
+    if (options.evidenceDir !== undefined) {
+      const dump = writeDesktopExceptionDump(options.evidenceDir, error, 'uncaughtException')
+      if (dump !== undefined) logger.error(`dsh-plugin-desktop: wrote crash dump ${dump}`)
+    }
     logger.errorCause(error)
     exit(1)
   }

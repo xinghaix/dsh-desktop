@@ -5,7 +5,7 @@
 [English](2026-08-19-desktop-system-architecture-atlas.md) | 中文
 
 > [!WARNING]
-> AI 读取要求：本文件记录特定版本和时间点的架构，不得直接视为当前实现，也不得盲目认同其中结论。回答架构问题或修改代码前，先核对基线提交之后的代码、implemented Agent Note 和测试。发生冲突时，以当前代码和已批准的架构决策为准。
+> AI 读取要求：本文件记录特定版本和时间点的架构，不得直接视为当前实现，也不得盲目认同其中结论。回答架构问题或修改代码前，先核对基线提交之后的代码、implemented Agent Note 和测试。发生冲突时，以当前代码和已批准的架构决策为准。 在 feat/wails3-shell 上，现行主路径为 Wails v3 + Node Host，见 `docs/wails-migration.md` 与 `docs/architecture.md`。
 
 - 产品版本：`2.0.1`
 - 复核基线：`2d07129ee622`

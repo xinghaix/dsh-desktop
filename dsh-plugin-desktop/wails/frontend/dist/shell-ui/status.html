@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DSH Desktop</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <style>
+    body { margin: 0; background: #06070f; color: #e8ecf5; font-family: Inter, system-ui, sans-serif; }
+    main { padding: 20px 22px 18px; }
+    h1 { font-size: 1.15rem; margin: 0 0 10px; }
+    .msg { white-space: pre-wrap; line-height: 1.45; color: #c5cce0; background: #121624; border: 1px solid #2a3142; border-radius: 10px; padding: 12px 14px; min-height: 4.5rem; max-height: min(58vh, 420px); overflow: auto; font-size: 0.92rem; }
+    .actions { margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px; }
+    button { background: #3b82f6; color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 600; }
+    button:hover { filter: brightness(1.08); }
+  </style>
+  <script type="module">
+    import * as wails from "/wails/runtime.js";
+    window.__dshCall = (name, ...args) => wails.Call.ByName(name, ...args);
+  </script>
+</head>
+<body>
+<main class="panel">
+  <h1 id="title">Info</h1>
+  <div class="msg" id="message"></div>
+  <div class="actions"><button id="ok" type="button">OK</button></div>
+</main>
+<script type="module">
+  const q = new URLSearchParams(location.search);
+  const title = q.get("title") || "Info";
+  const message = q.get("message") || "";
+  document.title = title;
+  document.getElementById("title").textContent = title;
+  document.getElementById("message").textContent = message;
+  const close = async () => {
+    try { await window.__dshCall("main.AuxWindowService.CloseInfoDialog"); }
+    catch (e) { console.error(e); window.close(); }
+  };
+  document.getElementById("ok").onclick = close;
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape" || e.key === "Enter") close(); });
+</script>
+</body>
+</html>

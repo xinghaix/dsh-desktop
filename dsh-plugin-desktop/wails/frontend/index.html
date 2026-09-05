@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="/style.css"/>
+    <title>DSH Desktop — Wails shell</title>
+</head>
+<body>
+<main class="panel">
+    <h1>DSH Desktop <span class="muted">Wails v3 shell</span></h1>
+    <p class="lead">Native shell control surface. Load the Cordis Host UI URL that Electron used to <code>BrowserWindow.loadURL</code>.</p>
+    <p id="status" class="status">Checking shell…</p>
+
+    <label class="field">
+        <span>Host UI URL</span>
+        <input id="host-url" type="url" placeholder="http://127.0.0.1:PORT/" autocomplete="off"/>
+    </label>
+
+    <div class="actions">
+        <button id="btn-load" type="button">Load Host URL</button>
+        <button id="btn-sidecar" type="button">Start Host sidecar</button>
+        <button id="btn-control" type="button" class="secondary">Control UI</button>
+        <button id="btn-dir" type="button" class="secondary">Open Directory…</button>
+        <button id="btn-about" type="button" class="secondary">About</button>
+        <button id="btn-hide" type="button" class="secondary">Hide to tray</button>
+        <button id="btn-quit" type="button" class="danger">Quit</button>
+    </div>
+
+    <pre id="log" class="log" aria-live="polite"></pre>
+</main>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

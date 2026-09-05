@@ -58,6 +58,10 @@ import {
 } from './desktop-settings-route.ts'
 import type {} from './desktop-settings-controller.ts'
 import { DESKTOP_LAN_HTTPS_CA_PATH } from './lan-https-runtime.ts'
+import {
+  announceWailsHostLanHttps,
+  desktopWailsHostSidecarRequested,
+} from './wails-host-sidecar.ts'
 import { desktopBootRecoveryInjections } from './desktop-boot-recovery.ts'
 import type { DesktopLocale, DesktopShellMode } from './runtime.ts'
 import type {} from './runtime.ts'
@@ -68,6 +72,7 @@ import {
   desktopNetworkExposureForBrowserAccess,
   desktopWebServerHost,
   type DesktopNetworkExposure,
+  desktopLanBrowserUrls,
 } from './desktop-network.ts'
 import { DESKTOP_FRAME_HEIGHT } from './window-chrome.ts'
 import {
@@ -399,6 +404,18 @@ export function apply(ctx: Context, config: Config): void {
           ctx.logger.error(
             `dsh-plugin-desktop: LAN HTTPS edge failed to start (${snapshot.errorCode ?? 'unknown'})`,
           )
+        }
+        if (desktopWailsHostSidecarRequested()) {
+          const urls = snapshot.actualPort !== null && snapshot.addresses.length > 0
+            ? desktopLanBrowserUrls(snapshot.actualPort, snapshot.addresses)
+            : []
+          try {
+            announceWailsHostLanHttps({ ...snapshot, urls })
+          } catch (cause) {
+            ctx.logger.error(
+              `dsh-plugin-desktop: failed to announce LAN HTTPS to Wails: ${cause instanceof Error ? cause.message : String(cause)}`,
+            )
+          }
         }
       }).catch((cause: unknown) => {
         ctx.logger.error(

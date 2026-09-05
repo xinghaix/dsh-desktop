@@ -1,4 +1,11 @@
-/** DSH Desktop executable: minimal Electron bootstrap around the Host Cordis root. */
+/** DSH Desktop Electron main entry — LAST RESORT for hybrid Wails product path.
+ *
+ * Primary product path: Wails shell (`wails/`) + Node `host-main.ts` (or
+ * Electron-as-Node when native addons require Electron ABI).
+ * Use this file only when `DSH_HOST_LAUNCHER=electron-main` / ABI forces a full
+ * Electron `app.whenReady()` Host, or when building the legacy electron-builder
+ * fallback. Prefer `start:wails` / `start:host` / `start:host:node`.
+ */
 
 import { app, crashReporter, safeStorage, shell } from 'electron'
 import { randomUUID } from 'node:crypto'
@@ -170,6 +177,20 @@ import {
   desktopSafeModeRelaunchArguments,
   desktopSafeModeRequested,
 } from './relaunch-arguments.ts'
+import {
+  announceWailsHostAuthHeader,
+  announceWailsHostLanHttps,
+  announceWailsHostReady,
+  announceWailsHostRecoveryRequired,
+  desktopWailsHostSidecarRequested,
+  desktopWailsSkipElectronGui,
+} from './wails-host-sidecar.ts'
+import {
+  announceWailsHostRecoveryRpc,
+  startWailsRecoveryRpcServer,
+  type WailsRecoveryCompleteAction,
+  type WailsRecoveryRpcServer,
+} from './wails-recovery-rpc.ts'
 import {
   cleanupDesktopSafeModeEnvironment,
   DESKTOP_SAFE_MODE_DEFAULTS,
@@ -407,6 +428,7 @@ async function start(): Promise<void> {
     setupRevision: desktopSetupWizardStateConstants.setupRevision,
   })
   const recoveryModeRequested = desktopRecoveryModeRequested()
+  const wailsElectronLight = desktopWailsSkipElectronGui()
   const safeModeRequested = desktopSafeModeRequested()
   const inheritedDshHome = process.env.DSH_HOME
   const safeModeHomeDir = desktopSafeModePaths(desktopUserDataDir).homeDir
@@ -537,6 +559,7 @@ async function start(): Promise<void> {
     process,
     electronLogger,
     requestQuit,
+    { evidenceDir: join(desktopUserDataDir, 'crash-evidence') },
   )
   removeShutdownRequests = installShutdownRequests(process, app, requestQuit)
 
@@ -606,7 +629,12 @@ async function start(): Promise<void> {
     if (!showPreHostSurface()) runtime.show()
   })
   try {
-    await app.whenReady()
+    if (desktopWailsHostSidecarRequested()) {
+      process.stderr.write(
+        `${BIN_NAME}: LAST-RESORT Electron main Host sidecar (prefer node lib/host-main.js or ELECTRON_RUN_AS_NODE).\n`,
+      )
+    }
+        await app.whenReady()
     startupStage = 'shell-environment'
     lifecycleRecorder.transitionStartupStage(startupStage)
     if (process.platform === 'win32') app.setAppUserModelId(DESKTOP_APP_ID)
@@ -809,6 +837,14 @@ async function start(): Promise<void> {
           activeProfileName,
         )
         if (admission.status === 'allow') break
+        if (wailsElectronLight) {
+          // Electron-light Host: no BrowserWindow dialogs; allow and continue so
+          // Wails can own profile UX. Log the cross-channel admission warning.
+          electronLogger.error(
+            `${BIN_NAME}: Wails Host sidecar auto-allowing cross-channel Profile ${JSON.stringify(activeProfileName)} (Electron dialogs skipped)`,
+          )
+          break
+        }
         const previous = admission.reason === 'other-channel-latest'
           ? admission.previous
           : undefined
@@ -936,6 +972,51 @@ async function start(): Promise<void> {
       })
     }
     if (recoveryModeRequested) {
+      if (wailsElectronLight) {
+        const detail = 'Recovery mode was requested; open Wails Recovery Assistant (Electron BrowserWindow skipped).'
+        announceWailsHostRecoveryRequired(detail)
+        electronLogger.error(
+          `${BIN_NAME}: Wails Host sidecar recovery requested — Electron recovery window skipped; Recovery RPC keep-alive`,
+        )
+        let rpc: WailsRecoveryRpcServer | undefined
+        let recoveryResult: RecoveryWindowResult | 'unavailable' = 'unavailable'
+        try {
+          rpc = await startWailsRecoveryRpcServer({
+            ...(startupRecoveryController === undefined ? {} : { controller: startupRecoveryController }),
+            detail,
+            exportDiagnostics: async () => await exportDesktopDiagnostics(desktopUserDataDir, {
+              appVersion,
+              crashDumpsDir: app.getPath('crashDumps'),
+            }),
+            quiesce: async () => {
+              const ok = await generation.quiesceForRecovery()
+              return {
+                ok,
+                detail: ok
+                  ? 'quiesce=ok (Host fiber disposed or never bound; resources retained until release)'
+                  : 'quiesce=timeout-or-failed (mutating recovery actions may be unsafe; StopHostSidecar remains coarse fallback)',
+              }
+            },
+          })
+          announceWailsHostRecoveryRpc(rpc.url, rpc.token)
+          const action: WailsRecoveryCompleteAction | 'unavailable' = await rpc.waitForComplete()
+          recoveryResult = action === 'unavailable' ? 'unavailable' : action
+        } catch (cause) {
+          electronLogger.error(
+            `${BIN_NAME}: Wails Recovery RPC failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          )
+        } finally {
+          await rpc?.close().catch(() => {})
+        }
+        startupRecoveryController?.dispose()
+        startupRecoveryController = undefined
+        if (recoveryResult === 'restart') nativeExit.requestRelaunch()
+        else if (recoveryResult === 'safe-mode') {
+          nativeExit.requestRelaunch(desktopSafeModeRelaunchArguments())
+        }
+        await shutdown.request(recoveryResult === 'restart' || recoveryResult === 'safe-mode' ? 0 : 1)
+        return
+      }
       const recoveryResult = await openStartupRecoveryWindow(
         'Recovery mode was requested from the Desktop restart menu.',
         startupRecoveryController,
@@ -1067,6 +1148,19 @@ async function start(): Promise<void> {
       ? readDesktopSetupWizardState(marketUserDataDir, prepared.profile.dir)
       : undefined
     if (safeModePaths === undefined && desktopSetupWizardRequired(setupWizardState, setupWizardVersions)) {
+      if (wailsElectronLight) {
+        // Electron-light Host: skip BrowserWindow Setup Wizard; mark skipped so
+        // subsequent boots continue. Wails AuxWindowService owns hybrid setup UX.
+        electronLogger.error(
+          `${BIN_NAME}: Wails Host sidecar auto-skipping Desktop Setup Wizard (Electron window skipped)`,
+        )
+        await completeOrSkipDesktopSetupWizard(
+          marketUserDataDir,
+          prepared.profile.dir,
+          'skipped',
+          setupWizardVersions,
+        )
+      } else {
       const setupSettings = readDesktopSetupWizardSettings(prepared.settingsDocument)
       setupWizardWindow = new DesktopSetupWizardWindow({
         locale: desktopLocaleFromLanguageTag(app.getLocale()),
@@ -1132,6 +1226,7 @@ async function start(): Promise<void> {
           'completed',
           setupWizardVersions,
         )
+      }
       }
     }
     if (profileCheckpoint === undefined) {
@@ -1469,6 +1564,50 @@ async function start(): Promise<void> {
         )
       })
     })
+    if (desktopWailsHostSidecarRequested()) {
+      // Hybrid Wails shell: Cordis Host serves the UI; Electron skips BrowserWindow/Tray.
+      // Prefer Wails loopback auth-proxy (injects x-dsh-desktop-renderer). Keep
+      // ordinary loopback access as fallback when the proxy is unavailable
+      // (Linux WebKitGTK cannot inject per-request headers natively).
+      browserAccess.setOrdinaryBrowserEnabled(true)
+      const hostUiUrl = ctx.connection.authenticatedUrl(
+        desktopLoopbackBrowserUrl(ctx.webServer.port),
+      )
+      announceWailsHostReady(hostUiUrl)
+      announceWailsHostAuthHeader(
+        browserAccess.rendererHeader.name,
+        browserAccess.rendererHeader.value,
+      )
+      try {
+        announceWailsHostLanHttps(lanHttps.snapshot())
+      } catch (cause) {
+        electronLogger.error(
+          `${BIN_NAME}: failed to announce LAN HTTPS snapshot: ${cause instanceof Error ? cause.message : String(cause)}`,
+        )
+      }
+      electronLogger.error(
+        `${BIN_NAME}: Wails Host sidecar ready at ${hostUiUrl} (Electron-light GUI skipped=${String(wailsElectronLight)})`,
+      )
+      const rendererReport = { status: 'healthy' as const }
+      lifecycleRecorder.startRendererBoot()
+      lifecycleRecorder.finishRendererBoot(rendererReport, 'renderer-failed')
+      startupStage = 'health-commit'
+      lifecycleRecorder.transitionStartupStage(startupStage)
+      try {
+        profileCheckpoint?.captureHealthy()
+      } catch (cause) {
+        electronLogger.error(
+          `${BIN_NAME}: failed to checkpoint the healthy profile configuration: ${cause instanceof Error ? cause.message : String(cause)}`,
+        )
+      }
+      lifecycleRecorder.completeStartup(startupStage, rendererReport)
+      notifySkippedOptionalEntries(runtime, electronLogger, prepared.skippedOptionalEntries)
+      notifyWindowsVolumeConcerns(runtime, electronLogger, windowsVolumeConcerns)
+      if (sessionProjectionCacheRecovery !== undefined) {
+        notifySessionProjectionCacheRecovery(runtime, electronLogger, sessionProjectionCacheRecovery)
+      }
+      return
+    }
     startupStage = 'renderer-startup'
     lifecycleRecorder.transitionStartupStage(startupStage)
     lifecycleRecorder.startRendererBoot()

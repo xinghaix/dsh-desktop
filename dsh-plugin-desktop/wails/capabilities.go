@@ -1,0 +1,847 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/services/notifications"
+)
+
+const desktopVersionEndpoint = "https://www.dshdesktop.cn/api/desktop/version"
+const desktopDownloadMac = "https://www.dshdesktop.cn/api/downloads/mac"
+const desktopDownloadWin = "https://www.dshdesktop.cn/api/downloads/windows"
+const desktopDownloadLinux = "https://www.dshdesktop.cn/api/downloads/linux"
+const desktopCurrentVersionHeader = "X-DSH-Desktop-Version"
+const desktopReleaseChannelHeader = "X-DSH-Desktop-Channel"
+const desktopTargetVersionHeader = "X-DSH-Desktop-Target-Version"
+const maxUpdateDownloadBytes = 1024 * 1024 * 1024
+
+// CapabilitiesService ports Electron DesktopRuntime system surfaces that are
+// still feasible in the hybrid Wails shell: notifications, save/export dialogs,
+// reveal-in-folder, terminal launch, and update check/download/open.
+type CapabilitiesService struct {
+	mu              sync.Mutex
+	app             *application.App
+	shell           *ShellService
+	notifier        *notifications.NotificationService
+	crash           *CrashEvidenceService
+	update          UpdateCheckResult
+	lanHTTPS        string
+	identityApplied string
+	attentionCount  int
+	tray            *application.SystemTray
+}
+
+// UpdateCheckResult is the hybrid update probe / download result.
+type UpdateCheckResult struct {
+	CheckedAt     string `json:"checkedAt"`
+	CurrentHint   string `json:"currentHint"`
+	LatestHint    string `json:"latestHint"`
+	Status        string `json:"status"`
+	Detail        string `json:"detail"`
+	DownloadPath  string `json:"downloadPath,omitempty"`
+	CanDownload   bool   `json:"canDownload"`
+	ReleaseChannel string `json:"releaseChannel"`
+}
+
+func NewCapabilitiesService(shell *ShellService, notifier *notifications.NotificationService) *CapabilitiesService {
+	return &CapabilitiesService{shell: shell, notifier: notifier}
+}
+
+func (c *CapabilitiesService) attach(app *application.App) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.app = app
+}
+
+// NotifyAttention shows a native notification (Electron notifyAttention stand-in).
+func (c *CapabilitiesService) NotifyAttention(title, body string) error {
+	title = strings.TrimSpace(title)
+	body = strings.TrimSpace(body)
+	if title == "" {
+		return fmt.Errorf("title is required")
+	}
+	c.mu.Lock()
+	notifier := c.notifier
+	c.mu.Unlock()
+	if notifier == nil {
+		return fmt.Errorf("notification service is not attached")
+	}
+	_, _ = notifier.RequestNotificationAuthorization()
+	err := notifier.SendNotification(notifications.NotificationOptions{
+		ID:    fmt.Sprintf("dsh-%d", time.Now().UnixNano()),
+		Title: title,
+		Body:  body,
+	})
+	_ = c.RequestUserAttention(1)
+	return err
+}
+
+// SaveFileDialog opens a native save dialog and returns the chosen path.
+func (c *CapabilitiesService) SaveFileDialog(defaultFilename string) (string, error) {
+	c.mu.Lock()
+	app := c.app
+	c.mu.Unlock()
+	if app == nil {
+		return "", fmt.Errorf("application is not attached")
+	}
+	dialog := app.Dialog.SaveFile().SetMessage("Save File").CanCreateDirectories(true)
+	if name := strings.TrimSpace(defaultFilename); name != "" {
+		dialog = dialog.SetFilename(name)
+	}
+	return dialog.PromptForSingleSelection()
+}
+
+// ExportTextFile writes contents to a path chosen via the save dialog.
+func (c *CapabilitiesService) ExportTextFile(defaultFilename, contents string) (string, error) {
+	path, err := c.SaveFileDialog(defaultFilename)
+	if err != nil {
+		return "", err
+	}
+	if path == "" {
+		return "", nil
+	}
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		return path, err
+	}
+	return path, nil
+}
+
+// RevealInFileManager opens the OS file manager at path (selectFile when possible).
+func (c *CapabilitiesService) RevealInFileManager(path string, selectFile bool) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return fmt.Errorf("path is required")
+	}
+	c.mu.Lock()
+	app := c.app
+	c.mu.Unlock()
+	if app == nil {
+		return fmt.Errorf("application is not attached")
+	}
+	return app.Env.OpenFileManager(path, selectFile)
+}
+
+// OpenTerminal launches a system terminal in a useful working directory.
+func (c *CapabilitiesService) OpenTerminal(workdir string) error {
+	workdir = strings.TrimSpace(workdir)
+	if workdir == "" {
+		if wd, err := os.Getwd(); err == nil {
+			workdir = wd
+		} else {
+			workdir = os.TempDir()
+		}
+	}
+	if st, err := os.Stat(workdir); err != nil || !st.IsDir() {
+		return fmt.Errorf("workdir must be an existing directory")
+	}
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", "-a", "Terminal", workdir)
+	case "windows":
+		if _, err := exec.LookPath("wt.exe"); err == nil {
+			cmd = exec.Command("wt.exe", "-d", workdir)
+		} else {
+			cmd = exec.Command("cmd.exe", "/c", "start", "cmd.exe", "/k", "cd", "/d", workdir)
+		}
+	default:
+		if _, err := exec.LookPath("xdg-terminal-exec"); err == nil {
+			cmd = exec.Command("xdg-terminal-exec")
+			cmd.Dir = workdir
+		} else if path, err := exec.LookPath("x-terminal-emulator"); err == nil {
+			cmd = exec.Command(path)
+			cmd.Dir = workdir
+		} else if path, err := exec.LookPath("gnome-terminal"); err == nil {
+			cmd = exec.Command(path, "--working-directory="+workdir)
+		} else {
+			return fmt.Errorf("no system terminal found (xdg-terminal-exec / x-terminal-emulator / gnome-terminal)")
+		}
+	}
+	cmd.Env = os.Environ()
+	return cmd.Start()
+}
+
+func currentPackageVersion() string {
+	hint := "dev"
+	if _, pluginDir, _, err := locateWailsLayout(); err == nil {
+		pkg := filepath.Join(pluginDir, "package.json")
+		if raw, err := os.ReadFile(pkg); err == nil {
+			if v := extractJSONStringField(string(raw), "version"); v != "" {
+				hint = v
+			}
+		}
+	}
+	return hint
+}
+
+func updateDownloadURL() (string, string, bool) {
+	switch runtime.GOOS {
+	case "darwin":
+		return desktopDownloadMac, "DSH-Desktop-update.dmg", true
+	case "windows":
+		return desktopDownloadWin, "DSH-Desktop-Setup.exe", true
+	case "linux":
+		// Packaged AppImage / .deb endpoint (same API family as mac/win).
+		return desktopDownloadLinux, "DSH-Desktop.AppImage", true
+	default:
+		return "", "", false
+	}
+}
+
+// CheckForUpdates probes the public Desktop version endpoint (same as Electron checker).
+func (c *CapabilitiesService) CheckForUpdates() UpdateCheckResult {
+	current := currentPackageVersion()
+	_, _, canDownload := updateDownloadURL()
+	result := UpdateCheckResult{
+		CheckedAt:      time.Now().UTC().Format(time.RFC3339),
+		CurrentHint:    current,
+		Status:         "error",
+		Detail:         "",
+		CanDownload:    canDownload,
+		ReleaseChannel: "stable",
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, desktopVersionEndpoint, nil)
+	if err != nil {
+		result.Detail = err.Error()
+		c.storeUpdate(result)
+		return result
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Cache-Control", "no-store")
+	req.Header.Set(desktopReleaseChannelHeader, "stable")
+	if current != "dev" {
+		req.Header.Set(desktopCurrentVersionHeader, current)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		result.Status = "network-error"
+		result.Detail = err.Error()
+		c.storeUpdate(result)
+		return result
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4*1024))
+	if err != nil {
+		result.Detail = err.Error()
+		c.storeUpdate(result)
+		return result
+	}
+	if resp.StatusCode != http.StatusOK {
+		result.Status = "http-error"
+		result.Detail = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		c.storeUpdate(result)
+		return result
+	}
+	latest := parseVersionJSON(string(body))
+	result.LatestHint = latest
+	if latest == "" {
+		result.Status = "invalid-response"
+		result.Detail = "version endpoint returned no parseable version"
+		c.storeUpdate(result)
+		return result
+	}
+	cmp := compareLooseSemVer(latest, current)
+	if current == "dev" || cmp > 0 {
+		result.Status = "update-available"
+		result.Detail = fmt.Sprintf("latest=%s current=%s; call DownloadAndInstallUpdate to fetch the installer (macOS/Windows/Linux).", latest, current)
+	} else {
+		result.Status = "up-to-date"
+		result.Detail = fmt.Sprintf("current=%s is not older than latest=%s", current, latest)
+	}
+	if !canDownload {
+		result.Detail += " Download/install is not offered on this OS."
+	}
+	c.storeUpdate(result)
+	return result
+}
+
+// DownloadAndInstallUpdate checks for an update, downloads the installer to a
+// user-chosen path, and opens it with the OS default handler (Electron handoff).
+func (c *CapabilitiesService) DownloadAndInstallUpdate() UpdateCheckResult {
+	check := c.CheckForUpdates()
+	if check.Status != "update-available" {
+		return check
+	}
+	downloadURL, defaultName, canDownload := updateDownloadURL()
+	if !canDownload {
+		check.Status = "unsupported-platform"
+		check.Detail = "Installer download is not wired for this OS in the hybrid shell."
+		c.storeUpdate(check)
+		return check
+	}
+	version := check.LatestHint
+	if version == "" {
+		check.Status = "error"
+		check.Detail = "missing latest version"
+		c.storeUpdate(check)
+		return check
+	}
+	dest, err := c.SaveFileDialog(defaultName)
+	if err != nil {
+		check.Status = "dialog-error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	if dest == "" {
+		check.Status = "cancelled"
+		check.Detail = "user cancelled save dialog"
+		c.storeUpdate(check)
+		return check
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	if err != nil {
+		check.Status = "error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	req.Header.Set(desktopTargetVersionHeader, version)
+	req.Header.Set(desktopReleaseChannelHeader, "stable")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		check.Status = "download-error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		check.Status = "download-http-error"
+		check.Detail = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		c.storeUpdate(check)
+		return check
+	}
+	tmp := dest + ".partial"
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		check.Status = "write-error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	written, err := io.Copy(f, io.LimitReader(resp.Body, maxUpdateDownloadBytes+1))
+	closeErr := f.Close()
+	if err != nil {
+		_ = os.Remove(tmp)
+		check.Status = "write-error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmp)
+		check.Status = "write-error"
+		check.Detail = closeErr.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	if written > maxUpdateDownloadBytes {
+		_ = os.Remove(tmp)
+		check.Status = "too-large"
+		check.Detail = "installer exceeded 1GiB limit"
+		c.storeUpdate(check)
+		return check
+	}
+	if err := os.Rename(tmp, dest); err != nil {
+		_ = os.Remove(tmp)
+		check.Status = "write-error"
+		check.Detail = err.Error()
+		c.storeUpdate(check)
+		return check
+	}
+	check.DownloadPath = dest
+	if err := openDownloadedUpdate(dest); err != nil {
+		check.Status = "downloaded-open-failed"
+		check.Detail = fmt.Sprintf("saved %s but failed to open: %v", dest, err)
+		c.storeUpdate(check)
+		return check
+	}
+	check.Status = "downloaded"
+	check.Detail = fmt.Sprintf("saved and opened installer at %s (version %s)", dest, version)
+	c.storeUpdate(check)
+	_ = c.NotifyAttention("DSH Desktop update", check.Detail)
+	return check
+}
+
+func openDownloadedUpdate(path string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", path).Start()
+	case "windows":
+		return exec.Command("cmd.exe", "/c", "start", "", path).Start()
+	default:
+		if _, err := exec.LookPath("xdg-open"); err == nil {
+			return exec.Command("xdg-open", path).Start()
+		}
+		return fmt.Errorf("no opener for %s", runtime.GOOS)
+	}
+}
+
+// LastUpdateCheck returns the most recent CheckForUpdates / Download result.
+func (c *CapabilitiesService) LastUpdateCheck() UpdateCheckResult {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.update
+}
+
+// IngestLanHttpsAnnounceLine parses DSH_HOST_LAN_HTTPS … from Host stdout.
+func (c *CapabilitiesService) IngestLanHttpsAnnounceLine(line string) bool {
+	const prefix = "DSH_HOST_LAN_HTTPS "
+	line = strings.TrimSpace(line)
+	if !strings.HasPrefix(line, prefix) {
+		return false
+	}
+	payload := strings.TrimSpace(strings.TrimPrefix(line, prefix))
+	if payload == "" {
+		return false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lanHTTPS = payload
+	return true
+}
+
+// LanHttpsStatus reports Host-announced LAN HTTPS state when available.
+// Empty internal state means the Host has not announced yet (TLS remains Host-owned).
+// Dialog-oriented: multi-line key=value when announced so Tools → LAN HTTPS Status is readable.
+func (c *CapabilitiesService) LanHttpsStatus() string {
+	c.mu.Lock()
+	payload := c.lanHTTPS
+	c.mu.Unlock()
+	return formatLanHttpsStatus(payload)
+}
+
+// formatLanHttpsStatus turns raw announce payload into operator-facing status text.
+func formatLanHttpsStatus(payload string) string {
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return strings.Join([]string{
+			"lan-https=awaiting-host-announce",
+			"owner=Host DesktopLanHttpsRuntime / LanHttpsIngress",
+			"expect=DSH_HOST_LAN_HTTPS on sidecar stdout when networkExposure=lan",
+			"shell=mirrors announce only (no Wails-native TLS toggle yet)",
+		}, "\n")
+	}
+	fields := parseSpaceKeyValues(payload)
+	order := []string{"state", "port", "addresses", "fingerprint", "error", "urls"}
+	lines := []string{"lan-https=announced"}
+	seen := map[string]bool{}
+	for _, key := range order {
+		if v, ok := fields[key]; ok {
+			lines = append(lines, key+"="+v)
+			seen[key] = true
+		}
+	}
+	for _, key := range sortedKeys(fields) {
+		if seen[key] {
+			continue
+		}
+		lines = append(lines, key+"="+fields[key])
+	}
+	lines = append(lines, "note=CA download /.well-known/dsh-desktop-ca.crt is Host-served")
+	return strings.Join(lines, "\n")
+}
+
+func parseSpaceKeyValues(payload string) map[string]string {
+	out := map[string]string{}
+	for _, part := range strings.Fields(payload) {
+		eq := strings.IndexByte(part, '=')
+		if eq <= 0 {
+			continue
+		}
+		out[part[:eq]] = part[eq+1:]
+	}
+	return out
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	for i := 0; i < len(keys); i++ {
+		for j := i + 1; j < len(keys); j++ {
+			if keys[j] < keys[i] {
+				keys[i], keys[j] = keys[j], keys[i]
+			}
+		}
+	}
+	return keys
+}
+
+// CapabilitiesStatus aggregates hybrid shell capability readiness for Help / smoke.
+func (c *CapabilitiesService) CapabilitiesStatus() string {
+	c.mu.Lock()
+	lan := c.lanHTTPS
+	update := c.update
+	attention := c.attentionCount
+	crash := c.crash
+	identity := c.identityApplied
+	c.mu.Unlock()
+	lanLine := "lan-https=awaiting-host-announce"
+	if lan != "" {
+		// Compact one-liner for the aggregate (full multi-line is LanHttpsStatus).
+		lanLine = "lan-https=announced " + lan
+	}
+	updateLine := "updates=not-checked"
+	if update.Status != "" {
+		updateLine = fmt.Sprintf("updates=%s current=%s latest=%s", update.Status, update.CurrentHint, update.LatestHint)
+	}
+	crashLine := "crash-evidence=not-attached"
+	if crash != nil {
+		// Compact first line for aggregate; full multi-line is CrashEvidenceStatus().
+		crashLine = strings.SplitN(crash.Status(), "\n", 2)[0]
+	}
+	if identity == "" {
+		identity = "pending"
+	}
+	return strings.Join([]string{
+		lanLine,
+		updateLine,
+		fmt.Sprintf("dock-attention=count=%d", attention),
+		crashLine,
+		"identity=" + identity,
+		"packaging=electron-builder-default-product-ci; package:wails/AppImage parallel until release flip",
+	}, "\n")
+}
+
+
+func (c *CapabilitiesService) attachCrash(crash *CrashEvidenceService) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.crash = crash
+}
+
+func (c *CapabilitiesService) attachTray(tray *application.SystemTray) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.tray = tray
+}
+
+// CrashEvidenceStatus exposes file-based crash evidence (Crashpad alternative).
+func (c *CapabilitiesService) CrashEvidenceStatus() string {
+	c.mu.Lock()
+	crash := c.crash
+	c.mu.Unlock()
+	if crash == nil {
+		return strings.Join([]string{
+			"crash-evidence=not-attached",
+			"backend=file-based (Electron Crashpad unavailable)",
+			"hint=service attach happens at shell boot (BeginRun)",
+		}, "\n")
+	}
+	return crash.Status()
+}
+
+// RevealCrashEvidenceFolder opens the local crash-evidence directory in the file manager.
+func (c *CapabilitiesService) RevealCrashEvidenceFolder() error {
+	c.mu.Lock()
+	crash := c.crash
+	c.mu.Unlock()
+	dir := ""
+	if crash != nil {
+		dir = crash.Dir()
+	}
+	if dir == "" {
+		var err error
+		dir, err = crashEvidenceDir()
+		if err != nil {
+			return err
+		}
+	}
+	return c.RevealInFileManager(dir, false)
+}
+
+// DiagnosticArchiveResult describes a published Host/Electron-format diagnostics zip.
+type DiagnosticArchiveResult struct {
+	Path       string `json:"path"`
+	SavedPath  string `json:"savedPath,omitempty"`
+	Source     string `json:"source"`
+	Detail     string `json:"detail"`
+	Revealed   bool   `json:"revealed"`
+	Cancelled  bool   `json:"cancelled,omitempty"`
+}
+
+// ExportDiagnosticArchive builds the Electron/Host diagnostics zip, optionally
+// copies it via SaveFileDialog, and reveals the final path in the file manager.
+// Prefer Recovery RPC when the Host keep-alive session is attached; otherwise
+// spawn `node lib/host-main.js --export-diagnostics` (same exportDesktopDiagnostics).
+func (c *CapabilitiesService) ExportDiagnosticArchive(offerSaveDialog bool) (*DiagnosticArchiveResult, error) {
+	archivePath, source, err := c.produceDiagnosticArchive()
+	if err != nil {
+		return nil, err
+	}
+	finalPath := archivePath
+	savedPath := ""
+	cancelled := false
+	if offerSaveDialog {
+		defaultName := filepath.Base(archivePath)
+		if defaultName == "." || defaultName == "/" || defaultName == "" {
+			defaultName = "diagnostics.zip"
+		}
+		chosen, serr := c.SaveFileDialog(defaultName)
+		if serr != nil {
+			// Dialog failure is non-fatal: keep the Host-published archive.
+			_ = serr
+		} else if strings.TrimSpace(chosen) == "" {
+			cancelled = true
+		} else if filepath.Clean(chosen) != filepath.Clean(archivePath) {
+			if cerr := copyFileBestEffort(archivePath, chosen); cerr != nil {
+				return nil, fmt.Errorf("save diagnostic archive: %w", cerr)
+			}
+			savedPath = chosen
+			finalPath = chosen
+		} else {
+			savedPath = chosen
+		}
+	}
+	revealed := false
+	if !cancelled {
+		if rerr := c.RevealInFileManager(finalPath, true); rerr == nil {
+			revealed = true
+		}
+	}
+	detail := fmt.Sprintf("source=%s\narchive=%s", source, archivePath)
+	if savedPath != "" {
+		detail += "\nsaved=" + savedPath
+	}
+	if cancelled {
+		detail += "\nsave-dialog=cancelled (Host archive retained)"
+	}
+	if revealed {
+		detail += "\nreveal=ok"
+	} else if !cancelled {
+		detail += "\nreveal=skipped-or-failed"
+	}
+	return &DiagnosticArchiveResult{
+		Path:      archivePath,
+		SavedPath: savedPath,
+		Source:    source,
+		Detail:    detail,
+		Revealed:  revealed,
+		Cancelled: cancelled,
+	}, nil
+}
+
+func (c *CapabilitiesService) produceDiagnosticArchive() (path, source string, err error) {
+	c.mu.Lock()
+	shell := c.shell
+	c.mu.Unlock()
+	if shell != nil {
+		if client := shell.RecoveryRPC(); client != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			defer cancel()
+			res, rerr := client.ExportDiagnostics(ctx)
+			if rerr == nil && res != nil && strings.TrimSpace(res.Path) != "" {
+				return res.Path, "recovery-rpc", nil
+			}
+			if rerr != nil {
+				// Fall through to CLI; Host may be mid-shutdown.
+				source = "recovery-rpc-failed:" + rerr.Error()
+			}
+		}
+	}
+	cliPath, cerr := exportDiagnosticsViaHostCLI()
+	if cerr != nil {
+		if source != "" {
+			return "", "", fmt.Errorf("%s; cli fallback failed: %w", source, cerr)
+		}
+		return "", "", cerr
+	}
+	if source != "" {
+		return cliPath, "host-cli-after-rpc-miss", nil
+	}
+	return cliPath, "host-cli", nil
+}
+
+func exportDiagnosticsViaHostCLI() (string, error) {
+	_, pluginDir, _, err := locateWailsLayout()
+	if err != nil {
+		return "", err
+	}
+	hostMain := filepath.Join(pluginDir, "lib", "host-main.js")
+	if !fileExists(hostMain) {
+		return "", fmt.Errorf("missing %s (build Host before exporting diagnostics)", hostMain)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "node", hostMain, "--export-diagnostics")
+	cmd.Dir = pluginDir
+	cmd.Env = append(os.Environ(), "DSH_WAILS_HOST_SIDECAR=1")
+	out, err := cmd.Output()
+	if err != nil {
+		stderr := ""
+		if ee, ok := err.(*exec.ExitError); ok {
+			stderr = strings.TrimSpace(string(ee.Stderr))
+		}
+		if stderr == "" {
+			return "", fmt.Errorf("host --export-diagnostics failed: %w", err)
+		}
+		return "", fmt.Errorf("host --export-diagnostics failed: %w (%s)", err, stderr)
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	path := ""
+	for i := len(lines) - 1; i >= 0; i-- {
+		cand := strings.TrimSpace(lines[i])
+		if cand != "" && !strings.HasPrefix(cand, "DSH_HOST_") {
+			path = cand
+			break
+		}
+	}
+	if path == "" {
+		return "", fmt.Errorf("host --export-diagnostics produced no path on stdout")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return "", fmt.Errorf("exported archive missing at %s: %w", path, err)
+	}
+	return path, nil
+}
+
+func copyFileBestEffort(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+		return err
+	}
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return out.Close()
+}
+
+// RequestUserAttention flashes the dock/taskbar and updates tray badge text.
+// Wails v3 beta has no Electron app.setBadgeCount; Flash() bounces the macOS
+// Dock / flashes the Windows taskbar. Badge count is reflected in the tray tooltip.
+func (c *CapabilitiesService) RequestUserAttention(count int) error {
+	if count < 0 {
+		count = 0
+	}
+	c.mu.Lock()
+	c.attentionCount = count
+	shell := c.shell
+	tray := c.tray
+	c.mu.Unlock()
+	if shell != nil {
+		shell.FlashMainWindow(count > 0)
+	}
+	if tray != nil {
+		if count > 0 {
+			tray.SetTooltip(fmt.Sprintf("DSH Desktop (%d)", count))
+		} else {
+			tray.SetTooltip("DSH Desktop")
+		}
+	}
+	return nil
+}
+
+// ClearUserAttention clears dock/taskbar flash and tray badge count.
+func (c *CapabilitiesService) ClearUserAttention() error {
+	return c.RequestUserAttention(0)
+}
+
+// DockAttentionStatus documents maximized Wails dock/attention APIs in use.
+func (c *CapabilitiesService) DockAttentionStatus() string {
+	c.mu.Lock()
+	count := c.attentionCount
+	c.mu.Unlock()
+	return fmt.Sprintf(
+		"dock-attention=count=%d; api=WebviewWindow.Flash + SystemTray.SetTooltip; "+
+			"macOS Dock badge number API unavailable in Wails v3 beta (no setBadgeCount); "+
+			"MacOptions.ApplicationShouldTerminateAfterLastWindowClosed=false; tray lifecycle owns quit",
+		count,
+	)
+}
+
+func (c *CapabilitiesService) storeUpdate(result UpdateCheckResult) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.update = result
+}
+
+func extractJSONStringField(raw, key string) string {
+	needle := `"` + key + `"`
+	idx := strings.Index(raw, needle)
+	if idx < 0 {
+		return ""
+	}
+	rest := raw[idx+len(needle):]
+	colon := strings.Index(rest, ":")
+	if colon < 0 {
+		return ""
+	}
+	rest = strings.TrimSpace(rest[colon+1:])
+	if !strings.HasPrefix(rest, `"`) {
+		return ""
+	}
+	rest = rest[1:]
+	end := strings.Index(rest, `"`)
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
+}
+
+func parseVersionJSON(raw string) string {
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		// try plain string body
+		s := strings.TrimSpace(raw)
+		s = strings.Trim(s, `"`)
+		if s != "" && strings.Contains(s, ".") {
+			return strings.TrimPrefix(s, "v")
+		}
+		return ""
+	}
+	for _, key := range []string{"version", "latestVersion", "latest", "desktopVersion"} {
+		if v, ok := payload[key]; ok {
+			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+				return strings.TrimPrefix(strings.TrimSpace(s), "v")
+			}
+		}
+	}
+	return ""
+}
+
+// compareLooseSemVer returns >0 if a>b, <0 if a<b, 0 if equal/unparseable equal.
+func compareLooseSemVer(a, b string) int {
+	pa := strings.Split(strings.TrimPrefix(a, "v"), ".")
+	pb := strings.Split(strings.TrimPrefix(b, "v"), ".")
+	for i := 0; i < 3; i++ {
+		var ai, bi int
+		if i < len(pa) {
+			fmt.Sscanf(strings.Split(pa[i], "-")[0], "%d", &ai)
+		}
+		if i < len(pb) {
+			fmt.Sscanf(strings.Split(pb[i], "-")[0], "%d", &bi)
+		}
+		if ai != bi {
+			return ai - bi
+		}
+	}
+	return 0
+}

@@ -1,0 +1,17 @@
+# DSH Desktop Linux smoke bed: prefer Node >= 22 for bash -lc Host spawn.
+# Install: scripts/install-linux-smoke-node22.sh (copies to /etc/profile.d/zz-dsh-node22.sh)
+# ~/.profile already prepends ~/bin when present; this hook is defensive for beds
+# where login PATH omits ~/bin or the sdk node is not linked yet.
+DSH_NODE_BIN="${DSH_NODE_BIN:-$HOME/bin}"
+DSH_NODE_SDK="${DSH_NODE_SDK:-/home/box/sdk/node-v22.19.0-linux-x64/bin}"
+case ":${PATH:-}:" in
+  *":${DSH_NODE_BIN}:"*) ;;
+  *) PATH="${DSH_NODE_BIN}:${PATH:-/usr/bin:/bin}" ;;
+esac
+if [ -d "$DSH_NODE_SDK" ]; then
+  case ":${PATH:-}:" in
+    *":${DSH_NODE_SDK}:"*) ;;
+    *) PATH="${DSH_NODE_SDK}:${PATH}" ;;
+  esac
+fi
+export PATH
