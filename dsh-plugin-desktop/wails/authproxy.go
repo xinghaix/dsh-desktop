@@ -136,6 +136,20 @@ func (p *AuthProxy) StartListening(upstreamURL, headerName, headerValue string) 
 		req.Header.Set("X-DSH-Auth-Proxy", "1")
 		// Avoid leaking the proxy Host to upstream when Host expects loopback.
 		req.Host = origin.Host
+		// Webview Origin/Referer use the AuthProxy loopback port; Cordis Host CSRF
+		// and desktop route guards expect the upstream Host origin and return 403
+		// otherwise (Disconnected / settings/describe failures).
+		upstreamOrigin := origin.Scheme + "://" + origin.Host
+		if req.Header.Get("Origin") != "" {
+			req.Header.Set("Origin", upstreamOrigin)
+		}
+		if ref := req.Header.Get("Referer"); ref != "" {
+			if u, err := url.Parse(ref); err == nil {
+				u.Scheme = origin.Scheme
+				u.Host = origin.Host
+				req.Header.Set("Referer", u.String())
+			}
+		}
 		injectJarCookies(req, cookieJar)
 	}
 	proxy.ModifyResponse = func(resp *http.Response) error {

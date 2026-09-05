@@ -155,3 +155,43 @@ func TestAuthProxyBootstrapFailsWithoutValidToken(t *testing.T) {
 		t.Fatalf("expected bootstrap error, got %v", err)
 	}
 }
+
+func TestAuthProxyRewritesOriginAndReferer(t *testing.T) {
+	var sawOrigin, sawReferer string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawOrigin = r.Header.Get("Origin")
+		sawReferer = r.Header.Get("Referer")
+		_, _ = io.WriteString(w, "ok")
+	}))
+	defer upstream.Close()
+
+	proxy := NewAuthProxy()
+	local, err := proxy.StartListening(upstream.URL+"/", "x-dsh-desktop-renderer", "tok123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer proxy.Stop()
+
+	req, err := http.NewRequest(http.MethodGet, local, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Simulate WebKit loading the AuthProxy port (not the upstream Host port).
+	req.Header.Set("Origin", "http://127.0.0.1:46609")
+	req.Header.Set("Referer", "http://127.0.0.1:46609/settings")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	wantOrigin := strings.TrimRight(upstream.URL, "/")
+	if sawOrigin != wantOrigin {
+		t.Fatalf("Origin not rewritten: got %q want %q", sawOrigin, wantOrigin)
+	}
+	if !strings.HasPrefix(sawReferer, wantOrigin+"/") {
+		t.Fatalf("Referer not rewritten: got %q want prefix %q", sawReferer, wantOrigin+"/")
+	}
+}
