@@ -56,7 +56,7 @@ type UpdateCheckResult struct {
 }
 
 func NewCapabilitiesService(shell *ShellService, notifier *notifications.NotificationService) *CapabilitiesService {
-	return &CapabilitiesService{shell: shell, notifier: notifier, lanHTTPS: "lan-https=host-owned (awaiting Host announce)"}
+	return &CapabilitiesService{shell: shell, notifier: notifier}
 }
 
 func (c *CapabilitiesService) attach(app *application.App) {
@@ -408,20 +408,59 @@ func (c *CapabilitiesService) IngestLanHttpsAnnounceLine(line string) bool {
 	if !strings.HasPrefix(line, prefix) {
 		return false
 	}
+	payload := strings.TrimSpace(strings.TrimPrefix(line, prefix))
+	if payload == "" {
+		return false
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.lanHTTPS = strings.TrimSpace(strings.TrimPrefix(line, prefix))
+	c.lanHTTPS = payload
 	return true
 }
 
 // LanHttpsStatus reports Host-announced LAN HTTPS state when available.
+// Empty internal state means the Host has not announced yet (TLS remains Host-owned).
 func (c *CapabilitiesService) LanHttpsStatus() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.lanHTTPS == "" {
-		return "lan-https=host-owned (Electron DesktopLanHttpsRuntime); awaiting Host announce"
+		return "lan-https=awaiting-host-announce (Host-owned DesktopLanHttpsRuntime; expect DSH_HOST_LAN_HTTPS on sidecar stdout)"
 	}
-	return "lan-https=" + c.lanHTTPS
+	return "lan-https=announced " + c.lanHTTPS
+}
+
+// CapabilitiesStatus aggregates hybrid shell capability readiness for Help / smoke.
+func (c *CapabilitiesService) CapabilitiesStatus() string {
+	c.mu.Lock()
+	lan := c.lanHTTPS
+	update := c.update
+	attention := c.attentionCount
+	crash := c.crash
+	identity := c.identityApplied
+	c.mu.Unlock()
+	lanLine := "lan-https=awaiting-host-announce"
+	if lan != "" {
+		lanLine = "lan-https=announced " + lan
+	}
+	updateLine := "updates=not-checked"
+	if update.Status != "" {
+		updateLine = fmt.Sprintf("updates=%s current=%s latest=%s", update.Status, update.CurrentHint, update.LatestHint)
+	}
+	crashLine := "crash-evidence=not-attached"
+	if crash != nil {
+		crashLine = crash.Status()
+	}
+	if identity == "" {
+		identity = "pending"
+	}
+	return strings.Join([]string{
+		lanLine,
+		updateLine,
+		fmt.Sprintf("dock-attention=count=%d", attention),
+		crashLine,
+		"identity=" + identity,
+		"packaging=electron-builder-default-product-ci; package:wails/AppImage parallel until release flip",
+	}, "\n")
 }
 
 

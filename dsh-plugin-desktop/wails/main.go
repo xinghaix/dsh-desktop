@@ -256,6 +256,9 @@ func setupApplicationMenu(app *application.App, shell *ShellService, aux *AuxWin
 	})
 
 	helpMenu := menu.AddSubmenu("Help")
+	helpMenu.Add("Capabilities Status").OnClick(func(ctx *application.Context) {
+		showMenuStatus(aux, app, "Capabilities", caps.CapabilitiesStatus())
+	})
 	helpMenu.Add("Auth / Renderer Header…").OnClick(func(ctx *application.Context) {
 		showMenuStatus(aux, app, "Auth / Renderer Header", bridge.BridgeStatus()+"\n\n"+bridge.PlatformAuthNotes())
 	})

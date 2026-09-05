@@ -56,7 +56,11 @@ func (h *HostSidecar) Status() string {
 	if err == "" {
 		err = "(none)"
 	}
-	return fmt.Sprintf("sidecar=%s url=%s err=%s", state, url, err)
+	recovery := h.recoveryDetail
+	if recovery == "" {
+		recovery = "(none)"
+	}
+	return fmt.Sprintf("sidecar=%s url=%s err=%s recovery=%s", state, url, err, recovery)
 }
 
 // CurrentURL returns the discovered Host UI URL, if any.
