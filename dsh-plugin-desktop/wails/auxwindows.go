@@ -2,7 +2,11 @@ package main
 
 import (
 	"fmt"
+	"net/url"
+	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -49,18 +53,27 @@ func (a *AuxWindowService) LastResult() AuxWindowResult {
 }
 
 // OpenSetupWizard opens (or focuses) the setup wizard window.
+// Prefers Vite-built React native-ui when lib/native-ui is present.
 func (a *AuxWindowService) OpenSetupWizard() error {
-	return a.open("setup-wizard", "Set up DSH Desktop", "/aux/setup-wizard.html", 720, 640, 560, 480)
+	return a.open("setup-wizard", "Set up DSH Desktop", a.resolveAuxURL("setup-wizard", nil), 720, 640, 560, 480)
 }
 
 // OpenProfileSelector opens the profile selection window.
 func (a *AuxWindowService) OpenProfileSelector() error {
-	return a.open("profile-selector", "Switch Profile", "/aux/profile-selector.html", 640, 540, 520, 420)
+	profiles := a.ListKnownProfiles()
+	q := url.Values{}
+	if state := profileSelectorNativeState(profiles); state != "" {
+		q.Set("state", state)
+	}
+	q.Set("locale", "en")
+	return a.open("profile-selector", "Switch Profile", a.resolveAuxURL("profile-selector", q), 640, 540, 520, 420)
 }
 
 // OpenProfileCreate opens the create-profile window.
 func (a *AuxWindowService) OpenProfileCreate() error {
-	return a.open("profile-create", "Create Profile", "/aux/profile-create.html", 560, 420, 480, 360)
+	q := url.Values{}
+	q.Set("locale", "en")
+	return a.open("profile-create", "Create Profile", a.resolveAuxURL("profile-create", q), 560, 420, 480, 360)
 }
 
 // OpenRecovery opens the startup recovery assistant.
@@ -69,7 +82,33 @@ func (a *AuxWindowService) OpenRecovery(detail string) error {
 	a.mu.Lock()
 	a.last.Detail = detail
 	a.mu.Unlock()
-	return a.open("recovery", "DSH Desktop Recovery", "/aux/recovery.html", 800, 720, 680, 560)
+	profiles := a.ListKnownProfiles()
+	q := url.Values{}
+	if state := recoveryNativeState(detail, profiles); state != "" {
+		q.Set("state", state)
+	}
+	q.Set("locale", "en")
+	return a.open("recovery", "DSH Desktop Recovery", a.resolveAuxURL("recovery", q), 800, 720, 680, 560)
+}
+
+// resolveAuxURL prefers Vite-built React native-ui; falls back to simplified /aux HTML.
+func (a *AuxWindowService) resolveAuxURL(name string, query url.Values) string {
+	if query == nil {
+		query = url.Values{}
+	}
+	query.Set("wails", "1")
+	if doc := nativeUIDocument(name); doc != "" {
+		// Embedded under frontend/dist → asset-server path (same origin as Wails bindings).
+		if strings.Contains(filepath.ToSlash(doc), "/frontend/dist/aux/native-ui/") {
+			return "/aux/native-ui/" + name + ".html?" + query.Encode()
+		}
+		return fileURLWithQuery(doc, query)
+	}
+	fallback := "/aux/" + name + ".html"
+	if len(query) > 0 {
+		return fallback + "?" + query.Encode()
+	}
+	return fallback
 }
 
 // RecoveryDetail returns the failure text for the recovery window.
@@ -246,6 +285,11 @@ func (a *AuxWindowService) open(name, title, url string, w, h, minW, minH int) e
 	a.mu.Unlock()
 	win.Show()
 	win.Focus()
+	// Inject scheme bridge after the document begins loading (native-ui + simplified).
+	go func() {
+		time.Sleep(250 * time.Millisecond)
+		win.ExecJS(schemeBridgeJS)
+	}()
 	return nil
 }
 
