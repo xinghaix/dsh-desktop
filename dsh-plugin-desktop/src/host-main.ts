@@ -106,7 +106,7 @@ import type {
   DesktopStartupRecoveryConfigurationPaths,
   DesktopStartupRecoveryProfileActions,
   DesktopStartupFailureStage,
-} from './startup-recovery-window.ts'
+} from './startup-recovery-types.ts'
 import { routeDesktopStartupFailure } from './startup-failure-routing.ts'
 import { DesktopStartupGeneration } from './startup-generation.ts'
 import {

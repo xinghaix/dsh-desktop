@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { routeDesktopStartupFailure } from '../src/startup-failure-routing.ts'
-import type { DesktopStartupFailureStage } from '../src/startup-recovery-window.ts'
+import type { DesktopStartupFailureStage } from '../src/recovery-copy.ts'
 
 const READY_STAGES: readonly DesktopStartupFailureStage[] = [
   'electron-ready',

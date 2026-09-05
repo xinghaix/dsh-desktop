@@ -14,7 +14,6 @@
     "dsh-community-market"
   ],
   "resolutions": {
-    "app-builder-lib@npm:26.15.7": "patch:app-builder-lib@npm%3A26.15.7#./patches/app-builder-lib@26.15.7.patch",
     "open@npm:11.0.1": "patch:open@npm%3A11.0.1#./patches/open@11.0.1.patch",
     "open@npm:^11.0.0": "patch:open@npm%3A11.0.1#./patches/open@11.0.1.patch",
     "dshmarket@npm:1.38.1": "patch:dshmarket@npm%3A1.38.1#./.yarn/patches/dshmarket-npm-1.38.1-775916754e.patch",
@@ -512,12 +511,6 @@
     "@google/genai": {
       "built": false
     },
-    "electron": {
-      "built": true
-    },
-    "electron-winstaller": {
-      "built": false
-    },
     "esbuild": {
       "built": true
     },
@@ -552,11 +545,6 @@
     "package:wails": "yarn workspace dsh-plugin-desktop package:wails",
     "package-deps:wails": "yarn workspace dsh-plugin-desktop package-deps:wails",
     "start:host": "yarn workspace dsh-plugin-desktop start:host",
-    "package:dir": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop package:dir",
-    "dist:mac": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop dist:mac",
-    "dist:mac-smoke": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop dist:mac-smoke",
-    "dist:win": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop dist:win",
-    "dist:win-portable": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop dist:win-portable",
     "upstream:version": "cd deepseek-harness && corepack pnpm --version",
     "upstream:install": "cd deepseek-harness && CI=true corepack pnpm install --frozen-lockfile",
     "upstream:build": "cd deepseek-harness && corepack pnpm run build",
@@ -564,11 +552,6 @@
     "upstream:pack:dsh": "cd deepseek-harness && CI=true corepack pnpm run release:pack --family dsh",
     "upstream:prepare-runtime": "yarn upstream:install && yarn upstream:build:official && yarn upstream:pack:dsh",
     "dev:beta": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dev",
-    "start:beta": "yarn workspace dsh-plugin-desktop-beta start",
-    "package:dir:beta": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta package:dir",
-    "dist:mac:beta": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:mac",
-    "dist:mac-smoke:beta": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:mac-smoke",
-    "dist:win:beta": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:win",
-    "dist:win-portable:beta": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:win-portable"
+    "start:beta": "yarn workspace dsh-plugin-desktop-beta start"
   }
 }

@@ -22,7 +22,7 @@ import type {
   DesktopUpdateAdapter,
 } from './runtime.ts'
 import { desktopLocaleFromLanguageTag } from './tray-locale.ts'
-import type { ProfileCreateWindowOptions } from './profile-create-window.ts'
+import type { ProfileCreateWindowOptions } from './profile-create-types.ts'
 import type { UpdateCheckResult } from './update-checker.ts'
 import { windowsBuildNumber } from './window-material.ts'
 

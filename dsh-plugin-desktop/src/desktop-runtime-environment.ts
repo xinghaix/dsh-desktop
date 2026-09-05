@@ -19,7 +19,6 @@ const RUN_AS_NODE = 'ELECTRON_RUN_AS_NODE'
 const DEFAULT_PROFILE = 'DSH_DESKTOP_DEFAULT_PROFILE'
 const DSH_HOME = 'DSH_HOME'
 const PATH = 'PATH'
-const ELECTRON_HEADERS_URL = 'https://electronjs.org/headers'
 const DIRECTORY_MODE = 0o700
 const EXECUTABLE_FILE_MODE = 0o700
 const PRIVATE_FILE_MODE = 0o600
@@ -231,9 +230,8 @@ function posixPnpmShim(
       `PATH=${quoteSh(nodeBinDir)}:"\${PATH:-}"`,
       `NODE=${quoteSh(nodeShimPath)}`,
       `${RUN_AS_NODE}=1`,
-      'npm_config_runtime=electron',
+      'npm_config_runtime=node',
       `npm_config_target=${quoteSh(options.electronVersion)}`,
-      `npm_config_disturl=${quoteSh(ELECTRON_HEADERS_URL)}`,
       `exec ${quoteSh(options.appExecutable)} --import ${quoteSh(clearEnvironmentUrl)} ${quoteSh(options.pnpmBinPath)} ${PNPM_IGNORE_MINIMUM_RELEASE_AGE} "$@"`,
     ].join(' '),
     '',
@@ -265,9 +263,8 @@ function windowsPnpmShim(
     `set "PATH=${escapeBatchSetValue(nodeBinDir)};%PATH%"`,
     `set "NODE=${escapeBatchSetValue(nodeShimPath)}"`,
     `set "${RUN_AS_NODE}=1"`,
-    'set "npm_config_runtime=electron"',
+    'set "npm_config_runtime=node"',
     `set "npm_config_target=${escapeBatchSetValue(options.electronVersion)}"`,
-    `set "npm_config_disturl=${ELECTRON_HEADERS_URL}"`,
     `${quoteBatchWord(options.appExecutable)} --import ${quoteBatchWord(clearEnvironmentUrl)} ${quoteBatchWord(options.pnpmBinPath)} ${PNPM_IGNORE_MINIMUM_RELEASE_AGE} %*`,
     'exit /b %errorlevel%',
     '',

@@ -3,7 +3,7 @@ import type { DesktopRendererAccessHeader } from './desktop-browser-access.ts'
 import type { RendererBootReport } from './renderer-boot-contract.ts'
 import type { DesktopReleaseChannel, UpdateCheckResult, UpdateRequest } from './update-checker.ts'
 import type { DesktopInstallationId } from './desktop-installation-id.ts'
-import type { ProfileCreateWindowOptions } from './profile-create-window.ts'
+import type { ProfileCreateWindowOptions } from './profile-create-types.ts'
 import type {
   DesktopWindowMaterial,
   MacosWindowMaterial,

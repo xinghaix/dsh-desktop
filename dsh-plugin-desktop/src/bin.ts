@@ -1,4 +1,4 @@
-/** Headless-safe npm launcher for the DSH Desktop Electron executable. */
+/** Headless-safe npm launcher for the DSH Desktop Node Host. */
 
 import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -68,41 +68,6 @@ export interface DesktopCliOptions {
   readonly userDataDir?: string
 }
 
-/** Launch Electron and mirror its terminal exit status. */
-async function launchElectron(extraArgs: readonly string[] = []): Promise<number> {
-  let electronPath: string
-  try {
-    const imported = await import('electron') as { default?: unknown }
-    const candidate = imported.default
-    if (typeof candidate !== 'string') {
-      throw new Error('electron package did not provide its executable path')
-    }
-    electronPath = candidate
-  } catch {
-    process.stderr.write(
-      'dsh-plugin-desktop: electron is not available in this installation.\n'
-      + 'Install the desktop launcher globally (npm installs the electron peer automatically):\n'
-      + '  npm install -g dsh-plugin-desktop\n'
-      + 'Or add electron to the profile before launching:\n'
-      + '  dsh plugin --profile <name> add electron\n'
-      + 'Or use the packaged DSH Desktop application.\n',
-    )
-    return 1
-  }
-  const mainPath = fileURLToPath(new URL('./main.js', import.meta.url))
-  return new Promise<number>((resolveExit, reject) => {
-    const electronArgs = [mainPath, ...extraArgs]
-    const child = spawn(electronPath, electronArgs, {
-      stdio: 'inherit',
-      env: process.env,
-      windowsHide: true,
-    })
-    child.once('error', reject)
-    child.once('exit', (code, signal) => {
-      resolveExit(code ?? (signal === null ? 1 : 128))
-    })
-  })
-}
 
 /**
  * Run the npm launcher.
@@ -138,30 +103,20 @@ export async function runDesktopCli(
     return 0
   }
   const forwarded = argv.filter(arg => arg === '--dsh-wails-host-sidecar' || arg === '--dsh-desktop-recovery' || arg === '--dsh-desktop-safe-mode')
-  if (desktopWailsHostSidecarRequested(['node', 'bin', ...forwarded], process.env)) {
-    return launchNodeHost(forwarded)
-  }
-  return launchElectron(forwarded)
+  return launchNodeHost(forwarded)
 }
 
-/** Prefer Node / ELECTRON_RUN_AS_NODE Host; Electron main only as last resort. */
+/** Spawn Node host-main sidecar (Wails hybrid / headless Host). */
 async function launchNodeHost(extraArgs: readonly string[]): Promise<number> {
   const hostMain = fileURLToPath(new URL('./host-main.js', import.meta.url))
-  const electronMain = fileURLToPath(new URL('./main.js', import.meta.url))
   const plan = await planHostSidecarSpawn({
     hostMainPath: hostMain,
-    electronMainPath: electronMain,
     extraArgs,
     environment: process.env,
   })
   process.stderr.write(
     `dsh-plugin-desktop: Host launcher mode=${plan.mode} (${plan.reason})\n`,
   )
-  if (plan.mode === 'electron-main') {
-    process.stderr.write(
-      'dsh-plugin-desktop: LAST-RESORT Electron main Host sidecar (prefer host-main + optional ELECTRON_RUN_AS_NODE).\n',
-    )
-  }
   return new Promise<number>((resolveExit, reject) => {
     const child = spawn(plan.execPath, [...plan.argv], {
       stdio: 'inherit',

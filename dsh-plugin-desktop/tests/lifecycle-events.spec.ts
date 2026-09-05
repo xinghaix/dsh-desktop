@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { DesktopLogger } from '../src/desktop-logger.ts'
-import type { DesktopStartupFailureStage } from '../src/startup-recovery-window.ts'
+import type { DesktopStartupFailureStage } from '../src/recovery-copy.ts'
 import {
   createDesktopLifecycleRecorder,
   DESKTOP_LIFECYCLE_SCHEMA_VERSION,

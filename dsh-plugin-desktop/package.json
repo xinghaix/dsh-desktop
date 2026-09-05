@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-desktop",
   "version": "2.0.5",
-  "description": "DSH Desktop: Wails v3 + Node Host primary shell (Electron last-resort), composed as a DeepSeek Harness Cordis plugin",
+  "description": "DSH Desktop: Wails v3 + Node Host shell",
   "license": "MIT",
   "publishConfig": {
     "registry": "https://registry.npmjs.org"
@@ -12,7 +12,7 @@
     "directory": "dsh-plugin-desktop"
   },
   "type": "module",
-  "main": "lib/main.js",
+  "main": "lib/host-main.js",
   "types": "lib/types/index.d.ts",
   "bin": {
     "dsh-desktop": "lib/bin.js",
@@ -120,15 +120,8 @@
     "verify:operations": "node --test scripts/operation-reliability.spec.mjs && node scripts/verify-operation-reliability.mjs",
     "verify:notices": "node scripts/verify-licenses.mjs --notices THIRD_PARTY_NOTICES.md",
     "check": "yarn run build && yarn run typecheck && yarn run test && yarn run verify:closure && yarn run verify:cli && yarn run verify:loader && yarn run verify:profile && yarn run verify:licenses && yarn run verify:operations",
-    "check:win-package": "yarn workspace dsh-community-market build && yarn run build && yarn run typecheck && vitest run tests/package.spec.ts tests/package-win.spec.ts tests/desktop-installer-quit.spec.ts tests/installer-nsh.spec.ts tests/update-checker.spec.ts tests/update-download.spec.ts tests/verify-win-installer.spec.ts tests/verify-win-portable.spec.ts tests/verify-packaged-runtime.spec.ts tests/windows-pwsh-sandbox.spec.ts tests/windows-volume-diagnostics.spec.ts tests/window-options.spec.ts && yarn run verify:closure",
-    "check:mac-package": "yarn workspace dsh-community-market build && yarn run build && yarn run typecheck && vitest run tests/package.spec.ts tests/package-mac.spec.ts tests/verify-mac-smoke.spec.ts tests/verify-packaged-runtime.spec.ts tests/mac-universal.spec.ts && yarn run verify:closure",
     "start": "node lib/bin.js",
     "dev": "yarn run build && node lib/bin.js",
-    "package:dir": "yarn run build && node scripts/package-dir.mjs",
-    "dist:mac": "node scripts/release-mac.ts",
-    "dist:mac-smoke": "node scripts/package-mac.ts",
-    "dist:win": "node scripts/package-win.ts",
-    "dist:win-portable": "node scripts/package-win-portable.ts",
     "prepack": "yarn run check",
     "build:wails": "node ./wails/scripts/run-wails.mjs build",
     "build:wails3": "node ./wails/scripts/run-wails.mjs build:wails3",
@@ -139,9 +132,6 @@
     "package-deps:wails": "node ./wails/scripts/run-wails.mjs package-deps",
     "start:host": "node lib/bin.js --dsh-wails-host-sidecar",
     "start:host:node": "DSH_HOST_LAUNCHER=node node lib/host-main.js --dsh-wails-host-sidecar",
-    "start:host:electron-as-node": "DSH_HOST_LAUNCHER=electron-as-node node lib/bin.js --dsh-wails-host-sidecar",
-    "start:electron": "node lib/bin.js",
-    "start:electron:last-resort": "DSH_HOST_LAUNCHER=electron-main DSH_ALLOW_ELECTRON_MAIN=1 node lib/bin.js --dsh-wails-host-sidecar",
     "sync:native-ui:wails": "node ./wails/scripts/sync-native-ui.mjs"
   },
   "dependencies": {
@@ -294,12 +284,8 @@
     "sonner": "^2.0.8",
     "yaml": "^2.9.0"
   },
-  "peerDependencies": {
-    "electron": "43.3.0"
-  },
   "devDependencies": {
     "@base-ui/react": "^1.7.0",
-    "@electron/asar": "3.4.1",
     "@fontsource-variable/inter": "^5.3.0",
     "@tailwindcss/vite": "^4",
     "@types/js-yaml": "^4.0.9",
@@ -310,8 +296,6 @@
     "@vitejs/plugin-react": "^6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "electron": "43.3.0",
-    "electron-builder": "26.15.7",
     "lucide-react": "^1.33.0",
     "react-dom": "18.3.1",
     "shadcn": "^4.18.0",
@@ -323,92 +307,5 @@
     "typescript": "6.0.3",
     "vite": "8.2.1",
     "vitest": "4.1.8"
-  },
-  "build": {
-    "appId": "ai.deepseek.dsh.desktop",
-    "productName": "DSH Desktop",
-    "asar": true,
-    "asarUnpack": [
-      "package.json",
-      "cordis.patch.yml",
-      "build/**",
-      "lib/**",
-      "node_modules/**"
-    ],
-    "afterPack": "./scripts/verify-packaged-runtime.ts",
-    "electronFuses": {
-      "runAsNode": true
-    },
-    "directories": {
-      "output": "dist",
-      "buildResources": "build"
-    },
-    "toolsets": {
-      "nsis": "1.2.1"
-    },
-    "files": [
-      "build/app-icon.png",
-      "build/app-icon-mac.png",
-      "build/tray-icon.svg",
-      "build/tray-icon*.png",
-      "cordis.patch.yml",
-      "lib/**",
-      "package.json",
-      "!node_modules/node-pty/build/**"
-    ],
-    "mac": {
-      "target": [
-        "dir"
-      ],
-      "category": "public.app-category.developer-tools",
-      "extendInfo": {
-        "CFBundleAllowMixedLocalizations": true,
-        "CFBundleDevelopmentRegion": "en",
-        "CFBundleLocalizations": [
-          "en",
-          "zh_CN"
-        ]
-      },
-      "hardenedRuntime": true,
-      "icon": "build/app-icon-mac.png",
-      "mergeASARs": false,
-      "notarize": true,
-      "signIgnore": [
-        "\\.(?:pak|dat|wasm)$"
-      ],
-      "x64ArchFiles": "**/node_modules/{node-pty/prebuilds/darwin-*/**,node-addon-require-builtin-darwin-*/**,@vscode/ripgrep-darwin-*/**,@img/sharp-darwin-*/**,@img/sharp-libvips-darwin-*/**,@koromix/koffi-darwin-*/**}"
-    },
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "artifactName": "DSH-Desktop-${version}-${arch}-Portable.${ext}",
-      "icon": "build/app-icon.png"
-    },
-    "nsis": {
-      "include": "installer.nsh",
-      "license": "THIRD_PARTY_NOTICES.md",
-      "oneClick": false,
-      "perMachine": false,
-      "allowElevation": true,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "differentialPackage": false,
-      "shortcutName": "DSH Desktop",
-      "useZip": false,
-      "artifactName": "DSH-Desktop-${version}-${arch}-Setup.${ext}"
-    },
-    "linux": {
-      "target": [
-        "dir"
-      ],
-      "icon": "build/app-icon.png"
-    }
   }
 }

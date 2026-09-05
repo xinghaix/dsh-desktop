@@ -81,9 +81,8 @@ describe('desktop Host pnpm runtime', () => {
     const pnpm = readFileSync(installation.pnpmShimPath, 'utf8')
     expect(pnpm).toContain(`PATH='${installation.nodeBinDir}':"\${PATH:-}"`)
     expect(pnpm).toContain(`NODE='${installation.nodeShimPath}'`)
-    expect(pnpm).toContain('ELECTRON_RUN_AS_NODE=1 npm_config_runtime=electron')
+    expect(pnpm).toContain('ELECTRON_RUN_AS_NODE=1 npm_config_runtime=node')
     expect(pnpm).toContain("npm_config_target='43.4.0'")
-    expect(pnpm).toContain("npm_config_disturl='https://electronjs.org/headers'")
     expect(pnpm.match(/--config\.minimumReleaseAge=0/gu)).toHaveLength(1)
     expect(pnpm).toContain('--config.minimumReleaseAge=0 "$@"')
     expect(pnpm).toContain(`--import '${clearEnvironmentUrl}'`)
@@ -162,7 +161,6 @@ describe('desktop Host pnpm runtime', () => {
       "  runAsNode: Object.keys(process.env).filter(name => name.toUpperCase() === 'ELECTRON_RUN_AS_NODE'),",
       '  runtime: process.env.npm_config_runtime,',
       '  target: process.env.npm_config_target,',
-      '  disturl: process.env.npm_config_disturl,',
       '  node: process.env.NODE,',
       '  path: process.env.PATH,',
       '}))',
@@ -194,9 +192,8 @@ describe('desktop Host pnpm runtime', () => {
     expect(JSON.parse(readFileSync(captureOutput, 'utf8'))).toEqual({
       ignoresMinimumReleaseAge: true,
       runAsNode: [],
-      runtime: 'electron',
+      runtime: 'node',
       target: '43.4.0',
-      disturl: 'https://electronjs.org/headers',
       node: installation.nodeShimPath,
       path: `${installation.nodeBinDir}${pathDelimiter}${environment.PATH ?? ''}`,
     })
@@ -223,7 +220,7 @@ describe('desktop Host pnpm runtime', () => {
     expect(pnpm).toContain(`set "PATH=${installation.nodeBinDir};%PATH%"`)
     expect(pnpm).toContain(`set "NODE=${installation.nodeShimPath}"`)
     expect(pnpm).toContain('set "ELECTRON_RUN_AS_NODE=1"')
-    expect(pnpm).toContain('set "npm_config_runtime=electron"')
+    expect(pnpm).toContain('set "npm_config_runtime=node"')
     expect(pnpm).toContain('set "npm_config_target=43.4.0"')
     expect(pnpm).toContain(`--import "${escapedClearEnvironmentUrl}"`)
     expect(pnpm.indexOf(`--import "${escapedClearEnvironmentUrl}"`)).toBeLessThan(pnpm.indexOf('pnpm\\bin\\pnpm.mjs'))

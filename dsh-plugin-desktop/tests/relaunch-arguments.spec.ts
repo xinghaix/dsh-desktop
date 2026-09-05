@@ -20,13 +20,15 @@ describe('Desktop relaunch arguments', () => {
     DESKTOP_WAILS_HOST_SIDECAR_ARGUMENT,
   ]
 
-  it('strips one-shot markers, including Safe Mode, from an ordinary relaunch', () => {
-    expect(desktopDefaultRelaunchArguments(argv)).toEqual(['desktop-main.cjs', '--profile=work'])
+  it('strips one-shot markers, including Safe Mode, from an ordinary relaunch but keeps Host sidecar', () => {
+    expect(desktopDefaultRelaunchArguments(argv)).toEqual([
+      'desktop-main.cjs', '--profile=work', DESKTOP_WAILS_HOST_SIDECAR_ARGUMENT,
+    ])
   })
 
   it('adds exactly one recovery marker for a recovery relaunch', () => {
     expect(desktopRecoveryRelaunchArguments(argv)).toEqual([
-      'desktop-main.cjs', '--profile=work', DESKTOP_RECOVERY_MODE_ARGUMENT,
+      'desktop-main.cjs', '--profile=work', DESKTOP_WAILS_HOST_SIDECAR_ARGUMENT, DESKTOP_RECOVERY_MODE_ARGUMENT,
     ])
   })
 
@@ -37,14 +39,16 @@ describe('Desktop relaunch arguments', () => {
 
   it('uses a mutually exclusive Safe Mode marker', () => {
     expect(desktopSafeModeRelaunchArguments(argv)).toEqual([
-      'desktop-main.cjs', '--profile=work', DESKTOP_SAFE_MODE_ARGUMENT,
+      'desktop-main.cjs', '--profile=work', DESKTOP_WAILS_HOST_SIDECAR_ARGUMENT, DESKTOP_SAFE_MODE_ARGUMENT,
     ])
     expect(desktopSafeModeRequested(argv)).toBe(true)
     expect(desktopSafeModeRequested([argv[0]!, `${DESKTOP_SAFE_MODE_ARGUMENT}=true`])).toBe(false)
   })
 
-  it('strips the Wails Host sidecar marker from an ordinary relaunch', () => {
-    expect(desktopDefaultRelaunchArguments(argv)).toEqual(['desktop-main.cjs', '--profile=work'])
+  it('keeps the Wails Host sidecar marker on ordinary relaunch', () => {
+    expect(desktopDefaultRelaunchArguments(argv)).toEqual([
+      'desktop-main.cjs', '--profile=work', DESKTOP_WAILS_HOST_SIDECAR_ARGUMENT,
+    ])
     expect(argv.includes(DESKTOP_WAILS_HOST_SIDECAR_ARGUMENT)).toBe(true)
   })
 })
