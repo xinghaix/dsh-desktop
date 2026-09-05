@@ -58,6 +58,7 @@ import {
   DesktopLanHttpsCertificateError,
   type DesktopLanHttpsPrivateKeyProtector,
 } from './lan-https-certificate.ts'
+import { createNodeLanHttpsPrivateKeyProtector } from './node-secret-protector.ts'
 import {
   DESKTOP_LAN_HTTPS_CA_PATH,
   DesktopLanHttpsRuntime,
@@ -209,17 +210,9 @@ function desktopProductVersion(moduleUrl: string = import.meta.url): string {
 }
 
 
-/** Node Host: LAN HTTPS key sealing requires Electron safeStorage — unavailable here. */
+/** Node Host: AES-GCM file-backed protector (see node-secret-protector threat model). */
 function desktopLanHttpsPrivateKeyProtector(): DesktopLanHttpsPrivateKeyProtector {
-  return {
-    available: () => false,
-    seal: () => {
-      throw new Error(`${BIN_NAME}: Node Host cannot seal LAN HTTPS keys (no Electron safeStorage)`)
-    },
-    open: () => {
-      throw new Error(`${BIN_NAME}: Node Host cannot open LAN HTTPS keys (no Electron safeStorage)`)
-    },
-  }
+  return createNodeLanHttpsPrivateKeyProtector(resolveDesktopUserDataDirectory())
 }
 
 class RendererStartupFailure extends Error {
