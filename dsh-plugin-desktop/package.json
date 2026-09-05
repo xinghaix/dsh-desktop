@@ -136,6 +136,7 @@
     "dev:wails": "node ./wails/scripts/run-wails.mjs dev",
     "package:wails": "node ./wails/scripts/run-wails.mjs package",
     "smoke:wails": "node ./wails/scripts/run-wails.mjs smoke",
+    "package-deps:wails": "node ./wails/scripts/run-wails.mjs package-deps",
     "start:host": "node lib/bin.js --dsh-wails-host-sidecar",
     "start:host:node": "DSH_HOST_LAUNCHER=node node lib/host-main.js --dsh-wails-host-sidecar",
     "start:host:electron-as-node": "DSH_HOST_LAUNCHER=electron-as-node node lib/bin.js --dsh-wails-host-sidecar",

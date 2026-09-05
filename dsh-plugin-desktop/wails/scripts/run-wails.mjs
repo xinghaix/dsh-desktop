@@ -66,6 +66,35 @@ function ensureGo() {
   }
 }
 
+
+function probeCmd(cmd, args = ['--version']) {
+  const result = spawnSync(cmd, args, { cwd: root, env, encoding: 'utf8' })
+  return result.status === 0
+}
+
+/**
+ * Informational AppImage / wails3 packaging dependency probe.
+ * Never fails the go-build smoke path; installer packaging stays optional until
+ * a host has wails3 + linuxdeploy-capable tooling (see docs/wails-package-appimage.md).
+ */
+function reportPackageDeps() {
+  const checks = [
+    ['go', probeCmd('go', ['version'])],
+    ['wails3', probeCmd('wails3', ['version'])],
+    ['wget', probeCmd('wget', ['--version'])],
+    ['fusermount', probeCmd('fusermount', ['-V']) || probeCmd('fusermount3', ['-V'])],
+  ]
+  console.log('package:wails / AppImage dependency probe (informational):')
+  for (const [name, ok] of checks) {
+    console.log(`  ${ok ? 'OK ' : 'MISS'} ${name}`)
+  }
+  if (!checks[1][1]) {
+    console.log('  note: without wails3, package:wails falls back to bin/dsh-wails-shell (go build)')
+  }
+  console.log('  note: electron-builder remains default product CI until the release flip')
+  console.log('  note: full AppImage needs linuxdeploy (fetched by wails3 generate appimage) + FUSE on Linux')
+}
+
 switch (mode) {
   case 'build':
     ensureGo()
@@ -105,6 +134,10 @@ switch (mode) {
     run('go', ['test', './...'])
     run('go', ['build', '-o', 'bin/dsh-wails-shell', '.'])
     console.log('wails smoke: go test + go build OK')
+    reportPackageDeps()
+    break
+  case 'package-deps':
+    reportPackageDeps()
     break
   case 'run':
   case 'dev':
@@ -114,6 +147,6 @@ switch (mode) {
     run(path.join(root, 'bin/dsh-wails-shell'), rest)
     break
   default:
-    console.error('usage: run-wails.mjs {build|build:wails3|package|smoke|run|dev|start} [args...]')
+    console.error('usage: run-wails.mjs {build|build:wails3|package|package-deps|smoke|run|dev|start} [args...]')
     process.exit(2)
 }

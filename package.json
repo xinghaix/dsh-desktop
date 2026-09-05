@@ -550,6 +550,7 @@
     "build:wails": "yarn workspace dsh-plugin-desktop build:wails",
     "smoke:wails": "yarn workspace dsh-plugin-desktop smoke:wails",
     "package:wails": "yarn workspace dsh-plugin-desktop package:wails",
+    "package-deps:wails": "yarn workspace dsh-plugin-desktop package-deps:wails",
     "start:host": "yarn workspace dsh-plugin-desktop start:host",
     "package:dir": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop package:dir",
     "dist:mac": "yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop dist:mac",
