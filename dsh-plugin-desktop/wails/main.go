@@ -77,6 +77,7 @@ func main() {
 	aux.attach(app)
 	bridge.attach(app)
 	caps.attach(app)
+	_ = caps.ApplyPlatformIdentity()
 	if initialURL != "/" {
 		shell.setInitialHostURL(initialURL)
 	} else if !*noHost {

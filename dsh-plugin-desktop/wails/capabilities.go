@@ -30,12 +30,13 @@ const maxUpdateDownloadBytes = 1024 * 1024 * 1024
 // still feasible in the hybrid Wails shell: notifications, save/export dialogs,
 // reveal-in-folder, terminal launch, and update check/download/open.
 type CapabilitiesService struct {
-	mu       sync.Mutex
-	app      *application.App
-	shell    *ShellService
-	notifier *notifications.NotificationService
-	update   UpdateCheckResult
-	lanHTTPS string
+	mu              sync.Mutex
+	app             *application.App
+	shell           *ShellService
+	notifier        *notifications.NotificationService
+	update          UpdateCheckResult
+	lanHTTPS        string
+	identityApplied string
 }
 
 // UpdateCheckResult is the hybrid update probe / download result.
