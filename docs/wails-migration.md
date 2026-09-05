@@ -44,12 +44,12 @@ Canonical table: `dsh-plugin-desktop/src/wails-shell-bridge.md`.
 
 ### Still Electron / Host-owned (blocked or deferred)
 
-- Node Host entry: `dsh-plugin-desktop/src/host-main.ts` + `NodeDesktopRuntime` (no `app.whenReady`). Wails prefers `node lib/host-main.js`. Electron `main.ts` sidecar remains fallback. See `docs/wails-node-host-boot.md`.
+- Node Host launcher auto-select (stock Node / Electron-as-Node / LAST-RESORT Electron main). See `docs/wails-node-host-boot.md`.
 - Native webview per-request header hooks remain unavailable in Wails v3 beta on Mac/Linux/Windows public APIs (AuthProxy is the workaround).
 - Full React native-ui Recovery/Setup/Profile documents and checkpoint uninstall UX
 - Packaged DSH terminal shims; Linux update installers
-- Certificate private-key protection via Electron `safeStorage` for LAN HTTPS
-- macOS dock identity, Windows AppUserModelId, crashReporter
+- LAN HTTPS: Node AES-GCM protector available; Electron safeStorage still stronger
+- macOS dock beyond MacOptions; crashReporter blocked; Windows AppUserModelID applied in Wails
 - Production electron-builder installers remain CI default; `wails3 package` AppImage needs `file`/`appimagetool` deps on the host (fallback go binary works)
 - Headless product CI (`ci.yml`) remains Electron/Yarn based; Wails smoke is additive only
 
