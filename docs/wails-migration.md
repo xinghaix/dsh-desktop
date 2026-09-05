@@ -9,8 +9,9 @@ Go: 1.27 · Wails: v3.0.0-beta.16
 Prefer a working hybrid over a fake full rewrite:
 
 1. Wails owns the native window, tray, menus, and dialogs.
-2. Node Cordis Host (today's `dsh-plugin-desktop/src/main.ts` boot path) continues to materialize profiles, serve the web UI on loopback, and mint the authenticated browser URL (`desktopLoopbackBrowserUrl` + `connection.authenticatedUrl`).
-3. Wails navigates to that URL (`ShellService.LoadHostURL` / `HostSidecar`).
+2. Node/Electron Cordis Host (today's `dsh-plugin-desktop/src/main.ts` boot path) continues to materialize profiles, serve the web UI on loopback, and mint the authenticated browser URL (`desktopLoopbackBrowserUrl` + `connection.authenticatedUrl`).
+3. Wails Host-sidecar mode (`--dsh-wails-host-sidecar` / `DSH_WAILS_HOST_SIDECAR=1`) skips Electron BrowserWindow/Tray and announces the UI URL.
+4. Wails navigates to that URL (`ShellService.LoadHostURL` / `HostSidecar` auto-start).
 
 `deepseek-harness/` remains an unmodified submodule.
 
@@ -29,9 +30,10 @@ Canonical table: `dsh-plugin-desktop/src/wails-shell-bridge.md`.
 - Application menu (File / View / Help subset)
 - Native directory picker + info dialogs
 - Generated bindings + control UI
-- Host sidecar discovery (`DSH_HOST_COMMAND`, `DSH_HOST_URL_FILE`, announce script)
+- Host sidecar discovery + default auto-start of existing desktop start path
+- Electron Host-sidecar announce (announceWailsHostReady / DSH_HOST_READY)
 
-### Remaining Electron debt
+### Remaining Electron Host-boot debt
 
 - Full Cordis bootstrap still requires Electron `main.ts` (`app.whenReady`, `ElectronDesktopRuntime`, profile/setup/recovery windows).
 - Renderer access header / `session.fetch` authentication cookie exchange in `electron-shell-generation.ts`.
@@ -49,3 +51,7 @@ Canonical table: `dsh-plugin-desktop/src/wails-shell-bridge.md`.
 3. Reimplement setup/profile/recovery windows as Wails windows or Host routes.
 4. Implement `DesktopRuntime` against Wails services and delete Electron adapters.
 5. Switch packaging to `wails3 package` per platform.
+
+### Host auto-start note
+
+Launching the Wails shell without -no-host auto-starts Cordis Host via the existing desktop start path. Overrides include DSH_HOST_URL and DSH_HOST_AUTOSTART=0.

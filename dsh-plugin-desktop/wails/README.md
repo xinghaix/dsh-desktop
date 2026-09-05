@@ -70,3 +70,7 @@ writes `DSH_HOST_URL_FILE`.
 ## Remaining Electron debt
 
 See `../../../docs/wails-migration.md` for the live checklist.
+
+### Host auto-start
+
+By default the shell auto-starts Cordis Host via the existing desktop start path in sidecar mode. Use -no-host or DSH_HOST_AUTOSTART=0 for control UI only.
