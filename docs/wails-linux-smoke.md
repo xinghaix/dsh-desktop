@@ -21,6 +21,15 @@ pgrep -x dunst >/dev/null || dunst &
 Minimal packages: `scrot`, `libnotify-bin`, `dunst`, `dbus-x11`, `haskell-gtk-sni-tray-utils`, `ayatana-indicator-application`, `libayatana-appindicator3-1`.
 Tray: start `gtk-sni-tray-standalone -w` on the same session bus (or `source scripts/linux-smoke-env.sh`). Apt install succeeded on this bed.
 
+### Node 22 on bash -lc
+
+See profile.d hook zz-dsh-node22.sh and home bin shims; helper scripts/linux-smoke-env.sh.
+
+### System D-Bus sleep-wake blocked
+
+No systemd init and no run/dbus system bus on this bed; session bus OK; login1 sleep-wake N/A.
+
+
 ## Build / unit smoke
 
 From repo root on `feat/wails3-shell`:
@@ -76,7 +85,7 @@ Skip or mark N/A here; verify on macOS:
 ## Known Linux bed gaps
 
 - No `org.kde.StatusNotifierWatcher` → systray register fails (tray regression limited)
-- No system D-Bus socket → sleep/wake events unavailable
+- System D-Bus / login1 sleep-wake blocked (no systemd PID 1, no run/dbus)
 - a11y bus missing → set `GTK_A11Y=none` to silence GTK warnings if desired
 - Host spawn uses `bash -lc` → **system Node 20 breaks** Host (`findPackageJSON`); keep Node 22 on login PATH (`~/bin/node`)
 - Full Host UI may show web authentication gate without credentials (shell+sidecar still valid smoke)
