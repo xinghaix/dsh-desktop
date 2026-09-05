@@ -615,7 +615,12 @@ async function start(): Promise<void> {
     if (!showPreHostSurface()) runtime.show()
   })
   try {
-    await app.whenReady()
+    if (desktopWailsHostSidecarRequested()) {
+      process.stderr.write(
+        `${BIN_NAME}: LAST-RESORT Electron main Host sidecar (prefer node lib/host-main.js or ELECTRON_RUN_AS_NODE).\n`,
+      )
+    }
+        await app.whenReady()
     startupStage = 'shell-environment'
     lifecycleRecorder.transitionStartupStage(startupStage)
     if (process.platform === 'win32') app.setAppUserModelId(DESKTOP_APP_ID)
