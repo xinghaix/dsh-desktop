@@ -49,6 +49,13 @@ export function OpenDirectoryDialog(): $CancellablePromise<string> {
 }
 
 /**
+ * OpenFileDialog opens a native file picker and returns the selected path.
+ */
+export function OpenFileDialog(): $CancellablePromise<string> {
+    return $Call.ByID(876810509);
+}
+
+/**
  * OpenProfileSelector opens the Wails profile selection auxiliary window.
  */
 export function OpenProfileSelector(): $CancellablePromise<void> {

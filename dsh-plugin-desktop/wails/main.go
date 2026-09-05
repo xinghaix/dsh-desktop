@@ -25,7 +25,9 @@ func main() {
 	sidecar := NewHostSidecar()
 	shell := NewShellService(sidecar)
 	aux := NewAuxWindowService(shell)
+	bridge := NewBridgeService(shell)
 	shell.attachAux(aux)
+	sidecar.AttachBridge(bridge)
 
 	app := application.New(application.Options{
 		Name:        "DSH Desktop",
@@ -33,6 +35,7 @@ func main() {
 		Services: []application.Service{
 			application.NewService(shell),
 			application.NewService(aux),
+			application.NewService(bridge),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -64,6 +67,7 @@ func main() {
 	})
 	shell.attach(app, window)
 	aux.attach(app)
+	bridge.attach(app)
 	if initialURL != "/" {
 		shell.setInitialHostURL(initialURL)
 	} else if !*noHost {

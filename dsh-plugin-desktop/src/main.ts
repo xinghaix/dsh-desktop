@@ -171,6 +171,7 @@ import {
   desktopSafeModeRequested,
 } from './relaunch-arguments.ts'
 import {
+  announceWailsHostAuthHeader,
   announceWailsHostReady,
   desktopWailsHostSidecarRequested,
 } from './wails-host-sidecar.ts'
@@ -1475,10 +1476,18 @@ async function start(): Promise<void> {
     })
     if (desktopWailsHostSidecarRequested()) {
       // Hybrid Wails shell: Cordis Host serves the UI; Electron skips BrowserWindow/Tray.
+      // WebKitGTK cannot inject x-dsh-desktop-renderer on every request, so allow
+      // ordinary loopback browser access for the authenticated URL while still
+      // announcing the renderer header for the Wails BridgeService / future platforms.
+      browserAccess.setOrdinaryBrowserEnabled(true)
       const hostUiUrl = ctx.connection.authenticatedUrl(
         desktopLoopbackBrowserUrl(ctx.webServer.port),
       )
       announceWailsHostReady(hostUiUrl)
+      announceWailsHostAuthHeader(
+        browserAccess.rendererHeader.name,
+        browserAccess.rendererHeader.value,
+      )
       electronLogger.error(
         `${BIN_NAME}: Wails Host sidecar ready at ${hostUiUrl}`,
       )

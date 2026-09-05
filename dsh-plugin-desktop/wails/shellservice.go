@@ -133,6 +133,25 @@ func (s *ShellService) OpenDirectoryDialog() (string, error) {
 	return dialog.PromptForSingleSelection()
 }
 
+// OpenFileDialog opens a native file picker and returns the selected path.
+func (s *ShellService) OpenFileDialog() (string, error) {
+	s.mu.Lock()
+	app := s.app
+	window := s.window
+	s.mu.Unlock()
+	if app == nil {
+		return "", fmt.Errorf("application is not attached")
+	}
+	dialog := app.Dialog.OpenFile().
+		CanChooseDirectories(false).
+		CanChooseFiles(true).
+		SetTitle("Select file")
+	if window != nil {
+		dialog = dialog.AttachToWindow(window)
+	}
+	return dialog.PromptForSingleSelection()
+}
+
 // ShowInfoDialog shows a native information dialog.
 func (s *ShellService) ShowInfoDialog(title, message string) {
 	s.mu.Lock()

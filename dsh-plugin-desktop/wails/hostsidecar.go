@@ -29,6 +29,7 @@ type HostSidecar struct {
 	lastErr          string
 	preferredProfile string
 	safeMode         bool
+	bridge           *BridgeService
 }
 
 func NewHostSidecar() *HostSidecar {
@@ -73,6 +74,13 @@ func (h *HostSidecar) SetSafeMode(enabled bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.safeMode = enabled
+}
+
+// AttachBridge lets Host stdout auth-header lines update the BridgeService.
+func (h *HostSidecar) AttachBridge(bridge *BridgeService) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.bridge = bridge
 }
 
 // Start discovers or launches the Cordis Host and returns the UI URL.
@@ -173,23 +181,23 @@ func (h *HostSidecar) Stop() error {
 }
 
 func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error {
-	cmd := exec.CommandContext(ctx, "bash", "-lc", command)
 	h.mu.Lock()
 	profile := h.preferredProfile
 	safe := h.safeMode
+	bridge := h.bridge
 	h.safeMode = false // one-shot
 	h.mu.Unlock()
-	cmd.Env = append(os.Environ(),
-		"DSH_WAILS_HOST_SIDECAR=1",
-	)
+	if safe {
+		// Electron Host reads the exact argv marker --dsh-desktop-safe-mode.
+		command = command + " --dsh-desktop-safe-mode"
+	}
+	cmd := exec.CommandContext(ctx, "bash", "-lc", command)
+	cmd.Env = append(os.Environ(), "DSH_WAILS_HOST_SIDECAR=1")
 	if urlFile != "" {
 		cmd.Env = append(cmd.Env, "DSH_HOST_URL_FILE="+urlFile)
 	}
 	if profile != "" {
 		cmd.Env = append(cmd.Env, "DSH_DESKTOP_DEFAULT_PROFILE="+profile)
-	}
-	if safe {
-		cmd.Env = append(cmd.Env, "DSH_DESKTOP_SAFE_MODE=1")
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -205,6 +213,8 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 
 	go func() {
 		scanner := bufio.NewScanner(stdout)
+		// Auth header lines can be long; raise the token limit slightly.
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		for scanner.Scan() {
 			line := scanner.Text()
 			fmt.Fprintln(os.Stderr, "[dsh-host]", line)
@@ -213,6 +223,9 @@ func (h *HostSidecar) spawn(ctx context.Context, command, urlFile string) error 
 				if u != "" {
 					h.setURL(u)
 				}
+			}
+			if bridge != nil {
+				_ = bridge.IngestHostAuthHeaderLine(line)
 			}
 		}
 	}()

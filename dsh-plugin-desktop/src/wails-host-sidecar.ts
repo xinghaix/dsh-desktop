@@ -44,3 +44,28 @@ export function announceWailsHostReady(
     writeFileSync(file.trim(), `${trimmed}\n`, 'utf8')
   }
 }
+
+/** Stdout line prefix for the Desktop renderer access header (Wails BridgeService). */
+export const DSH_HOST_AUTH_HEADER_PREFIX = 'DSH_HOST_AUTH_HEADER '
+
+/**
+ * Announce the renderer access header for the Wails auth bridge.
+ * WebKitGTK cannot inject per-request headers; Host sidecar mode also enables
+ * ordinary-browser loopback access so the authenticated URL still loads.
+ */
+export function announceWailsHostAuthHeader(
+  name: string,
+  value: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): void {
+  const headerName = name.trim()
+  const headerValue = value.trim()
+  if (headerName.length === 0 || headerValue.length === 0) {
+    throw new Error('dsh-plugin-desktop: Wails Host auth header requires name and value')
+  }
+  process.stdout.write(`${DSH_HOST_AUTH_HEADER_PREFIX}${headerName} ${headerValue}\n`)
+  const file = environment.DSH_HOST_AUTH_META_FILE
+  if (file !== undefined && file.trim().length > 0) {
+    writeFileSync(file.trim(), `header=${headerName} ${headerValue}\n`, 'utf8')
+  }
+}
